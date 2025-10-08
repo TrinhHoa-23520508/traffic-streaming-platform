@@ -35,7 +35,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-
   ingestion-service:
     build: ./ingestion-service
     ports:
@@ -48,5 +47,32 @@ services:
     depends_on:
       - broker
       - postgres
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  data_collector:
+    build: ./data_collector
+    container_name: data_collector
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=traffic-snapshots
+      - COLLECT_INTERVAL=60
+      - CAMERAS_API=https://api.notis.vn/v4/cameras/bybbox?lat1=11.160767&lng1=106.554166&lat2=9.45&lng2=128.99999
+    depends_on:
+      - minio
+    restart: unless-stopped
 volumes:
   postgres_data:
+  minio_data:

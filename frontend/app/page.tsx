@@ -23,6 +23,7 @@ export default function Page() {
             ssr: false
         }
     ), [])
+    
 
     // Auto-refresh camera snapshot every 20 seconds
     useEffect(() => {
@@ -34,6 +35,14 @@ export default function Page() {
 
         return () => clearInterval(interval);
     }, [selectedCamera]);
+
+    useEffect(() => {
+        // Chỉ chạy khi modal đang mở và có camera được chọn
+        if (modalImageUrl && selectedCamera) {
+            const newImageUrl = `https://api.notis.vn/v4/${selectedCamera.liveviewUrl}?t=${imageRefreshKey}`;
+            setModalImageUrl(newImageUrl);
+        }
+    }, [imageRefreshKey]);
 
     const handleLocationSelect = (lat: number, lon: number, name: string) => {
         setMapCenter([lat, lon]);
@@ -100,6 +109,7 @@ export default function Page() {
             </div>
             {modalImageUrl && (
                 <ImageModal 
+                key={modalImageUrl}
                     imageUrl={modalImageUrl}
                     onClose={() => setModalImageUrl(null)}
                 />

@@ -55,8 +55,10 @@ export default function CameraInfoCard({ camera, onClose,onImageClick, imageRefr
                     <p><strong>Tọa độ:</strong> {camera.loc.coordinates[1].toFixed(6)}, {camera.loc.coordinates[0].toFixed(6)}</p>
                     
                     {/* Thêm thông tin bạn muốn ở đây */}
-                    <p><strong>Thông tin thêm 1:</strong> Giá trị 1</p>
-                    <p><strong>Thông tin thêm 2:</strong> Giá trị 2</p>
+                    <p><strong>Số lượng xe:</strong> 36 </p>
+                    <p><strong>Mức độ giao thông:</strong> Cao </p>
+                    <p><strong>Lưu lượng xe:</strong> 36 xe/phút </p>
+                    <p><strong>Tình trạng kẹt xe:</strong> Đang kẹt xe </p>
 
                 </div>
                 {/*{camera.liveviewUrl && (

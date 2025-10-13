@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect } from "react";
 import SearchBox from "@/component/search";
 import CameraInfoCard from "@/component/camera-info-card";
+import ImageModal from "@/component/image-modal";
 import type { Camera } from "@/types/camera";
 
 export default function Page() {
@@ -13,6 +14,7 @@ export default function Page() {
     const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<{lat: number, lon: number, name: string} | null>(null);
     const [imageRefreshKey, setImageRefreshKey] = useState<number>(Date.now());
+    const [modalImageUrl, setModalImageUrl] = useState<string | null>(null);
 
     const Map = useMemo(() => dynamic(
         () => import('@/component/map'),
@@ -49,16 +51,24 @@ export default function Page() {
         setSelectedLocation(null);
     };
 
+    const handleImageClick = (imageUrl: string) => {
+        setModalImageUrl(imageUrl);
+    }
+
     return (
         <div className="fixed inset-0 h-screen w-screen overflow-visible">
-            <div className="fixed top-6 left-6 z-[1000] flex flex-col gap-2 w-[400px] max-w-full pointer-events-auto">
+            <div className="fixed top-6 left-6 z-[1000] flex flex-col gap-2 w-[600px] max-w-full pointer-events-auto">
+                {!modalImageUrl && (
                 <div className="bg-white rounded-lg shadow-lg p-2 flex items-center">
                     <SearchBox onSelectLocation={handleLocationSelect} />
                 </div>
-                {selectedCamera && (
+                )}
+                {selectedCamera && !modalImageUrl && (
                     <CameraInfoCard 
                         camera={selectedCamera} 
                         onClose={() => setSelectedCamera(null)} 
+                        imageRefreshKey={imageRefreshKey}
+                        onImageClick={handleImageClick}
                     />
                 )}
                 {selectedLocation && !selectedCamera && (
@@ -88,6 +98,12 @@ export default function Page() {
                     selectedLocation={selectedLocation}
                 />
             </div>
+            {modalImageUrl && (
+                <ImageModal 
+                    imageUrl={modalImageUrl}
+                    onClose={() => setModalImageUrl(null)}
+                />
+            )}
         </div>
     )
 }

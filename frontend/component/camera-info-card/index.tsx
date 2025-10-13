@@ -7,17 +7,19 @@ import type { Camera } from '@/types/camera';
 interface CameraInfoCardProps {
     camera: Camera;
     onClose: () => void;
+    onImageClick: (url: string) => void;
     imageRefreshKey?: number; // Thêm prop để nhận key refresh từ cha
 }
 
-export default function CameraInfoCard({ camera, onClose, imageRefreshKey }: CameraInfoCardProps) {
+export default function CameraInfoCard({ camera, onClose,onImageClick, imageRefreshKey }: CameraInfoCardProps) {
     const imageUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
 
     return (
         <div className="bg-white rounded-lg shadow-lg overflow-hidden mt-2">
             {/* Camera Snapshot */}
             {camera.liveviewUrl && (
-                <div className="w-full bg-gray-900 relative">
+                <div className="w-full bg-gray-900 relative cursor-pointer"
+                    onClick={() => onImageClick(imageUrl)}>
                     <img 
                         key={imageRefreshKey} // Key để force refresh
                         src={imageUrl}
@@ -57,11 +59,11 @@ export default function CameraInfoCard({ camera, onClose, imageRefreshKey }: Cam
                     <p><strong>Thông tin thêm 2:</strong> Giá trị 2</p>
 
                 </div>
-                {camera.liveviewUrl && (
+                {/*{camera.liveviewUrl && (
                     <button className="mt-3 w-full text-xs bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700"
                         onClick={() => window.open(`https://api.notis.vn/v4/${camera.liveviewUrl}`, '_blank')}
                     >🎥 Xem Live Stream</button>
-                )}
+                */}
             </div>
         </div>
     );

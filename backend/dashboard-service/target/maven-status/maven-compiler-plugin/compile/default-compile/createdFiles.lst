@@ -1,0 +1,10 @@
+com\traffic_stream\dashboard\consumer\TrafficMetricsConsumer.class
+com\traffic_stream\dashboard\web\TrafficController.class
+com\traffic_stream\dashboard\dto\TrafficMetricsDTO.class
+com\traffic_stream\dashboard\repository\TrafficMetricRepository.class
+com\traffic_stream\dashboard\service\SimulationService$1.class
+com\traffic_stream\dashboard\service\SimulationService.class
+com\traffic_stream\dashboard\store\InMemoryStore.class
+com\traffic_stream\dashboard\entity\TrafficMetric.class
+com\traffic_stream\dashboard\config\WebSocketConfig.class
+com\traffic_stream\dashboard\DashboardApplication.class

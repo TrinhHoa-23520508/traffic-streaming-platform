@@ -35,7 +35,6 @@ public class TrafficIngestionController {
     public ResponseEntity<String> ping() {
         return ResponseEntity.ok("pong");
     }
-
 }
 
 

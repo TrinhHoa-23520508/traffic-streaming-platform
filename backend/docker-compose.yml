@@ -75,6 +75,20 @@ services:
       - broker
       - minio
 
+  dashboard-service:
+    build: ./dashboard-service
+    ports:
+      - "8085:8085"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/traffic_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: admin
+      APP_SIMULATE: "true"
+    depends_on:
+      - broker
+      - postgres
+
 volumes:
   postgres_data:
   minio_data:

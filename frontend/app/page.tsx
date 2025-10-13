@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect } from "react";
 import SearchBox from "@/component/search";
+import CameraInfoCard from "@/component/camera-info-card";
 import type { Camera } from "@/types/camera";
 
 export default function Page() {

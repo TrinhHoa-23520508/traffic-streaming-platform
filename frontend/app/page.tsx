@@ -51,55 +51,15 @@ export default function Page() {
 
     return (
         <div className="fixed inset-0 h-screen w-screen overflow-visible">
-            <div className="fixed top-6 left-6 z-[1000] flex flex-col gap-2 w-[340px] max-w-full pointer-events-auto">
+            <div className="fixed top-6 left-6 z-[1000] flex flex-col gap-2 w-[400px] max-w-full pointer-events-auto">
                 <div className="bg-white rounded-lg shadow-lg p-2 flex items-center">
                     <SearchBox onSelectLocation={handleLocationSelect} />
                 </div>
                 {selectedCamera && (
-                    <div className="bg-white rounded-lg shadow-lg overflow-hidden mt-2">
-                        {/* Camera Snapshot */}
-                        {selectedCamera.liveviewUrl && (
-                            <div className="w-full bg-gray-900 relative">
-                                <img 
-                                    key={imageRefreshKey}
-                                    src={`https://api.notis.vn/v4/${selectedCamera.liveviewUrl}?t=${imageRefreshKey}`}
-                                    alt={selectedCamera.name}
-                                    className="w-full h-auto object-cover"
-                                    onError={(e) => {
-                                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="340" height="200"%3E%3Crect width="340" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="Arial" font-size="14"%3EKhông có hình ảnh%3C/text%3E%3C/svg%3E';
-                                    }}
-                                />
-                                <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                                    🔴 LIVE
-                                </div>
-                            </div>
-                        )}
-                        {/* Camera Info */}
-                        <div className="p-4">
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-base font-semibold text-gray-700">Camera</h3>
-                                <button onClick={() => setSelectedCamera(null)} className="text-gray-400 hover:text-gray-600">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="font-medium text-gray-800 mb-2">{selectedCamera.name}</div>
-                            <div className="space-y-1 text-xs text-gray-600">
-                                <p><strong>ID:</strong> {selectedCamera.id}</p>
-                                <p><strong>Quận:</strong> {selectedCamera.dist}</p>
-                                <p><strong>IP:</strong> {selectedCamera.values.ip}</p>
-                                <p><strong>PTZ:</strong> {selectedCamera.ptz ? 'Có' : 'Không'}</p>
-                                <p><strong>Góc:</strong> {selectedCamera.angle}°</p>
-                                <p><strong>Tọa độ:</strong> {selectedCamera.loc.coordinates[1].toFixed(6)}, {selectedCamera.loc.coordinates[0].toFixed(6)}</p>
-                            </div>
-                            {selectedCamera.liveviewUrl && (
-                                <button className="mt-3 w-full text-xs bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700"
-                                    onClick={() => window.open(`https://api.notis.vn/v4/${selectedCamera.liveviewUrl}`, '_blank')}
-                                >🎥 Xem Live Stream</button>
-                            )}
-                        </div>
-                    </div>
+                    <CameraInfoCard 
+                        camera={selectedCamera} 
+                        onClose={() => setSelectedCamera(null)} 
+                    />
                 )}
                 {selectedLocation && !selectedCamera && (
                     <div className="bg-white rounded-lg shadow-lg p-4 mt-2">

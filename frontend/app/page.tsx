@@ -13,7 +13,7 @@ export default function Page() {
     const [mapZoom, setMapZoom] = useState<number>(13);
     const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<{lat: number, lon: number, name: string} | null>(null);
-    const [imageRefreshKey, setImageRefreshKey] = useState<number>(Date.now());
+    const [imageRefreshKey, setImageRefreshKey] = useState<number>(0);
     const [modalImageUrl, setModalImageUrl] = useState<string | null>(null);
 
     const Map = useMemo(() => dynamic(
@@ -23,6 +23,11 @@ export default function Page() {
             ssr: false
         }
     ), [])
+    
+    // Initialize imageRefreshKey on client side only
+    useEffect(() => {
+        setImageRefreshKey(Date.now());
+    }, [])
     
 
     // Auto-refresh camera snapshot every 20 seconds

@@ -4,13 +4,14 @@ import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect } from "react";
 import SearchBox from "@/component/search";
 import type { Camera } from "@/types/camera";
+import CityStatsDrawer from "@/component/city-statistics";
 
 export default function Page() {
     const [mapCenter, setMapCenter] = useState<[number, number]>([10.8231, 106.6297]);
     const [locationName, setLocationName] = useState<string>("Ho Chi Minh City");
     const [mapZoom, setMapZoom] = useState<number>(13);
     const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
-    const [selectedLocation, setSelectedLocation] = useState<{lat: number, lon: number, name: string} | null>(null);
+    const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lon: number, name: string } | null>(null);
     const [imageRefreshKey, setImageRefreshKey] = useState<number>(Date.now());
 
     const Map = useMemo(() => dynamic(
@@ -37,7 +38,7 @@ export default function Page() {
         setLocationName(name);
         setMapZoom(15);
         setSelectedCamera(null);
-        setSelectedLocation({lat, lon, name});
+        setSelectedLocation({ lat, lon, name });
     };
 
     const handleCameraClick = (camera: Camera) => {
@@ -59,7 +60,7 @@ export default function Page() {
                         {/* Camera Snapshot */}
                         {selectedCamera.liveviewUrl && (
                             <div className="w-full bg-gray-900 relative">
-                                <img 
+                                <img
                                     key={imageRefreshKey}
                                     src={`https://api.notis.vn/v4/${selectedCamera.liveviewUrl}?t=${imageRefreshKey}`}
                                     alt={selectedCamera.name}
@@ -118,15 +119,16 @@ export default function Page() {
                 )}
             </div>
             <div className="fixed inset-0 z-0">
-                <Map 
-                    posix={mapCenter} 
-                    zoom={mapZoom} 
+                <Map
+                    posix={mapCenter}
+                    zoom={mapZoom}
                     locationName={locationName}
                     onCameraClick={handleCameraClick}
                     selectedCamera={selectedCamera}
                     selectedLocation={selectedLocation}
                 />
             </div>
+            <CityStatsDrawer />
         </div>
     )
 }

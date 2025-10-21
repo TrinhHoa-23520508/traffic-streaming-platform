@@ -2,19 +2,14 @@
 "use client"
 
 import type { Camera } from '@/types/camera';
+import StatCardWithProgress from '@/component/stat-card-progress'; // Đảm bảo đường dẫn đúng
+import StatCardWithBadge from '@/component/stat-card-badge';
 
 // Giả sử kiểu 'Camera' của bạn có cấu trúc dữ liệu như sau
-interface EnrichedCamera extends Camera {
-    analytics?: {
-        vehicleCount: number;
-        trafficLevel: 'Thấp' | 'Trung bình' | 'Cao';
-        flowRate: number; // xe/phút
-        congestionStatus: 'Thông thoáng' | 'Đang kẹt xe';
-    }
-}
+
 
 interface CameraInfoCardProps {
-    camera: EnrichedCamera;
+    camera: Camera;
     onClose: () => void;
     onImageClick: (url: string) => void;
     imageRefreshKey?: number;
@@ -35,8 +30,7 @@ const getCongestionColor = (status: 'Thông thoáng' | 'Đang kẹt xe') => {
 
 export default function CameraInfoCard({ camera, onClose, onImageClick, imageRefreshKey }: CameraInfoCardProps) {
     const imageUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
-    const analytics = camera.analytics;
-
+   
     const fakeAnalytics = {
         vehicleCount: 68,
         trafficLevel: 'Cao' as const, // Thêm 'as const' để TypeScript hiểu đây là giá trị cố định
@@ -60,7 +54,7 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                     className="w-full h-auto object-cover bg-gray-900"
                     // onError...
                 />
-                <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
+                <div className="absolute bottom-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
                     TRỰC TIẾP
                 </div>
             </div>
@@ -78,53 +72,31 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 </button>
             </div>
 
-            {/* --- PHẦN THÔNG TIN TỪ DỮ LIỆU GIẢ --- */}
+            <StatCardWithProgress 
+                label="Số lượng xe"
+                value={`${fakeAnalytics.vehicleCount} xe`}
+                progressPercent={Math.min(fakeAnalytics.vehicleCount, 100)}
+                progressColorClass="bg-blue-500"
+            />
             
-            {/* Thẻ: Số lượng xe */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-2 text-sm">
-                    <span className="text-gray-600">Số lượng xe</span>
-                    <span className="font-semibold text-gray-800">{fakeAnalytics.vehicleCount} xe</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5">
-                    <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${Math.min(fakeAnalytics.vehicleCount, 100)}%` }}></div>
-                </div>
-            </div>
+            <StatCardWithBadge 
+                label="Mức độ giao thông"
+                badgeText={fakeAnalytics.trafficLevel}
+                badgeColorClass={getTrafficLevelColor(fakeAnalytics.trafficLevel)}
+            />
 
-            {/* Thẻ: Mức độ giao thông */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center text-sm">
-                <span className="text-gray-600">Mức độ giao thông</span>
-                <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${getTrafficLevelColor(fakeAnalytics.trafficLevel)}`}>
-                    {fakeAnalytics.trafficLevel.toUpperCase()}
-                </span>
-            </div>
-
-            {/* Thẻ: Lưu lượng xe */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-2 text-sm">
-                    <span className="text-gray-600">Lưu lượng xe</span>
-                    <span className="font-semibold text-gray-800">{fakeAnalytics.flowRate} xe/phút</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5">
-                    <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${Math.min(fakeAnalytics.flowRate * 1.5, 100)}%` }}></div>
-                </div>
-            </div>
-
-            {/* Thẻ: Tình trạng kẹt xe */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center text-sm">
-                <span className="text-gray-600">Tình trạng kẹt xe</span>
-                <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${getCongestionColor(fakeAnalytics.congestionStatus)}`}>
-                    {fakeAnalytics.congestionStatus.toUpperCase()}
-                </span>
-            </div>
-
-             {/* Nút đóng được đặt ở cuối, bên ngoài các thẻ */}
-             <button 
-                onClick={onClose} 
-                className="w-full text-center text-xs text-gray-500 py-2 hover:text-red-500"
-            >
-                Đóng
-            </button>
+            <StatCardWithProgress 
+                label="Lưu lượng xe"
+                value={`${fakeAnalytics.flowRate} xe/phút`}
+                progressPercent={Math.min(fakeAnalytics.flowRate * 1.5, 100)}
+                progressColorClass="bg-purple-500"
+            />
+            
+            <StatCardWithBadge 
+                label="Tình trạng kẹt xe"
+                badgeText={fakeAnalytics.congestionStatus}
+                badgeColorClass={getCongestionColor(fakeAnalytics.congestionStatus)}
+            />
         </div>
     );
 }

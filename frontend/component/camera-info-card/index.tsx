@@ -1,6 +1,7 @@
 // frontend/component/camera-info-card/index.tsx
 "use client"
 
+import React, { useEffect, useRef, useState } from 'react';
 import type { Camera } from '@/types/camera';
 import StatCardWithProgress from '@/component/stat-card-progress'; // Đảm bảo đường dẫn đúng
 import StatCardWithBadge from '@/component/stat-card-badge';
@@ -29,7 +30,39 @@ const getCongestionColor = (status: 'Thông thoáng' | 'Đang kẹt xe') => {
 
 
 export default function CameraInfoCard({ camera, onClose, onImageClick, imageRefreshKey }: CameraInfoCardProps) {
-    const imageUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    const initialUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    const [currentSrc, setCurrentSrc] = useState<string>(initialUrl);
+    const [loadingImage, setLoadingImage] = useState<boolean>(false);
+    const imgRef = useRef<HTMLImageElement | null>(null);
+
+    // Preload new image when imageRefreshKey or liveviewUrl changes
+    useEffect(() => {
+        const newUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+        // if no liveview url, nothing to do
+        if (!camera.liveviewUrl) return;
+
+        // If url is already current, do nothing
+        if (newUrl === currentSrc) return;
+
+        setLoadingImage(true);
+        const img = new Image();
+        img.src = newUrl;
+        img.onload = () => {
+            setCurrentSrc(newUrl);
+            setLoadingImage(false);
+        };
+        img.onerror = () => {
+            // fallback placeholder
+            setCurrentSrc('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="340" height="200"%3E%3Crect width="340" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="Arial" font-size="14"%3EKhông có hình ảnh%3C/text%3E%3C/svg%3E');
+            setLoadingImage(false);
+        };
+
+        return () => {
+            // cleanup handlers
+            img.onload = null;
+            img.onerror = null;
+        };
+    }, [imageRefreshKey, camera.liveviewUrl]);
    
     const fakeAnalytics = {
         vehicleCount: 68,
@@ -44,16 +77,29 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
             
             {/* --- 1. PHẦN HÌNH ẢNH --- */}
             <div 
-                className="relative w-full rounded-xl overflow-hidden cursor-pointer"
-                onClick={() => onImageClick(imageUrl)}
+                className="relative w-full rounded-xl overflow-hidden cursor-pointer bg-gray-900"
+                onClick={() => onImageClick(currentSrc)}
             >
                 <img 
-                    key={imageRefreshKey}
-                    src={imageUrl}
+                    ref={(el) => { imgRef.current = el; }}
+                    src={currentSrc}
                     alt={camera.name}
-                    className="w-full h-auto object-cover bg-gray-900"
-                    // onError...
+                    className="w-full h-auto object-cover"
+                    onError={(e) => {
+                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="340" height="200"%3E%3Crect width="340" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="Arial" font-size="14"%3EKhông có hình ảnh%3C/text%3E%3C/svg%3E';
+                    }}
                 />
+
+                {/* Spinner overlay while loading new snapshot */}
+                {loadingImage && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <svg className="animate-spin h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                    </div>
+                )}
+
                 <div className="absolute bottom-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
                     TRỰC TIẾP
                 </div>

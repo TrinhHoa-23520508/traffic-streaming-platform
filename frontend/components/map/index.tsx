@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from "react-leaflet";
 import { LatLngExpression, LatLngTuple } from 'leaflet';
 import L from 'leaflet';
-import CameraMarkers from "@/component/camera-markers";
+import CameraMarkers from "@/components/camera-markers";
 import type { Camera } from "@/types/camera";
 
 import "leaflet/dist/leaflet.css";
@@ -18,7 +18,7 @@ interface MapProps {
     locationName?: string;
     onCameraClick?: (camera: Camera) => void;
     selectedCamera?: Camera | null;
-    selectedLocation?: {lat: number, lon: number, name: string} | null;
+    selectedLocation?: { lat: number, lon: number, name: string } | null;
     imageRefreshKey?: number;
 }
 
@@ -59,14 +59,14 @@ const Map = (props: MapProps) => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            
+
             {/* User's selected location marker (default Leaflet icon) - Only show when location selected, not camera */}
             {selectedLocation && !selectedCamera && (
                 <Marker position={posix} draggable={false}>
                     <Popup>{locationName || "Hey ! I study here"}</Popup>
                 </Marker>
             )}
-            
+
             {/* All camera markers */}
             <CameraMarkers onCameraClick={onCameraClick} selectedCameraId={selectedCamera?._id} />
 
@@ -188,7 +188,7 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
                         }
                     } catch (e) {
                         // fallback: recreate
-                        try { map.removeLayer(heat); } catch (e) {}
+                        try { map.removeLayer(heat); } catch (e) { }
                         heat = (L as any).heatLayer(points, { radius, blur, maxZoom: 17, gradient });
                         heat.addTo(map as any);
                         heatLayerRef.current = heat;
@@ -196,7 +196,7 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
                 }
             } else {
                 if (heat) {
-                    try { map.removeLayer(heat); } catch (e) {}
+                    try { map.removeLayer(heat); } catch (e) { }
                     heatLayerRef.current = null;
                 }
             }
@@ -205,7 +205,7 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
         // update heat layer when zoom changes so radius adapts
         const onZoom = () => {
             // trigger update to potentially recreate layer with new radius
-            update().catch(() => {});
+            update().catch(() => { });
         };
 
         map.on('zoomend', onZoom);
@@ -218,13 +218,13 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
             (window as any).L = require('leaflet');
         }
 
-    update().catch(err => console.error('Failed to update heat layer', err));
+        update().catch(err => console.error('Failed to update heat layer', err));
 
         // cleanup
         return () => {
             map.off('zoomend', onZoom);
             if (heatLayerRef.current) {
-                try { map.removeLayer(heatLayerRef.current); } catch (e) {}
+                try { map.removeLayer(heatLayerRef.current); } catch (e) { }
                 heatLayerRef.current = null;
             }
         };

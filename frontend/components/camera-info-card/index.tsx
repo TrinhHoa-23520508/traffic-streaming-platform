@@ -3,8 +3,8 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import type { Camera } from '@/types/camera';
-import StatCardWithProgress from '@/component/stat-card-progress'; // Đảm bảo đường dẫn đúng
-import StatCardWithBadge from '@/component/stat-card-badge';
+import StatCardWithProgress from '@/components/stat-card-progress'; // Đảm bảo đường dẫn đúng
+import StatCardWithBadge from '@/components/stat-card-badge';
 
 // Giả sử kiểu 'Camera' của bạn có cấu trúc dữ liệu như sau
 
@@ -63,7 +63,7 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
             img.onerror = null;
         };
     }, [imageRefreshKey, camera.liveviewUrl]);
-   
+
     const fakeAnalytics = {
         vehicleCount: 68,
         trafficLevel: 'Cao' as const, // Thêm 'as const' để TypeScript hiểu đây là giá trị cố định
@@ -74,13 +74,13 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     return (
         // Container chính với nền xám nhạt để làm nổi bật các thẻ trắng
         <div className="bg-gray-50 p-3 rounded-lg shadow-lg space-y-3">
-            
+
             {/* --- 1. PHẦN HÌNH ẢNH --- */}
-            <div 
+            <div
                 className="relative w-full rounded-xl overflow-hidden cursor-pointer bg-gray-900"
                 onClick={() => onImageClick(currentSrc)}
             >
-                <img 
+                <img
                     ref={(el) => { imgRef.current = el; }}
                     src={currentSrc}
                     alt={camera.name}
@@ -118,27 +118,27 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 </button>
             </div>
 
-            <StatCardWithProgress 
+            <StatCardWithProgress
                 label="Số lượng xe"
                 value={`${fakeAnalytics.vehicleCount} xe`}
                 progressPercent={Math.min(fakeAnalytics.vehicleCount, 100)}
                 progressColorClass="bg-blue-500"
             />
-            
-            <StatCardWithBadge 
+
+            <StatCardWithBadge
                 label="Mức độ giao thông"
                 badgeText={fakeAnalytics.trafficLevel}
                 badgeColorClass={getTrafficLevelColor(fakeAnalytics.trafficLevel)}
             />
 
-            <StatCardWithProgress 
+            <StatCardWithProgress
                 label="Lưu lượng xe"
                 value={`${fakeAnalytics.flowRate} xe/phút`}
                 progressPercent={Math.min(fakeAnalytics.flowRate * 1.5, 100)}
                 progressColorClass="bg-purple-500"
             />
-            
-            <StatCardWithBadge 
+
+            <StatCardWithBadge
                 label="Tình trạng kẹt xe"
                 badgeText={fakeAnalytics.congestionStatus}
                 badgeColorClass={getCongestionColor(fakeAnalytics.congestionStatus)}

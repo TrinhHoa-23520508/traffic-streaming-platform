@@ -2,33 +2,34 @@
 
 import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect } from "react";
-import SearchBox from "@/component/search";
-import CameraInfoCard from "@/component/camera-info-card";
-import ImageModal from "@/component/image-modal";
+import SearchBox from "@/components/search";
+import CameraInfoCard from "@/components/camera-info-card";
+import ImageModal from "@/components/image-modal";
 import type { Camera } from "@/types/camera";
+import CityStatsDrawer from "@/components/city-statistics";
 
 export default function Page() {
     const [mapCenter, setMapCenter] = useState<[number, number]>([10.8231, 106.6297]);
     const [locationName, setLocationName] = useState<string>("Ho Chi Minh City");
     const [mapZoom, setMapZoom] = useState<number>(13);
     const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
-    const [selectedLocation, setSelectedLocation] = useState<{lat: number, lon: number, name: string} | null>(null);
+    const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lon: number, name: string } | null>(null);
     const [imageRefreshKey, setImageRefreshKey] = useState<number>(0);
     const [modalImageUrl, setModalImageUrl] = useState<string | null>(null);
 
     const Map = useMemo(() => dynamic(
-        () => import('@/component/map'),
+        () => import('@/components/map'),
         {
             loading: () => <p>A map is loading</p>,
             ssr: false
         }
     ), [])
-    
+
     // Initialize imageRefreshKey on client side only
     useEffect(() => {
         setImageRefreshKey(Date.now());
     }, [])
-    
+
 
     // Auto-refresh camera snapshot every 20 seconds
     useEffect(() => {
@@ -54,7 +55,7 @@ export default function Page() {
         setLocationName(name);
         setMapZoom(15);
         setSelectedCamera(null);
-        setSelectedLocation({lat, lon, name});
+        setSelectedLocation({ lat, lon, name });
     };
 
     const handleCameraClick = (camera: Camera) => {
@@ -79,9 +80,9 @@ export default function Page() {
                     </div>
                 )}
                 {selectedCamera && !modalImageUrl && (
-                    <CameraInfoCard 
-                        camera={selectedCamera} 
-                        onClose={() => setSelectedCamera(null)} 
+                    <CameraInfoCard
+                        camera={selectedCamera}
+                        onClose={() => setSelectedCamera(null)}
                         imageRefreshKey={imageRefreshKey}
                         onImageClick={handleImageClick}
                     />
@@ -104,9 +105,9 @@ export default function Page() {
                 )}
             </div>
             <div className="fixed inset-0 z-0">
-                <Map 
-                    posix={mapCenter} 
-                    zoom={mapZoom} 
+                <Map
+                    posix={mapCenter}
+                    zoom={mapZoom}
                     locationName={locationName}
                     onCameraClick={handleCameraClick}
                     selectedCamera={selectedCamera}
@@ -115,12 +116,13 @@ export default function Page() {
                 />
             </div>
             {modalImageUrl && (
-                <ImageModal 
-                key={modalImageUrl}
+                <ImageModal
+                    key={modalImageUrl}
                     imageUrl={modalImageUrl}
                     onClose={() => setModalImageUrl(null)}
                 />
             )}
+            <CityStatsDrawer />
         </div>
     )
 }

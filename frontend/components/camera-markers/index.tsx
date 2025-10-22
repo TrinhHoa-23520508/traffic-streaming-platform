@@ -40,8 +40,10 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId }: Camer
             try {
                 const response = await fetch('/camera_api.json');
                 const data: Camera[] = await response.json();
-                setCameras(data);
-                camerasRef.current = data;
+                // attach randomized vehicle counts for testing
+                const withCounts = data.map(d => ({ ...d, _randCount: Math.floor(Math.random() * 101) }));
+                setCameras(withCounts);
+                camerasRef.current = withCounts as any;
                 setLoading(false);
             } catch (error) {
                 console.error('Error loading cameras:', error);
@@ -50,6 +52,15 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId }: Camer
         };
 
         loadCameras();
+    }, []);
+
+    // Refresh random counts every 20s for testing (simulate backend updates)
+    useEffect(() => {
+        const id = setInterval(() => {
+            camerasRef.current = camerasRef.current.map(c => ({ ...c, _randCount: Math.floor(Math.random() * 101) }));
+            setCameras([...camerasRef.current]);
+        }, 20000);
+        return () => clearInterval(id);
     }, []);
 
     // Setup map listeners only once after cameras are loaded

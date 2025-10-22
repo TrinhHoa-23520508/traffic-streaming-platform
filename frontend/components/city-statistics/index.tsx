@@ -4,6 +4,7 @@ import { useState } from "react"
 import { FiMenu, FiX } from "react-icons/fi"
 import InforPanel from "./infor_panel"
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts"
+import { Button } from "../ui/button"
 
 const data = [
     { time: '0:00', traffic: 30 },
@@ -40,13 +41,13 @@ export default function CityStatsDrawer() {
             {!isOpen && <div>
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="fixed top-6 right-6 z-50 bg-white text-black p-3 rounded-full shadow-lg transition hover:bg-gray-50 cursor-pointer">
+                    className="fixed top-3 right-30 z-50 bg-white text-black p-3 rounded-full shadow-lg transition hover:bg-gray-50 cursor-pointer">
                     <FiMenu size={18} />
                 </button>
             </div>}
 
             <div
-                className={`fixed top-0 right-0 h-full w-150 bg-white shadow-sm transform transition-transform duration-300 ${isOpen ? "translate-x-0" : "translate-x-full"} z-40`}>
+                className={`fixed top-0 right-0 h-full w-150 bg-white shadow-sm transform transition-transform duration-100 ${isOpen ? "translate-x-0" : "translate-x-full"} z-40`}>
                 <div className="flex items-center justify-between py-2 px-4 border-b border-gray-200 relative">
                     <div>
                         <h1 className="text-black text-2xl font-semibold">Thống kê toàn thành phố</h1>
@@ -90,9 +91,8 @@ export default function CityStatsDrawer() {
 
 function RefreshButton() {
     return (
-        <button
-            className="bg-blue-100 text-blue-800 font-semibold py-0.5 px-3 rounded-lg transition hover:bg-blue-200 cursor-pointer border-2 border-blue-300">
+        <Button variant="outline" className="cursor-pointer">
             Làm mới
-        </button>
+        </Button>
     )
 }

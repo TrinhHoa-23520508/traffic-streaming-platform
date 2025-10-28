@@ -3,7 +3,7 @@ import os
 # Kafka configuration
 KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'broker:29092')
 KAFKA_INPUT_TOPIC = 'hcm_traffic_data'
-KAFKA_OUTPUT_TOPIC = 'traffic_metrics'
+KAFKA_OUTPUT_TOPIC = 'traffic_metrics_topic'
 
 # YOLO configuration - CHUYỂN SANG YOLOv11
 YOLO_MODEL_PATH = '/app/models/yolo11n.pt'  # YOLOv11 nano (nhẹ nhất)

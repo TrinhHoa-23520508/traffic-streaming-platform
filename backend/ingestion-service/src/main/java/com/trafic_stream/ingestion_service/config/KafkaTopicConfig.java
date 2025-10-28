@@ -9,7 +9,7 @@ import org.springframework.kafka.config.TopicBuilder;
 public class KafkaTopicConfig {
 
     public static final String TRAFFIC_TOPIC = "hcm_traffic_data";
-    public static final String TRAFFIC_METRICS_TOPIC = "traffic_metrics";
+    public static final String TRAFFIC_METRICS_TOPIC = "traffic_metrics_topic";
 
     @Bean
     public NewTopic trafficTopic() {

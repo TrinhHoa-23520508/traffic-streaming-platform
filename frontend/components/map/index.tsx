@@ -144,21 +144,14 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
             const points = camerasRef.current.map((c: any) => {
                 const lat = c.loc.coordinates[1];
                 const lon = c.loc.coordinates[0];
-                // normalize weight between 0 and 1
-                const weight = (c._randCount ?? 0) / 100;
+                // normalize weight between 0 and 1 - spread out more evenly
+                const weight = (c._randCount ?? 50) / 100;
                 return [lat, lon, weight];
             });
-            // helper: compute radius based on zoom (larger radius when zoomed out)
-            const getRadiusForZoom = (z: number) => {
-                if (z <= 10) return 50;
-                if (z <= 12) return 40;
-                if (z <= 14) return 30;
-                if (z <= 16) return 20;
-                return 12;
-            };
-
-            const radius = getRadiusForZoom(map.getZoom());
-            const blur = Math.max(10, Math.floor(radius / 2));
+            
+            // Use fixed radius that scales better - don't change on zoom
+            const radius = 50;
+            const blur = 25;
 
             // gradient: green (low) -> yellow -> red (high)
             const gradient = {
@@ -171,28 +164,18 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
 
             if (enabled) {
                 if (!heat) {
-                    heat = (L as any).heatLayer(points, { radius, blur, maxZoom: 17, gradient });
+                    heat = (L as any).heatLayer(points, { 
+                        radius, 
+                        blur, 
+                        max: 1.2,  // Increased to spread colors more evenly
+                        minOpacity: 0.45,
+                        gradient 
+                    });
                     heat.addTo(map as any);
                     heatLayerRef.current = heat;
                 } else {
-                    // if radius changed, recreate layer to apply new radius/blur
-                    try {
-                        const currentRadius = (heat && heat._radius) || null;
-                        if (currentRadius !== radius) {
-                            map.removeLayer(heat);
-                            heat = (L as any).heatLayer(points, { radius, blur, maxZoom: 17, gradient });
-                            heat.addTo(map as any);
-                            heatLayerRef.current = heat;
-                        } else {
-                            heat.setLatLngs(points);
-                        }
-                    } catch (e) {
-                        // fallback: recreate
-                        try { map.removeLayer(heat); } catch (e) { }
-                        heat = (L as any).heatLayer(points, { radius, blur, maxZoom: 17, gradient });
-                        heat.addTo(map as any);
-                        heatLayerRef.current = heat;
-                    }
+                    // Just update points, don't recreate layer
+                    heat.setLatLngs(points);
                 }
             } else {
                 if (heat) {
@@ -202,13 +185,8 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
             }
         };
 
-        // update heat layer when zoom changes so radius adapts
-        const onZoom = () => {
-            // trigger update to potentially recreate layer with new radius
-            update().catch(() => { });
-        };
-
-        map.on('zoomend', onZoom);
+        // Don't recreate on zoom, leaflet.heat handles zoom automatically
+        // Only update when enabled/disabled or data changes
 
         // Ensure global L is available
         if (typeof (window as any).L === 'undefined') {
@@ -222,7 +200,6 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
 
         // cleanup
         return () => {
-            map.off('zoomend', onZoom);
             if (heatLayerRef.current) {
                 try { map.removeLayer(heatLayerRef.current); } catch (e) { }
                 heatLayerRef.current = null;

@@ -173,7 +173,7 @@ class KafkaConsumer:
             }
             
             # Gửi kết quả lên Kafka
-            self.producer.send('traffic_metrics', result)
+            self.producer.send('traffic_metrics_topic', result)
             self.producer.flush()
             
             logger.info(f"Đã gửi kết quả phân tích cho camera {camera_data.get('name')}:")

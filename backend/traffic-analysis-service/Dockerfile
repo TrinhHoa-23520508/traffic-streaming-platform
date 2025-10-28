@@ -1,28 +1,49 @@
-FROM python:3.9-slim
 
-# Cài đặt các gói cần thiết
+# Sử dụng base image có CUDA
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+# Thiết lập biến môi trường để tránh prompt khi cài đặt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Cài đặt Python 3.10 (mặc định của Ubuntu 22.04) và các gói cần thiết
 RUN apt-get update && apt-get install -y \
-    libgl1 \
+    python3 \
+    python3-pip \
+    libgl1-mesa-glx \
     libglib2.0-0 \
+    curl \
+    wget \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Thiết lập thư mục làm việc
+# Thiết lập Python 3 là mặc định
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+RUN update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
 WORKDIR /app
 
-# Sao chép file requirements
 COPY requirements.txt .
 
-# Cài đặt các thư viện
+# Upgrade pip
+RUN pip install --upgrade pip
+
+# Cài đặt thư viện Python
 RUN pip install --no-cache-dir numpy opencv-python kafka-python requests Pillow minio
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Cài đặt PyTorch với CUDA 11.8 support
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu118
+
+# Cài đặt Ultralytics (YOLOv11)
 RUN pip install --no-cache-dir ultralytics
 
-# Tạo thư mục cho models và tải YOLOv11n
+# Tải YOLOv11 model
 RUN mkdir -p /app/models
 RUN python -c "from ultralytics import YOLO; model = YOLO('yolo11n.pt'); model.save('/app/models/yolo11n.pt')"
 
-# Sao chép mã nguồn
 COPY src/ ./src/
 
-# Thiết lập lệnh chạy ứng dụng
+# Biến môi trường cho CUDA
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
 CMD ["python", "src/main.py"]

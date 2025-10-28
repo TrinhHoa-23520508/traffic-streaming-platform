@@ -95,7 +95,6 @@ services:
     environment:
       KAFKA_BROKER: broker:29092
       IMAGE_BASE_URL: https://api.notis.vn/v4/
-      # Thêm cấu hình MinIO
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
@@ -105,9 +104,18 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    cpus: '2'
-    mem_limit: 2G
-
+    # ============ CẤU HÌNH GPU ============
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1 # Số GPU muốn dùng (hoặc 'all')
+              capabilities: [ gpu ]
+    # Tăng tài nguyên khi dùng GPU
+    cpus: '4'
+    mem_limit: 8G
+    # ======================================
   dashboard-service:
     build: ./dashboard-service
     ports:

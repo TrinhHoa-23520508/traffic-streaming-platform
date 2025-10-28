@@ -1,4 +1,5 @@
 import logging
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -6,45 +7,42 @@ class YOLOModel:
     def __init__(self, model_path):
         from ultralytics import YOLO
         logger.info(f"Đang tải model YOLO từ {model_path}")
-        self.model = YOLO(model_path)
         
-        # Các loại phương tiện và đối tượng cần phát hiện trong COCO dataset
-        # Bao gồm: người, xe đạp, xe máy, ô tô, xe bus, xe tải
+        # Kiểm tra GPU có sẵn không
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        logger.info(f"Sử dụng device: {self.device}")
+        
+        if self.device == 'cuda':
+            logger.info(f"GPU Name: {torch.cuda.get_device_name(0)}")
+            logger.info(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+        
+        # Load model và chuyển sang GPU
+        self.model = YOLO(model_path)
+        self.model.to(self.device)
+        
+        # Các loại phương tiện và đối tượng cần phát hiện
         self.detection_classes = {
-            0: 'person',        # Người
-            1: 'bicycle',       # Xe đạp
-            2: 'car',           # Ô tô
-            3: 'motorcycle',    # Xe máy
-            5: 'bus',           # Xe bus
-            7: 'truck'          # Xe tải
+            0: 'person',
+            1: 'bicycle',
+            2: 'car',
+            3: 'motorcycle',
+            5: 'bus',
+            7: 'truck'
         }
         
-        logger.info(f"Đã tải model YOLO thành công")
+        logger.info(f"Đã tải model YOLO thành công trên {self.device}")
         logger.info(f"Các đối tượng sẽ được phát hiện: {list(self.detection_classes.values())}")
 
     def analyze_image(self, image):
         """
-        Phân tích hình ảnh với YOLO
-        
-        Args:
-            image: numpy array hoặc đường dẫn file ảnh
-            
-        Returns:
-            results: Kết quả phát hiện từ YOLO
+        Phân tích hình ảnh với YOLO trên GPU
         """
-        results = self.model(image)
+        # YOLO tự động sử dụng device đã được set
+        results = self.model(image, device=self.device)
         return results
 
     def count_objects(self, results):
-        """
-        Đếm tất cả đối tượng được phát hiện (phương tiện + người)
-        
-        Args:
-            results: Kết quả từ YOLO model
-            
-        Returns:
-            dict: Thống kê đối tượng
-        """
+        """Đếm tất cả đối tượng"""
         total_count = 0
         object_types = {}
         

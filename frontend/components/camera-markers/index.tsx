@@ -9,6 +9,7 @@ import type { Camera } from '@/types/camera';
 interface CameraMarkersProps {
     onCameraClick?: (camera: Camera) => void;
     selectedCameraId?: string;
+    onCamerasUpdate?: (cameras: any[]) => void;
 }
 
 // Custom camera icon
@@ -27,7 +28,7 @@ const createSelectedCameraIcon = () => icon({
     popupAnchor: [0, -24]
 });
 
-export default function CameraMarkers({ onCameraClick, selectedCameraId }: CameraMarkersProps) {
+export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate }: CameraMarkersProps) {
     const [cameras, setCameras] = useState<Camera[]>([]);
     const [visibleCameras, setVisibleCameras] = useState<Camera[]>([]);
     const [loading, setLoading] = useState(true);
@@ -45,6 +46,8 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId }: Camer
                 setCameras(withCounts);
                 camerasRef.current = withCounts as any;
                 setLoading(false);
+                // Notify parent component of camera data
+                if (onCamerasUpdate) onCamerasUpdate(withCounts);
             } catch (error) {
                 console.error('Error loading cameras:', error);
                 setLoading(false);
@@ -59,9 +62,11 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId }: Camer
         const id = setInterval(() => {
             camerasRef.current = camerasRef.current.map(c => ({ ...c, _randCount: Math.floor(Math.random() * 101) }));
             setCameras([...camerasRef.current]);
+            // Notify parent component of updated camera data
+            if (onCamerasUpdate) onCamerasUpdate([...camerasRef.current]);
         }, 20000);
         return () => clearInterval(id);
-    }, []);
+    }, []); // Empty deps - onCamerasUpdate is stable enough, no need to restart interval
 
     // Setup map listeners only once after cameras are loaded
     useEffect(() => {

@@ -59,6 +59,12 @@ export default function Page() {
     };
 
     const handleCameraClick = (camera: Camera) => {
+        console.log('📹 Camera Clicked:', {
+            id: camera.id || camera._id,
+            name: camera.name,
+            density: (camera as any)._randCount || 'N/A',
+            coordinates: [camera.loc.coordinates[1], camera.loc.coordinates[0]]
+        });
         setSelectedCamera(camera);
         setMapCenter([camera.loc.coordinates[1], camera.loc.coordinates[0]]);
         setLocationName(camera.name);

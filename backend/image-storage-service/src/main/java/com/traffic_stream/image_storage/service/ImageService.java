@@ -1,8 +1,11 @@
 package com.traffic_stream.image_storage.service;
 
 import com.traffic_stream.image_storage.util.ImageStreamProvider;
+
+import org.checkerframework.checker.units.qual.A;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
@@ -26,6 +29,7 @@ public class ImageService {
     /**
      * Xử lý và stream ảnh trực tiếp từ URL vào MinIO
      */
+    @Async
     public void streamAndStoreImage(String cameraId, String cameraName, String url, long timestamp) {
         try (InputStream imageStream = imageStreamProvider.openImageStream(url)) {
             if (imageStream != null) {

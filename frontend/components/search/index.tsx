@@ -51,11 +51,14 @@ export default function SearchBox({ onSelectLocation }: SearchProps) {
     const searchLocation = async (searchQuery: string) => {
         setIsLoading(true);
         try {
-            // Using Nominatim API with Vietnam focus (countrycodes=vn)
+            // Ho Chi Minh City bounding box: [minLat, maxLat, minLon, maxLon]
+            // Approximate bounds for HCMC
+            const viewbox = '106.36,10.35,107.00,11.16'; // [minLon, minLat, maxLon, maxLat]
+            
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
                     searchQuery
-                )}&countrycodes=vn&limit=5&addressdetails=1`,
+                )}&countrycodes=vn&viewbox=${viewbox}&bounded=1&limit=20&addressdetails=1`,
                 {
                     headers: {
                         'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
@@ -63,7 +66,45 @@ export default function SearchBox({ onSelectLocation }: SearchProps) {
                 }
             );
             const data = await response.json();
-            setResults(data);
+            
+            // Filter and sort results for Ho Chi Minh City
+            const filteredResults = data
+                .filter((result: SearchResult) => {
+                    const displayName = result.display_name.toLowerCase();
+                    return displayName.includes('hồ chí minh') || 
+                           displayName.includes('ho chi minh') ||
+                           displayName.includes('thành phố hồ chí minh');
+                })
+                .map((result: SearchResult) => {
+                    // Calculate relevance score
+                    const displayLower = result.display_name.toLowerCase();
+                    const queryLower = searchQuery.toLowerCase();
+                    
+                    // Exact match at start gets highest score
+                    const startsWithQuery = displayLower.startsWith(queryLower) ? 1000 : 0;
+                    
+                    // Contains exact query gets bonus
+                    const containsQuery = displayLower.includes(queryLower) ? 500 : 0;
+                    
+                    // Shorter results are more relevant (penalize long names)
+                    const lengthScore = 1000 - Math.min(result.display_name.length, 1000);
+                    
+                    // Check if it's a street/road (more relevant for addresses)
+                    const isStreet = displayLower.includes('đường') || 
+                                   displayLower.includes('phường') ||
+                                   displayLower.includes('quận') ? 100 : 0;
+                    
+                    const relevanceScore = startsWithQuery + containsQuery + lengthScore + isStreet;
+                    
+                    return {
+                        ...result,
+                        relevanceScore
+                    };
+                })
+                .sort((a: any, b: any) => b.relevanceScore - a.relevanceScore)
+                .slice(0, 5); // Limit to top 5 results
+            
+            setResults(filteredResults);
             setShowResults(true);
         } catch (error) {
             console.error('Error searching location:', error);

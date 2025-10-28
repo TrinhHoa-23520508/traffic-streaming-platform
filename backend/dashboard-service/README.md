@@ -26,6 +26,6 @@ Hướng dẫn chạy:
 - docker: docker compose up dashboard-service
 
 Note: 
-- Vì dashboard-service hiện tại chưa liên quan đến  ingestion và processing nên chạy độc lập sẽ dễ debug + quan sát hơn
+- Vì dashboard-service hiện tại chưa liên quan đến  ingestion và image-store nên chạy độc lập sẽ dễ debug + quan sát hơn
 - Khi simulate=false → hệ thống không gửi dữ liệu Kafka 
 - Khi simulate=true → tạo dữ liệu 500 camera mỗi 15 giây, gửi Kafka (chỉnh trong properties và docker-compose.yml)

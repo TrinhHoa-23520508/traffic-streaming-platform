@@ -8,6 +8,8 @@ import java.time.Instant;
 import java.util.List;
 
 public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Long> {
+    // 🔹 Lấy dữ liệu theo areaId
+    TrafficMetric findTopByAreaIdOrderByTimestampDesc(String areaId);
 
     // 🔹 Lấy dữ liệu theo areaId (mới nhất trước)
     List<TrafficMetric> findByAreaIdOrderByTimestampDesc(String areaId, Pageable pageable);

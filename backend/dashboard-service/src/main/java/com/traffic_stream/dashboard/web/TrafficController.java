@@ -7,7 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
-
+import org.springframework.http.ResponseEntity;
 
 import java.time.Instant;
 import java.util.List;
@@ -29,7 +29,7 @@ public class TrafficController {
     }
 
     /**
-     * 🔹 Lấy danh sách metrics mới nhất, có thể filter theo areaId
+//     * 🔹 Lấy danh sách metrics mới nhất, có thể filter theo areaId
      */
     @GetMapping("/metrics/latest")
     public List<TrafficMetric> latest(
@@ -44,6 +44,27 @@ public class TrafficController {
             return repo.findAllByOrderByTimestampDesc(pageable);
         }
     }
+
+    /**
+     * 🔹 Lấy metrics theo Id Camera
+     */
+    @GetMapping("/metrics/find")
+    public ResponseEntity<TrafficMetric> find(
+            @RequestParam(required = true) String areaId
+    ) {
+        if (areaId == null || areaId.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        TrafficMetric latest = repo.findTopByAreaIdOrderByTimestampDesc(areaId);
+
+        if (latest != null) {
+            return ResponseEntity.ok(latest);
+        } else {
+            return ResponseEntity.noContent().build();
+        }
+    }
+
 
     /**
      * 🔹 Lấy dữ liệu lịch sử theo khoảng thời gian

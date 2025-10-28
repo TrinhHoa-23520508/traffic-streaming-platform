@@ -159,31 +159,15 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
             const points = cameras.map((c: any) => {
                 const lat = c.loc.coordinates[1];
                 const lon = c.loc.coordinates[0];
+                 const zoomLevel = map.getZoom();
                 // normalize weight between 0 and 1 - spread out more evenly
-                const weight = (c._randCount) / 100;
-                const zoomLevel = map.getZoom();
-
-                // Zoom-to-factor lookup table: higher zoom (zoomed in) = smaller factor, lower zoom (zoomed out) = larger factor
-                const zoomFactorTable: Record<number, number> = {
-                    10: 4.0,
-                    11: 3.5,
-                    12: 3.0,
-                    13: 2.5,
-                    14: 5.0,
-                    15: 4.5,
-                    16: 3.2,
-                    17: 1.5,
-                    18: 1.0,
-                };
-
-                // Get factor from table or interpolate
-                const zoomFactor = zoomFactorTable[zoomLevel] ?? 1;
-                return [lat, lon, weight * (18 - zoomLevel + 1)];
+                const weight = c._randCount / 50;
+               
+                return [lat, lon, weight];
             });
-            
             // Use larger radius and prevent fading on zoom out
             const radius = 60;
-            const blur = 40;
+            const blur = 0;
 
             // gradient: green (low) -> yellow -> red (high)
             const gradient = {
@@ -199,7 +183,6 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
                     heat = (L as any).heatLayer(points, { 
                         radius, 
                         blur, 
-                        max: 1.0,
                         minOpacity: 0.1,  
                         gradient 
                     });

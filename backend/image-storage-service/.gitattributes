@@ -1,0 +1,20 @@
+# Normalize text files and enforce platform-specific eol for scripts
+* text=auto
+*.sh text eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Mark common binary files (treat as binary for diff/merge)
+*.jar binary
+*.war binary
+*.ear binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+
+# Don't include build artifacts when creating archives
+/target/ export-ignore
+/.idea/ export-ignore
+/.vscode/ export-ignore
+.mvn/wrapper/maven-wrapper.jar export-ignore

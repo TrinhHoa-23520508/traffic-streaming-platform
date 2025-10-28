@@ -1,0 +1,9 @@
+numpy
+opencv-python
+kafka-python
+torch
+torchvision
+Pillow
+requests
+ultralytics
+minio

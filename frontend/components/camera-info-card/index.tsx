@@ -24,8 +24,13 @@ const getTrafficLevelColor = (level: 'Thấp' | 'Trung bình' | 'Cao') => {
     }
 };
 
-const getCongestionColor = (status: 'Thông thoáng' | 'Đang kẹt xe') => {
-    return status === 'Đang kẹt xe' ? 'bg-red-500 text-white' : 'bg-green-500 text-white';
+const getCongestionColor = (status: 'CAO' | 'TRUNG BÌNH' | 'THẤP') => {
+    switch (status) {
+        case 'CAO': return 'bg-red-500 text-white';
+        case 'TRUNG BÌNH': return 'bg-yellow-500 text-white';
+        case 'THẤP': return 'bg-green-500 text-white';
+        default: return 'bg-gray-200 text-gray-800';
+    }
 };
 
 
@@ -66,9 +71,8 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
 
     const fakeAnalytics = {
         vehicleCount: 68,
-        trafficLevel: 'Cao' as const, // Thêm 'as const' để TypeScript hiểu đây là giá trị cố định
         flowRate: 39,
-        congestionStatus: 'Đang kẹt xe' as const,
+        congestionStatus: 'CAO' as const,
     };
 
     return (
@@ -123,12 +127,6 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 value={`${fakeAnalytics.vehicleCount} xe`}
                 progressPercent={Math.min(fakeAnalytics.vehicleCount, 100)}
                 progressColorClass="bg-blue-500"
-            />
-
-            <StatCardWithBadge
-                label="Mức độ giao thông"
-                badgeText={fakeAnalytics.trafficLevel}
-                badgeColorClass={getTrafficLevelColor(fakeAnalytics.trafficLevel)}
             />
 
             <StatCardWithProgress

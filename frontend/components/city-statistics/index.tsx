@@ -32,21 +32,21 @@ const districtData = [
     'Thành phố Thủ Đức',
 ]
 
-export default function CityStatsDrawer() {
-    const [isOpen, setIsOpen] = useState(false)
+type CityStatsDrawerProps = {
+    isModalOpen?: boolean
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
+}
+
+export default function CityStatsDrawer({ isModalOpen = false, open, onOpenChange }: CityStatsDrawerProps) {
+    const [internalOpen, setInternalOpen] = useState(false)
+    const isOpen = open ?? internalOpen
+    const setIsOpen = onOpenChange ?? setInternalOpen
     const districtOptions = districtData
     const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Quận 1")
 
     return (
         <>
-            {!isOpen && <div>
-                <button
-                    onClick={() => setIsOpen(true)}
-                    className="fixed top-3 right-30 z-50 bg-white text-black p-3 rounded-full shadow-lg transition hover:bg-gray-50 cursor-pointer">
-                    <FiMenu size={18} />
-                </button>
-            </div>}
-
             <div
                 className={`fixed top-0 right-0 h-full w-150 bg-white shadow-sm transform transition-transform duration-100 ${isOpen ? "translate-x-0" : "translate-x-full"} z-40 flex flex-col`}
                 role="dialog" aria-modal="true">

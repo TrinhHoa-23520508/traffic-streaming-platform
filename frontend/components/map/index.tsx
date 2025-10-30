@@ -8,6 +8,7 @@ import { LatLngExpression, LatLngTuple } from 'leaflet';
 import L from 'leaflet';
 import CameraMarkers from "@/components/camera-markers";
 import type { Camera } from "@/types/camera";
+import { FiMenu } from "react-icons/fi";
 
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
@@ -20,6 +21,9 @@ interface MapProps {
     selectedCamera?: Camera | null;
     selectedLocation?: { lat: number, lon: number, name: string } | null;
     imageRefreshKey?: number;
+    isDrawerOpen?: boolean;
+    onOpenDrawer?: () => void;
+    isModalOpen?: boolean;
 }
 
 const defaults = {
@@ -36,7 +40,7 @@ function ChangeMapView({ center, zoom }: { center: LatLngExpression, zoom: numbe
 }
 
 const Map = (props: MapProps) => {
-    const { zoom = defaults.zoom, posix, locationName, onCameraClick, selectedCamera, selectedLocation } = props
+    const { zoom = defaults.zoom, posix, locationName, onCameraClick, selectedCamera, selectedLocation, isDrawerOpen, onOpenDrawer, isModalOpen } = props
     const [heatEnabled, setHeatEnabled] = useState<boolean>(false);
 
     useEffect(() => {
@@ -70,13 +74,26 @@ const Map = (props: MapProps) => {
             {/* All camera markers */}
             <CameraMarkers onCameraClick={onCameraClick} selectedCameraId={selectedCamera?._id} />
 
-            {/* Heatmap toggle UI */}
-            <div className="absolute top-4 right-4 z-[1000] pointer-events-auto">
-                <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2">
-                    <label className="flex items-center gap-2 select-none">
-                        <input type="checkbox" checked={heatEnabled} onChange={(e) => setHeatEnabled(e.target.checked)} />
-                        <span className="text-red-500">Heatmap</span>
-                    </label>
+            <div
+                className="absolute top-4 z-[1000] pointer-events-auto"
+                style={{ right: isDrawerOpen ? 616 : 16 }}
+            >
+                <div className="flex items-center gap-2">
+                    <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2">
+                        <label className="flex items-center gap-2 select-none">
+                            <input type="checkbox" checked={heatEnabled} onChange={(e) => setHeatEnabled(e.target.checked)} />
+                            <span className="text-red-500">Heatmap</span>
+                        </label>
+                    </div>
+
+                    {!isDrawerOpen && !isModalOpen && (
+                        <button
+                            onClick={() => onOpenDrawer && onOpenDrawer()}
+                            className="bg-white text-black p-2 rounded-full shadow hover:bg-gray-50 cursor-pointer"
+                        >
+                            <FiMenu size={18} />
+                        </button>
+                    )}
                 </div>
             </div>
 

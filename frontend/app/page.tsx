@@ -12,6 +12,7 @@ export default function Page() {
     const [mapCenter, setMapCenter] = useState<[number, number]>([10.8231, 106.6297]);
     const [locationName, setLocationName] = useState<string>("Ho Chi Minh City");
     const [mapZoom, setMapZoom] = useState<number>(13);
+    const [isStatsOpen, setIsStatsOpen] = useState<boolean>(false);
     const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lon: number, name: string } | null>(null);
     const [imageRefreshKey, setImageRefreshKey] = useState<number>(0);
@@ -113,6 +114,9 @@ export default function Page() {
                     selectedCamera={selectedCamera}
                     selectedLocation={selectedLocation}
                     imageRefreshKey={imageRefreshKey}
+                    isDrawerOpen={isStatsOpen}
+                    isModalOpen={!!modalImageUrl}
+                    onOpenDrawer={() => setIsStatsOpen(true)}
                 />
             </div>
             {modalImageUrl && (
@@ -122,7 +126,7 @@ export default function Page() {
                     onClose={() => setModalImageUrl(null)}
                 />
             )}
-            <CityStatsDrawer />
+            <CityStatsDrawer isModalOpen={!!modalImageUrl} open={isStatsOpen} onOpenChange={setIsStatsOpen} />
         </div>
     )
 }

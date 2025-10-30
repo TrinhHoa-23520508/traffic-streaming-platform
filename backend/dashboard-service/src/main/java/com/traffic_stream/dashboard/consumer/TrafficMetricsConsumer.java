@@ -8,6 +8,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import com.traffic_stream.dashboard.entity.TrafficMetric;
 import com.traffic_stream.dashboard.dto.TrafficMetricsDTO;
 
+import java.time.Instant;
 
 @Service
 public class TrafficMetricsConsumer {
@@ -27,18 +28,20 @@ public class TrafficMetricsConsumer {
         try {
             TrafficMetricsDTO dto = mapper.readValue(message, TrafficMetricsDTO.class);
 
-            // Save minimal record
-            TrafficMetric e = new TrafficMetric();
-            e.setImageName(dto.getImageName());
-            e.setAreaId(dto.getAreaId());
-            e.setVehicleCounts(dto.getVehicleCounts());
-            e.setTotalVehicles(dto.getTotalVehicles());
-            e.setTrafficDensity(dto.getTrafficDensity());
-            e.setTimestamp(dto.getTimestamp());
-            repo.save(e);
+            TrafficMetric entity = new TrafficMetric();
+            entity.setCameraId(dto.getCameraId());
+            entity.setCameraName(dto.getCameraName());
+            entity.setDistrict(dto.getDistrict());
+            entity.setCoordinates(dto.getCoordinates());
+            entity.setAnnotatedImageUrl(dto.getAnnotatedImageUrl());
+            entity.setDetectionDetails(dto.getDetectionDetails());
+            entity.setTotalCount(dto.getTotalCount());
+            entity.setTimestamp(Instant.ofEpochMilli(dto.getTimestamp()));
 
-            // Push to websocket clients
+            repo.save(entity);
+
             ws.convertAndSend("/topic/traffic", dto);
+
         } catch (Exception ex) {
             ex.printStackTrace();
         }

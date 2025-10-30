@@ -72,21 +72,21 @@ services:
       - postgres
 
   # BẬT LẠI IMAGE STORAGE SERVICE
-  image-storage-service:
-     build: ./image-storage-service
-     ports:
-       - "8081:8081"
-     environment:
-       KAFKA_BOOTSTRAP_SERVERS: broker:29092
-       MINIO_ENDPOINT: http://minio:9000
-       MINIO_ACCESS_KEY: minioadmin
-       MINIO_SECRET_KEY: minioadmin
-       MINIO_BUCKET_NAME: traffic-images
-     depends_on:
-       minio:
-         condition: service_healthy
-       broker:
-         condition: service_healthy
+#  image-storage-service:
+#     build: ./image-storage-service
+#     ports:
+#       - "8081:8081"
+#     environment:
+#       KAFKA_BOOTSTRAP_SERVERS: broker:29092
+#       MINIO_ENDPOINT: http://minio:9000
+#       MINIO_ACCESS_KEY: minioadmin
+#       MINIO_SECRET_KEY: minioadmin
+#       MINIO_BUCKET_NAME: traffic-images
+#     depends_on:
+#       minio:
+#         condition: service_healthy
+#       broker:
+#         condition: service_healthy
 
   traffic-analysis-service:
     build: ./traffic-analysis-service
@@ -125,7 +125,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/traffic_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: admin
-      APP_SIMULATE: "true"
+      APP_SIMULATE: "false"
     depends_on:
       - broker
       - postgres

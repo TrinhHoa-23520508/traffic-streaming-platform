@@ -1,14 +1,15 @@
 // component/camera-markers/index.tsx
 "use client"
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Marker, useMap } from 'react-leaflet';
-import { icon, LatLngBounds } from 'leaflet';
+import { icon } from 'leaflet';
 import type { Camera } from '@/types/camera';
 
 interface CameraMarkersProps {
     onCameraClick?: (camera: Camera) => void;
     selectedCameraId?: string;
+    onCamerasUpdate?: (cameras: any[]) => void;
 }
 
 // Custom camera icon
@@ -27,12 +28,66 @@ const createSelectedCameraIcon = () => icon({
     popupAnchor: [0, -24]
 });
 
-export default function CameraMarkers({ onCameraClick, selectedCameraId }: CameraMarkersProps) {
-    const [cameras, setCameras] = useState<Camera[]>([]);
+const getClusterDistance = (zoom: number) => {
+    if (zoom >= 14) return 0;
+    if (zoom >= 12) return 450;
+    if (zoom >= 10) return 900;
+    return 1400;
+};
+
+export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate }: CameraMarkersProps) {
     const [visibleCameras, setVisibleCameras] = useState<Camera[]>([]);
     const [loading, setLoading] = useState(true);
     const map = useMap();
     const camerasRef = useRef<Camera[]>([]);
+
+    const updateVisibleMarkers = useCallback(() => {
+        if (!map) return;
+        if (camerasRef.current.length === 0) {
+            setVisibleCameras([]);
+            return;
+        }
+
+        const bounds = map.getBounds();
+        const zoom = map.getZoom();
+
+        const inBounds = camerasRef.current.filter((camera) =>
+            bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
+        );
+
+        if (inBounds.length === 0) {
+            setVisibleCameras([]);
+            return;
+        }
+
+        const clusterDistance = getClusterDistance(zoom);
+
+        if (clusterDistance === 0) {
+            setVisibleCameras(inBounds);
+            return;
+        }
+
+        const sorted = [...inBounds].sort((a, b) => {
+            const keyA = a._id ?? (a as any).id ?? `${a.loc.coordinates[1]}:${a.loc.coordinates[0]}`;
+            const keyB = b._id ?? (b as any).id ?? `${b.loc.coordinates[1]}:${b.loc.coordinates[0]}`;
+            return keyA.localeCompare(keyB);
+        });
+
+        const clustered: Camera[] = [];
+
+        sorted.forEach((camera) => {
+            const position: [number, number] = [camera.loc.coordinates[1], camera.loc.coordinates[0]];
+            const nearby = clustered.some((existing) =>
+                map.distance(position, [existing.loc.coordinates[1], existing.loc.coordinates[0]]) <= clusterDistance
+            );
+
+            if (!nearby) {
+                clustered.push(camera);
+            }
+        });
+
+        setVisibleCameras(clustered);
+    }, [map]);
 
     // Load camera data once
     useEffect(() => {
@@ -42,9 +97,11 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId }: Camer
                 const data: Camera[] = await response.json();
                 // attach randomized vehicle counts for testing
                 const withCounts = data.map(d => ({ ...d, _randCount: Math.floor(Math.random() * 101) }));
-                setCameras(withCounts);
                 camerasRef.current = withCounts as any;
                 setLoading(false);
+                // Notify parent component of camera data
+                if (onCamerasUpdate) onCamerasUpdate(withCounts);
+                updateVisibleMarkers();
             } catch (error) {
                 console.error('Error loading cameras:', error);
                 setLoading(false);
@@ -52,56 +109,36 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId }: Camer
         };
 
         loadCameras();
-    }, []);
+    }, [onCamerasUpdate, updateVisibleMarkers]);
 
     // Refresh random counts every 20s for testing (simulate backend updates)
     useEffect(() => {
         const id = setInterval(() => {
             camerasRef.current = camerasRef.current.map(c => ({ ...c, _randCount: Math.floor(Math.random() * 101) }));
-            setCameras([...camerasRef.current]);
+            // Notify parent component of updated camera data
+            if (onCamerasUpdate) onCamerasUpdate([...camerasRef.current]);
+            updateVisibleMarkers();
         }, 20000);
         return () => clearInterval(id);
-    }, []);
+    }, [onCamerasUpdate, updateVisibleMarkers]); // Empty deps - onCamerasUpdate is stable enough, no need to restart interval
 
-    // Setup map listeners only once after cameras are loaded
     useEffect(() => {
-        if (cameras.length === 0) return;
+        if (!map) return;
 
-        function updateVisibleMarkers() {
-            if (camerasRef.current.length === 0) return;
-            const bounds = map.getBounds();
-            const zoom = map.getZoom();
-            if (zoom < 12) {
-                const filtered = camerasRef.current.filter((_, index) => index % 5 === 0);
-                setVisibleCameras(filtered.filter(camera => 
-                    bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
-                ));
-            } else if (zoom < 14) {
-                const filtered = camerasRef.current.filter((_, index) => index % 2 === 0);
-                setVisibleCameras(filtered.filter(camera => 
-                    bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
-                ));
-            } else {
-                setVisibleCameras(
-                    camerasRef.current.filter(camera => 
-                        bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
-                    )
-                );
-            }
-        }
+        const handleMapChange = () => {
+            updateVisibleMarkers();
+        };
 
-        // Initial update
-        updateVisibleMarkers();
+        map.on('moveend', handleMapChange);
+        map.on('zoomend', handleMapChange);
 
-        // Update on map move/zoom
-        map.on('moveend', updateVisibleMarkers);
-        map.on('zoomend', updateVisibleMarkers);
+        handleMapChange();
 
         return () => {
-            map.off('moveend', updateVisibleMarkers);
-            map.off('zoomend', updateVisibleMarkers);
+            map.off('moveend', handleMapChange);
+            map.off('zoomend', handleMapChange);
         };
-    }, [cameras.length]);
+    }, [map, updateVisibleMarkers]);
 
     // Memoize camera icon to avoid recreation
     const cameraIcon = useMemo(() => createCameraIcon(), []);

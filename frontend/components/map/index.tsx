@@ -39,9 +39,27 @@ function ChangeMapView({ center, zoom }: { center: LatLngExpression, zoom: numbe
     return null;
 }
 
+function ZoomLogger() {
+    const map = useMap();
+
+    useEffect(() => {
+        const handleZoom = () => {
+            console.log('🗺️ Map zoom level:', map.getZoom());
+        };
+
+        map.on('zoomend', handleZoom);
+        return () => {
+            map.off('zoomend', handleZoom);
+        };
+    }, [map]);
+
+    return null;
+}
+
 const Map = (props: MapProps) => {
     const { zoom = defaults.zoom, posix, locationName, onCameraClick, selectedCamera, selectedLocation, isDrawerOpen, onOpenDrawer, isModalOpen } = props
     const [heatEnabled, setHeatEnabled] = useState<boolean>(false);
+    const [cameras, setCameras] = useState<any[]>([]);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -72,7 +90,11 @@ const Map = (props: MapProps) => {
             )}
 
             {/* All camera markers */}
-            <CameraMarkers onCameraClick={onCameraClick} selectedCameraId={selectedCamera?._id} />
+            <CameraMarkers 
+                onCameraClick={onCameraClick} 
+                selectedCameraId={selectedCamera?._id}
+                onCamerasUpdate={setCameras}
+            />
 
             <div
                 className="absolute top-4 z-[1000] pointer-events-auto"
@@ -99,7 +121,7 @@ const Map = (props: MapProps) => {
 
             {/* Heat layer manager (client-only) */}
             {typeof window !== 'undefined' && (
-                <HeatLayerManager enabled={heatEnabled} imageRefreshKey={(props as any).imageRefreshKey} />
+                <HeatLayerManager enabled={heatEnabled} cameras={cameras} imageRefreshKey={(props as any).imageRefreshKey} />
             )}
         </MapContainer>
     )
@@ -108,45 +130,38 @@ const Map = (props: MapProps) => {
 export default Map
 
 // HeatLayerManager component: client-only, creates a heat layer using leaflet.heat
-function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imageRefreshKey?: number }) {
+function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: boolean, cameras: any[], imageRefreshKey?: number }) {
     const map = useMap();
     const heatLayerRef = useRef<any | null>(null);
-    const camerasRef = useRef<any[]>([]);
+    const [zoomLevel, setZoomLevel] = useState(() => map.getZoom());
 
-    // Load cameras once
     useEffect(() => {
-        let mounted = true;
-        (async () => {
-            try {
-                const res = await fetch('/camera_api.json');
-                const data = await res.json();
-                if (!mounted) return;
-                camerasRef.current = data;
-            } catch (err) {
-                console.error('Failed to load cameras for heatmap', err);
-            }
-        })();
-        return () => { mounted = false };
-    }, []);
-
-    // Update randomized vehicle counts whenever imageRefreshKey changes or on interval
-    useEffect(() => {
-        if (camerasRef.current.length === 0) return;
-
-        // assign randomized counts 0-100
-        const assignRandomCounts = () => {
-            camerasRef.current = camerasRef.current.map((c: any) => ({ ...c, _randCount: Math.floor(Math.random() * 101) }));
-            // if heat layer exists, update its points
-            if (heatLayerRef.current) {
-                const points = camerasRef.current.map((c: any) => [c.loc.coordinates[1], c.loc.coordinates[0], (c._randCount ?? 0) / 100]);
-                try { heatLayerRef.current.setLatLngs(points); } catch (e) { /* ignore */ }
-            }
+        const handleZoom = () => {
+            const nextZoom = map.getZoom();
+            setZoomLevel(nextZoom);
         };
 
-        assignRandomCounts();
-        const id = setInterval(assignRandomCounts, 20000);
-        return () => clearInterval(id);
-    }, [imageRefreshKey]);
+        map.on('zoomend', handleZoom);
+        handleZoom();
+        return () => {
+            map.off('zoomend', handleZoom);
+        };
+    }, [map]);
+
+    // Remove the old camera loading and random count generation - now using cameras from props
+    // Update heat layer when cameras data changes
+    useEffect(() => {
+        if (cameras.length === 0) return;
+
+        // Log camera densities when they update
+        console.log('🚗 Camera Density Update:', cameras.map((c: any) => ({
+            id: c.id || c._id,
+            name: c.name,
+            density: c._randCount,
+            coordinates: [c.loc.coordinates[1], c.loc.coordinates[0]]
+        })));
+
+    }, [cameras, imageRefreshKey]);
 
     // Create/remove heat layer when enabled changes or camera data changes
     useEffect(() => {
@@ -157,25 +172,19 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
             // @ts-ignore: no types for leaflet.heat
             await import('leaflet.heat');
 
-            // build points with [lat, lon, weight]
-            const points = camerasRef.current.map((c: any) => {
+            // build points with [lat, lon, weight] using cameras from props
+            const points = cameras.map((c: any) => {
                 const lat = c.loc.coordinates[1];
                 const lon = c.loc.coordinates[0];
-                // normalize weight between 0 and 1
-                const weight = (c._randCount ?? 0) / 100;
+                 const zoomLevel = map.getZoom();
+                // normalize weight between 0 and 1 - spread out more evenly
+                const weight = c._randCount / 50;
+               
                 return [lat, lon, weight];
             });
-            // helper: compute radius based on zoom (larger radius when zoomed out)
-            const getRadiusForZoom = (z: number) => {
-                if (z <= 10) return 50;
-                if (z <= 12) return 40;
-                if (z <= 14) return 30;
-                if (z <= 16) return 20;
-                return 12;
-            };
-
-            const radius = getRadiusForZoom(map.getZoom());
-            const blur = Math.max(10, Math.floor(radius / 2));
+            // Use larger radius and prevent fading on zoom out
+            const radius = 60;
+            const blur = 0;
 
             // gradient: green (low) -> yellow -> red (high)
             const gradient = {
@@ -188,28 +197,17 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
 
             if (enabled) {
                 if (!heat) {
-                    heat = (L as any).heatLayer(points, { radius, blur, maxZoom: 17, gradient });
+                    heat = (L as any).heatLayer(points, { 
+                        radius, 
+                        blur, 
+                        minOpacity: 0.1,  
+                        gradient 
+                    });
                     heat.addTo(map as any);
                     heatLayerRef.current = heat;
                 } else {
-                    // if radius changed, recreate layer to apply new radius/blur
-                    try {
-                        const currentRadius = (heat && heat._radius) || null;
-                        if (currentRadius !== radius) {
-                            map.removeLayer(heat);
-                            heat = (L as any).heatLayer(points, { radius, blur, maxZoom: 17, gradient });
-                            heat.addTo(map as any);
-                            heatLayerRef.current = heat;
-                        } else {
-                            heat.setLatLngs(points);
-                        }
-                    } catch (e) {
-                        // fallback: recreate
-                        try { map.removeLayer(heat); } catch (e) { }
-                        heat = (L as any).heatLayer(points, { radius, blur, maxZoom: 17, gradient });
-                        heat.addTo(map as any);
-                        heatLayerRef.current = heat;
-                    }
+                    // Just update points, don't recreate layer
+                    heat.setLatLngs(points);
                 }
             } else {
                 if (heat) {
@@ -219,13 +217,8 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
             }
         };
 
-        // update heat layer when zoom changes so radius adapts
-        const onZoom = () => {
-            // trigger update to potentially recreate layer with new radius
-            update().catch(() => { });
-        };
-
-        map.on('zoomend', onZoom);
+        // Don't recreate on zoom, leaflet.heat handles zoom automatically
+        // Only update when enabled/disabled or data changes
 
         // Ensure global L is available
         if (typeof (window as any).L === 'undefined') {
@@ -239,13 +232,12 @@ function HeatLayerManager({ enabled, imageRefreshKey }: { enabled: boolean, imag
 
         // cleanup
         return () => {
-            map.off('zoomend', onZoom);
             if (heatLayerRef.current) {
                 try { map.removeLayer(heatLayerRef.current); } catch (e) { }
                 heatLayerRef.current = null;
             }
         };
-    }, [enabled, imageRefreshKey, map]);
+    }, [enabled, cameras, map, zoomLevel]);
 
     return null;
 }

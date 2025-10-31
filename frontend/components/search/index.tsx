@@ -51,19 +51,98 @@ export default function SearchBox({ onSelectLocation }: SearchProps) {
     const searchLocation = async (searchQuery: string) => {
         setIsLoading(true);
         try {
-            // Using Nominatim API with Vietnam focus (countrycodes=vn)
+            // Ho Chi Minh City center coordinates
+            const lat = 10.8231;
+            const lon = 106.6297;
+            
+            // Using Photon API
             const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+                `https://photon.komoot.io/api/?q=${encodeURIComponent(
                     searchQuery
-                )}&countrycodes=vn&limit=5&addressdetails=1`,
+                )}&lat=${lat}&lon=${lon}&limit=20`,
                 {
-                    headers: {
-                        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
-                    },
+                    method: 'GET',
                 }
             );
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const data = await response.json();
-            setResults(data);
+            
+            console.log('Photon API response:', data); // Debug log
+            
+            // Check if data.features exists
+            if (!data.features || !Array.isArray(data.features)) {
+                console.error('Invalid Photon API response:', data);
+                setResults([]);
+                setShowResults(true);
+                setIsLoading(false);
+                return;
+            }
+            
+            // Transform Photon GeoJSON format to our SearchResult format
+            const transformedResults = data.features
+                .filter((feature: any) => {
+                    // Filter for Ho Chi Minh City results
+                    const props = feature.properties;
+                    const city = props.city || props.county || props.state || '';
+                    const name = props.name || '';
+                    const street = props.street || '';
+                    
+                    // More flexible filtering for HCMC
+                    const searchTerms = city + ' ' + name + ' ' + street;
+                    return searchTerms.toLowerCase().includes('hồ chí minh') || 
+                           searchTerms.toLowerCase().includes('ho chi minh') ||
+                           searchTerms.toLowerCase().includes('sài gòn') ||
+                           searchTerms.toLowerCase().includes('saigon');
+                })
+                .map((feature: any) => {
+                    const props = feature.properties;
+                    const coords = feature.geometry.coordinates;
+                    
+                    // Build display name similar to Google Maps format
+                    const parts = [
+                        props.housenumber,
+                        props.street || props.name,
+                        props.district || props.suburb,
+                        props.city || 'Hồ Chí Minh',
+                    ].filter(Boolean);
+                    
+                    const display_name = parts.join(', ');
+                    
+                    // Calculate relevance score
+                    const queryLower = searchQuery.toLowerCase();
+                    const nameLower = (props.name || '').toLowerCase();
+                    const streetLower = (props.street || '').toLowerCase();
+                    
+                    // Prioritize exact matches in name or street
+                    const nameMatch = nameLower.includes(queryLower) ? 1000 : 0;
+                    const streetMatch = streetLower.includes(queryLower) ? 900 : 0;
+                    const startsWithQuery = nameLower.startsWith(queryLower) || streetLower.startsWith(queryLower) ? 500 : 0;
+                    
+                    // Prefer shorter, more specific results
+                    const lengthScore = Math.max(0, 500 - display_name.length);
+                    
+                    // Boost streets and addresses
+                    const typeBoost = props.street || props.housenumber ? 200 : 0;
+                    
+                    const relevanceScore = nameMatch + streetMatch + startsWithQuery + lengthScore + typeBoost;
+                    
+                    return {
+                        place_id: feature.properties.osm_id || Math.random(),
+                        display_name,
+                        lat: coords[1].toString(),
+                        lon: coords[0].toString(),
+                        boundingbox: [],
+                        relevanceScore
+                    };
+                })
+                // .sort((a: any, b: any) => b.relevanceScore - a.relevanceScore)
+                .slice(0, 5);
+            
+            setResults(transformedResults);
             setShowResults(true);
         } catch (error) {
             console.error('Error searching location:', error);

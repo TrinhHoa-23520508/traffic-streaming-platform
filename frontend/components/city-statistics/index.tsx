@@ -7,43 +7,15 @@ import TrafficDensityStatisticsAreaChart from "./traffic-density_stats"
 import VehicleStatisticsStackChart from "./vehicle-stats"
 import TrafficAlertsPanel from "./traffic-alert"
 
-const districtData = [
-    'Bình Chánh (huyện)',
-    'Bình Tân (quận)',
-    'Bình Thạnh (quận)',
-    'Cần Giờ (huyện)',
-    'Củ Chi (huyện)',
-    'Gò Vấp (quận)',
-    'Hóc Môn (huyện)',
-    'Nhà Bè (huyện)',
-    'Phú Nhuận (quận)',
-    'Quận 1',
-    'Quận 10',
-    'Quận 11',
-    'Quận 12',
-    'Quận 3',
-    'Quận 4',
-    'Quận 5',
-    'Quận 6',
-    'Quận 7',
-    'Quận 8',
-    'Tân Bình (quận)',
-    'Tân Phú (quận)',
-    'Thành phố Thủ Đức',
-]
-
 type CityStatsDrawerProps = {
-    isModalOpen?: boolean
     open?: boolean
     onOpenChange?: (open: boolean) => void
 }
 
-export default function CityStatsDrawer({ isModalOpen = false, open, onOpenChange }: CityStatsDrawerProps) {
+export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerProps) {
     const [internalOpen, setInternalOpen] = useState(false)
     const isOpen = open ?? internalOpen
     const setIsOpen = onOpenChange ?? setInternalOpen
-    const districtOptions = districtData
-    const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Quận 1")
 
     return (
         <>
@@ -67,11 +39,7 @@ export default function CityStatsDrawer({ isModalOpen = false, open, onOpenChang
                 </div>
                 <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 flex flex-col gap-3">
                     <TrafficAlertsPanel />
-                    <TrafficDensityStatisticsAreaChart
-                        filterOptions={districtOptions}
-                        filterValue={areaDistrict}
-                        onFilterChange={setAreaDistrict}
-                    />
+                    <TrafficDensityStatisticsAreaChart />
                     <VehicleStatisticsStackChart />
                 </div>
             </div>

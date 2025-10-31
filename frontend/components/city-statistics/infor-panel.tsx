@@ -1,28 +1,49 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
 import Combobox from "@/components/combo-box"
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
-import React from "react"
-import { ChevronDownIcon } from "lucide-react"
-import { format } from "date-fns"
+import DatePicker from "../date-picker"
+import React from "react";
 
 interface InforPanelProps {
     title: string;
     children: React.ReactNode;
-    filterOptions?: string[];
     filterLabel?: string;
     filterValue?: string;
+    filterOptionHasAll?: boolean;
     onFilterChange?: (value: string) => void;
     showFilter?: boolean;
 }
 
-export default function InforPanel({ title, children, filterOptions, filterLabel = "Quận/Huyện", filterValue, onFilterChange, showFilter = true }: InforPanelProps) {
+export default function InforPanel({ title, children, filterLabel = "Quận/Huyện", filterValue, onFilterChange, showFilter = true, filterOptionHasAll = false }: InforPanelProps) {
+    const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date())
+
+    const districtData = [
+        'Bình Chánh (huyện)',
+        'Bình Tân (quận)',
+        'Bình Thạnh (quận)',
+        'Cần Giờ (huyện)',
+        'Củ Chi (huyện)',
+        'Gò Vấp (quận)',
+        'Hóc Môn (huyện)',
+        'Nhà Bè (huyện)',
+        'Phú Nhuận (quận)',
+        'Quận 1',
+        'Quận 10',
+        'Quận 11',
+        'Quận 12',
+        'Quận 3',
+        'Quận 4',
+        'Quận 5',
+        'Quận 6',
+        'Quận 7',
+        'Quận 8',
+        'Tân Bình (quận)',
+        'Tân Phú (quận)',
+        'Thành phố Thủ Đức',
+    ]
+
+    const options = filterOptionHasAll ? ['Tất cả', ...districtData] : districtData
+
     return (
         <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-100/80 px-6 py-4 w-full">
             <div className="flex justify-between items-start mb-4 gap-4">
@@ -30,11 +51,11 @@ export default function InforPanel({ title, children, filterOptions, filterLabel
                     <h2 className="text-xl font-bold text-gray-900">
                         {title}
                     </h2>
-                    {showFilter && filterOptions && filterOptions.length > 0 && (
+                    {showFilter && options && (
                         <div className="flex items-center gap-2">
                             <label className="text-base text-gray-600" htmlFor="district-filter">{filterLabel}:</label>
                             <Combobox
-                                options={filterOptions.map((d) => ({ value: d, label: d }))}
+                                options={options.map((d) => ({ value: d, label: d }))}
                                 value={filterValue}
                                 onChange={(v) => onFilterChange && onFilterChange(v ?? "")}
                                 buttonClassName="w-56 h-9 justify-between text-sm"
@@ -44,42 +65,9 @@ export default function InforPanel({ title, children, filterOptions, filterLabel
                         </div>
                     )}
                 </div>
-                <Calendar22 />
+                <DatePicker value={selectedDate} onChange={(d) => setSelectedDate(d)} />
             </div>
             {children}
-        </div>
-    )
-}
-
-function Calendar22() {
-    const [open, setOpen] = React.useState(false)
-    const [date, setDate] = React.useState<Date | undefined>(new Date())
-
-    return (
-        <div className="flex flex-col gap-3">
-            <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                    <Button
-                        variant="outline"
-                        id="date"
-                        className="w-30 justify-between font-normal cursor-pointer"
-                    >
-                        {date ? format(date, "dd/MM/yyyy") : "Chọn ngày"}
-                        <ChevronDownIcon className="ml-2 h-4 w-4 opacity-50" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto overflow-hidden p-0" align="start">
-                    <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={(date) => {
-                            setDate(date)
-                            setOpen(false)
-                        }}
-                        captionLayout="dropdown"
-                    />
-                </PopoverContent>
-            </Popover>
         </div>
     )
 }

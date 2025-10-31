@@ -1,11 +1,6 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import InforPanel from "./infor-panel";
-
-type PanelFilterProps = {
-    filterOptions: string[]
-    filterValue?: string
-    onFilterChange?: (value: string) => void
-}
+import { useState } from "react";
 
 const data = [
     { time: '0:00', traffic: 30 },
@@ -34,13 +29,13 @@ const data = [
     { time: '23:00', traffic: 55 },
 ];
 
-export default function TrafficDensityStatisticsAreaChart({ filterOptions, filterValue, onFilterChange }: PanelFilterProps) {
+export default function TrafficDensityStatisticsAreaChart() {
+    const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Quận 1")
     return (
         <InforPanel
             title="Thống kê lưu lượng xe theo giờ"
-            filterOptions={filterOptions}
-            filterValue={filterValue}
-            onFilterChange={onFilterChange}
+            filterValue={areaDistrict}
+            onFilterChange={setAreaDistrict}
             children={<ResponsiveContainer width="100%" height={300}><AreaChart data={data} margin={{ top: 8, right: 12, left: 8, bottom: 30 }}>
                 <defs>
                     <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">

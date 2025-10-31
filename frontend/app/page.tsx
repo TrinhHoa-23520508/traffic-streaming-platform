@@ -126,7 +126,7 @@ export default function Page() {
                     onClose={() => setModalImageUrl(null)}
                 />
             )}
-            <CityStatsDrawer isModalOpen={!!modalImageUrl} open={isStatsOpen} onOpenChange={setIsStatsOpen} />
+            <CityStatsDrawer open={isStatsOpen} onOpenChange={setIsStatsOpen} />
         </div>
     )
 }

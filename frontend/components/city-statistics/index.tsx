@@ -7,46 +7,18 @@ import TrafficDensityStatisticsAreaChart from "./traffic-density_stats"
 import VehicleStatisticsStackChart from "./vehicle-stats"
 import TrafficAlertsPanel from "./traffic-alert"
 
-const districtData = [
-    'Bình Chánh (huyện)',
-    'Bình Tân (quận)',
-    'Bình Thạnh (quận)',
-    'Cần Giờ (huyện)',
-    'Củ Chi (huyện)',
-    'Gò Vấp (quận)',
-    'Hóc Môn (huyện)',
-    'Nhà Bè (huyện)',
-    'Phú Nhuận (quận)',
-    'Quận 1',
-    'Quận 10',
-    'Quận 11',
-    'Quận 12',
-    'Quận 3',
-    'Quận 4',
-    'Quận 5',
-    'Quận 6',
-    'Quận 7',
-    'Quận 8',
-    'Tân Bình (quận)',
-    'Tân Phú (quận)',
-    'Thành phố Thủ Đức',
-]
+type CityStatsDrawerProps = {
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
+}
 
-export default function CityStatsDrawer() {
-    const [isOpen, setIsOpen] = useState(false)
-    const districtOptions = districtData
-    const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Quận 1")
+export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerProps) {
+    const [internalOpen, setInternalOpen] = useState(false)
+    const isOpen = open ?? internalOpen
+    const setIsOpen = onOpenChange ?? setInternalOpen
 
     return (
         <>
-            {!isOpen && <div>
-                <button
-                    onClick={() => setIsOpen(true)}
-                    className="fixed top-3 right-30 z-50 bg-white text-black p-3 rounded-full shadow-lg transition hover:bg-gray-50 cursor-pointer">
-                    <FiMenu size={18} />
-                </button>
-            </div>}
-
             <div
                 className={`fixed top-0 right-0 h-full w-150 bg-white shadow-sm transform transition-transform duration-100 ${isOpen ? "translate-x-0" : "translate-x-full"} z-40 flex flex-col`}
                 role="dialog" aria-modal="true">
@@ -67,11 +39,7 @@ export default function CityStatsDrawer() {
                 </div>
                 <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 flex flex-col gap-3">
                     <TrafficAlertsPanel />
-                    <TrafficDensityStatisticsAreaChart
-                        filterOptions={districtOptions}
-                        filterValue={areaDistrict}
-                        onFilterChange={setAreaDistrict}
-                    />
+                    <TrafficDensityStatisticsAreaChart />
                     <VehicleStatisticsStackChart />
                 </div>
             </div>

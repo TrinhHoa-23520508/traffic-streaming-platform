@@ -1,4 +1,6 @@
 import { FiClock } from "react-icons/fi"
+import React, { useState } from 'react'
+import InforPanel from "./infor-panel"
 
 type AlertSeverity = "high" | "medium" | "low"
 
@@ -7,6 +9,7 @@ type TrafficAlert = {
     title: string
     description: string
     cameraId: string
+    date: string
     time: string
     severity: AlertSeverity
 }
@@ -17,6 +20,7 @@ export default function TrafficAlertsPanel() {
             id: "1",
             title: "Đường Nguyễn Huệ - Quận 1",
             description: "Kẹt xe nghiêm trọng, được phát hiện tại camera NHU-001",
+            date: (new Date()).toISOString().split('T')[0],
             cameraId: "NHU-001",
             time: "14:32:15",
             severity: "high",
@@ -25,6 +29,7 @@ export default function TrafficAlertsPanel() {
             id: "2",
             title: "Đường Võ Văn Tần - Quận 3",
             description: "Kẹt xe khá nghiêm trọng, được phát hiện tại camera VVT-012",
+            date: (new Date()).toISOString().split('T')[0],
             cameraId: "VVT-012",
             time: "14:28:42",
             severity: "medium",
@@ -33,6 +38,7 @@ export default function TrafficAlertsPanel() {
             id: "3",
             title: "Đường Lê Lai - Quận 1",
             description: "Kẹt xe khá nghiêm trọng, được phát hiện tại camera DLL-01",
+            date: (new Date()).toISOString().split('T')[0],
             cameraId: "DLL-01",
             time: "14:25:18",
             severity: "high",
@@ -41,6 +47,7 @@ export default function TrafficAlertsPanel() {
             id: "4",
             title: "Đường Phạm Ngũ Lão - Quận 1",
             description: "Kẹt xe nhẹ, được phát hiện tại camera PNL-07",
+            date: (new Date()).toISOString().split('T')[0],
             cameraId: "PNL-07",
             time: "14:20:31",
             severity: "low",
@@ -69,20 +76,21 @@ export default function TrafficAlertsPanel() {
         return t
     }
 
+    const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Tất cả")
+
     return (
-        <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-100/80 px-6 py-3 w-full">
-            <div className="flex items-center justify-between pt-3 pb-2">
-                <h2 className="text-xl font-bold text-gray-900">Cảnh báo giao thông</h2>
-                <span
-                    className="inline-flex items-center text-rose-600 text-base font-semibold bg-rose-50 rounded-md px-2 py-0.5"
-                >
-                    {alerts.length} cảnh báo
-                </span>
-            </div>
-            <div className="pb-3">
-                <div className="flex flex-col gap-2 max-h-100 overflow-y-auto overscroll-contain pr-1">
-                    {alerts.map((a) => {
-                        return (
+        <InforPanel
+            title="Cảnh báo giao thông"
+            filterOptionHasAll={true}
+            showFilter={true}
+            filterValue={areaDistrict}
+            onFilterChange={setAreaDistrict}
+            children={<div className="py-3">
+                <div className="flex flex-col gap-2 max-h-90 min-h-90 overflow-y-auto pr-1">
+                    {alerts.length === 0 ? (
+                        <div className="flex items-center justify-center text-sm text-gray-500">Không có cảnh báo giao thông nào phù hợp</div>
+                    ) : (
+                        alerts.map((a) => (
                             <div
                                 key={a.id}
                                 role="button"
@@ -95,14 +103,10 @@ export default function TrafficAlertsPanel() {
                                     <div className="flex items-start gap-3">
                                         <div>
                                             <div className="text-black font-medium">{a.title}</div>
-                                            <div className="text-gray-500 text-sm">
-                                                {a.description}
-                                            </div>
+                                            <div className="text-gray-500 text-sm">{a.description}</div>
                                         </div>
                                     </div>
-                                    <span className={`shrink-0 inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium border ${badgeClassesBySeverity[a.severity]}`}>
-                                        {labelBySeverity[a.severity]}
-                                    </span>
+                                    <span className={`shrink-0 inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium border ${badgeClassesBySeverity[a.severity]}`}>{labelBySeverity[a.severity]}</span>
                                 </div>
                                 <div className="mt-1.5 text-xs text-gray-500 flex items-center gap-2 pl-0">
                                     <span className="inline-flex items-center gap-1.5 rounded-md bg-gray-50 px-1.5 py-0.5 font-medium text-gray-600 ring-1 ring-inset ring-gray-200">
@@ -111,10 +115,9 @@ export default function TrafficAlertsPanel() {
                                     </span>
                                 </div>
                             </div>
-                        )
-                    })}
+                        ))
+                    )}
                 </div>
-            </div>
-        </div>
+            </div>}></InforPanel>
     )
 }

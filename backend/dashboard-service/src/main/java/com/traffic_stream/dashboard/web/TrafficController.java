@@ -46,7 +46,7 @@ public class TrafficController {
     }
 
     /**
-     * API 3 (Cho Heatmap và list): Lấy tất cả metrics theo ngày và quận
+     * API 3 (Cho Heatmap và list): Lấy tất cả metrics theo ngày và camera
      * Lọc (optional): ?date=YYYY-MM-DD (Mặc định là hôm nay)
      * Lọc (optional): ?district=Tên Quận
      * Endpoint: GET /api/traffic/by-date
@@ -54,8 +54,8 @@ public class TrafficController {
     @GetMapping("/by-date")
     public ResponseEntity<List<TrafficMetric>> getMetricsByDate(
             @RequestParam(required = false) String date,
-            @RequestParam(required = false) String district) {
-        List<TrafficMetric> metrics = trafficService.getMetricsByDate(date, district);
+            @RequestParam(required = false) String cameraId) {
+        List<TrafficMetric> metrics = trafficService.getMetricsByDate(date, cameraId);
         return ResponseEntity.ok(metrics);
     }
 

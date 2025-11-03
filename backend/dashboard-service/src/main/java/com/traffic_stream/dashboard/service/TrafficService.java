@@ -54,15 +54,15 @@ public class TrafficService {
     }
 
     /**
-     * API 3 (MỚI - CHO HEATMAP): Lấy tất cả metrics theo ngày và quận
+     * API 3 (MỚI - CHO HEATMAP): Lấy tất cả metrics theo ngày và camera
      */
-    public List<TrafficMetric> getMetricsByDate(String dateStr, String district) {
+    public List<TrafficMetric> getMetricsByDate(String dateStr, String cameraId) {
         LocalDate date = parseDateOrDefault(dateStr);
         Instant startOfDay = date.atStartOfDay(VIETNAM_ZONE).toInstant();
         Instant endOfDay = date.plusDays(1).atStartOfDay(VIETNAM_ZONE).toInstant();
 
-        if (district != null && !district.isEmpty()) {
-            return repository.findByTimestampBetweenAndDistrict(startOfDay, endOfDay, district);
+        if (cameraId != null && !cameraId.isEmpty()) {
+            return repository.findByTimestampBetweenAndCameraId(startOfDay, endOfDay, cameraId);
         }
         return repository.findByTimestampBetween(startOfDay, endOfDay);
     }

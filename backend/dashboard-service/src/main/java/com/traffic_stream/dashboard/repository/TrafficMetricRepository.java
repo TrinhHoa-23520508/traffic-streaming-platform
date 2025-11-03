@@ -40,11 +40,8 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
     // API 3 (MỚI - CHO HEATMAP): Lấy TẤT CẢ bản ghi theo ngày
     List<TrafficMetric> findByTimestampBetween(Instant start, Instant end);
 
-    // API 3 (MỚI - CHO HEATMAP): Lấy TẤT CẢ bản ghi theo ngày VÀ quận
-    List<TrafficMetric> findByTimestampBetweenAndDistrict(
-            Instant start,
-            Instant end,
-            String district);
+    // API 3 (MỚI - CHO HEATMAP): Lấy TẤT CẢ bản ghi theo ngày VÀ camera
+    List<TrafficMetric> findByTimestampBetweenAndCameraId(Instant start, Instant end, String cameraId);
 
     /**
      * API 4 (CHO CHART 24H): Lấy tổng count theo từng giờ trong ngày

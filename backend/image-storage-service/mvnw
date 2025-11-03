@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+# Maven wrapper script for Unix-based systems.
+# This script allows you to run Maven commands without requiring a local installation of Maven.
+
+MAVEN_WRAPPER_VERSION=3.8.6
+MAVEN_HOME="$(dirname "$(dirname "$0")")/.mvn/wrapper"
+
+if [ ! -f "$MAVEN_HOME/maven-wrapper.jar" ]; then
+  echo "Maven wrapper jar not found. Please run 'mvn -N io.takari:maven:wrapper' to generate it."
+  exit 1
+fi
+
+exec java -cp "$MAVEN_HOME/maven-wrapper.jar" org.apache.maven.wrapper.MavenWrapperMain "$@"

@@ -178,7 +178,7 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
                 const lon = c.loc.coordinates[0];
                  const zoomLevel = map.getZoom();
                 // normalize weight between 0 and 1 - spread out more evenly
-                const weight = c._randCount / 50;
+                const weight = c._randCount / 30;
                
                 return [lat, lon, weight];
             });
@@ -200,7 +200,6 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
                     heat = (L as any).heatLayer(points, { 
                         radius, 
                         blur, 
-                        minOpacity: 0.1,  
                         gradient 
                     });
                     heat.addTo(map as any);

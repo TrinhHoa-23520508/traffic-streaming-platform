@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Repository
 public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Long> {
@@ -27,7 +28,7 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
             "ORDER BY total DESC")
     List<Object[]> getTrafficSummaryByDistrict();
 
-    // API 2 (MỚI): Lấy summary CÓ LỌC THEO NGÀY
+    // API 2 : Lấy summary CÓ LỌC THEO NGÀY
     @Query("SELECT t.district, SUM(t.totalCount) as total " +
             "FROM TrafficMetric t " +
             "WHERE t.timestamp >= :start AND t.timestamp < :end " +
@@ -37,10 +38,10 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
             @Param("start") Instant start,
             @Param("end") Instant end);
 
-    // API 3 (MỚI - CHO HEATMAP): Lấy TẤT CẢ bản ghi theo ngày
+    // API 3 : Lấy TẤT CẢ bản ghi theo ngày
     List<TrafficMetric> findByTimestampBetween(Instant start, Instant end);
 
-    // API 3 (MỚI - CHO HEATMAP): Lấy TẤT CẢ bản ghi theo ngày VÀ camera
+    // API 3b: Lấy TẤT CẢ bản ghi theo ngày VÀ camera
     List<TrafficMetric> findByTimestampBetweenAndCameraId(Instant start, Instant end, String cameraId);
 
     /**
@@ -62,4 +63,13 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
             @Param("end") Instant end,
             @Param("district") String district,
             @Param("tz") String timezone);
+
+    /** API 5
+     * Tìm 1 bản ghi (First) theo cameraId,
+     * sắp xếp (OrderBy) theo timestamp giảm dần (Desc)
+     *
+     * @param cameraId ID của camera
+     * @return một Optional chứa TrafficMetric mới nhất, hoặc rỗng nếu không có
+     */
+    Optional<TrafficMetric> findFirstByCameraIdOrderByTimestampDesc(String cameraId);
 }

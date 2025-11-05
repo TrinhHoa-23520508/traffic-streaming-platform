@@ -54,7 +54,7 @@ public class TrafficService {
     }
 
     /**
-     * API 3 (MỚI - CHO HEATMAP): Lấy tất cả metrics theo ngày và camera
+     * API 3 : Lấy tất cả metrics theo ngày và camera
      */
     public List<TrafficMetric> getMetricsByDate(String dateStr, String cameraId) {
         LocalDate date = parseDateOrDefault(dateStr);
@@ -68,7 +68,7 @@ public class TrafficService {
     }
 
     /**
-     * API 4 (MỚI - CHO CHART 24H): Lấy summary theo giờ
+     * API 4 : Lấy summary theo giờ
      */
     public Map<Integer, Long> getHourlySummary(String dateStr, String district) {
         LocalDate date = parseDateOrDefault(dateStr);
@@ -100,5 +100,15 @@ public class TrafficService {
             return LocalDate.now(VIETNAM_ZONE); 
         }
         return LocalDate.parse(dateStr); 
+    }
+
+    /** API 5
+     * Lấy bản ghi metric mới nhất cho một camera cụ thể.
+     * @param cameraId ID của camera
+     * @return TrafficMetric mới nhất, hoặc null nếu không tìm thấy
+     */
+    public TrafficMetric getLatestMetricByCameraId(String cameraId) {
+        return repository.findFirstByCameraIdOrderByTimestampDesc(cameraId)
+                .orElse(null);
     }
 }

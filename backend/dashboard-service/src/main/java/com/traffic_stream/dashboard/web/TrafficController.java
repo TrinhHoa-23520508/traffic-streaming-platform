@@ -48,7 +48,7 @@ public class TrafficController {
     /**
      * API 3 (Cho Heatmap và list): Lấy tất cả metrics theo ngày và camera
      * Lọc (optional): ?date=YYYY-MM-DD (Mặc định là hôm nay)
-     * Lọc (optional): ?district=Tên Quận
+     * Lọc (optional): ?cameraId=Id
      * Endpoint: GET /api/traffic/by-date
      */
     @GetMapping("/by-date")
@@ -72,5 +72,22 @@ public class TrafficController {
             @RequestParam(required = false) String district) {
         Map<Integer, Long> summary = trafficService.getHourlySummary(date, district);
         return ResponseEntity.ok(summary);
+    }
+
+    /**
+     * API 5 : Lấy bản ghi MỚI NHẤT của 1 camera cụ thể
+     * Sử dụng @PathVariable để lấy ID từ đường dẫn
+     * Endpoint: GET /api/traffic/camera/{cameraId}/latest
+     * Ví dụ:   GET /api/traffic/camera/cam-bay-hien-2/latest
+     */
+    @GetMapping("/camera/{cameraId}/latest")
+    public ResponseEntity<TrafficMetric> getLatestMetricForCamera(
+            @PathVariable String cameraId) {
+        TrafficMetric metric = trafficService.getLatestMetricByCameraId(cameraId);
+        if (metric != null) {
+            return ResponseEntity.ok(metric);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

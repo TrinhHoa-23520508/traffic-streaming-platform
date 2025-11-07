@@ -178,6 +178,42 @@ class TrafficApiService {
   }
 
   /**
+   * GET /api/traffic/camera/{cameraId}/latest
+   * Get latest metric for a specific camera
+   * 
+   * @param cameraId - Camera ID
+   * @returns Promise<TrafficMetricsDTO | null>
+   * 
+   * @example
+   * const data = await trafficApi.getLatestForCamera('TTH-29.4');
+   */
+  async getLatestForCamera(cameraId: string): Promise<TrafficMetricsDTO | null> {
+    try {
+      const url = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERA_LATEST}/${encodeURIComponent(cameraId)}/latest`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors',
+      });
+
+      if (response.status === 404) {
+        return null; // Camera not found or no data
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(`⚠️ API Error (getLatestForCamera):`, error);
+      return null;
+    }
+  }
+
+  /**
    * Check if API is available
    * Useful for health checks
    */

@@ -83,23 +83,37 @@ public class TrafficService {
 
     /**
      * API 4 : Lấy summary theo giờ
+     * (ĐÃ CẬP NHẬT: Tự tính lại total, BỎ QUA "person")
      */
     public Map<Integer, Long> getHourlySummary(String dateStr, String district) {
         LocalDate date = parseDateOrDefault(dateStr);
         Instant startOfDay = date.atStartOfDay(VIETNAM_ZONE).toInstant();
         Instant endOfDay = date.plusDays(1).atStartOfDay(VIETNAM_ZONE).toInstant();
 
-        List<Object[]> results = repository.getHourlySummary(startOfDay, endOfDay, district, VIETNAM_TZ_NAME);
-
         Map<Integer, Long> hourlySummary = IntStream.range(0, 24)
                 .boxed()
                 .collect(Collectors.toMap(hour -> hour, hour -> 0L));
 
-        for (Object[] result : results) {
-            Number hourNumber = (Number) result[0];
-            int hour = hourNumber.intValue();
-            Long total = ((Number) result[1]).longValue(); 
-            hourlySummary.put(hour, total);
+        List<TrafficMetric> metrics = repository.findByTimestampBetween(startOfDay, endOfDay);
+
+        for (TrafficMetric metric : metrics) {
+            if (district != null && !district.isEmpty()) {
+                if (!district.equals(metric.getDistrict())) {
+                    continue;
+                }
+            }
+            int hour = ZonedDateTime.ofInstant(metric.getTimestamp(), VIETNAM_ZONE).getHour();
+
+            long cleanTotalForThisMetric = 0;
+            if (metric.getDetectionDetails() != null) {
+                for (Map.Entry<String, Integer> entry : metric.getDetectionDetails().entrySet()) {
+                    if (!"person".equalsIgnoreCase(entry.getKey())) {
+                        cleanTotalForThisMetric += entry.getValue();
+                    }
+                }
+            }
+
+            hourlySummary.merge(hour, cleanTotalForThisMetric, Long::sum);
         }
 
         return hourlySummary;

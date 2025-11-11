@@ -14,7 +14,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic trafficTopic() {
         return TopicBuilder.name(TRAFFIC_TOPIC)
-                .partitions(3)
+                .partitions(6)
                 .replicas(1)
                 .build();
     }
@@ -22,7 +22,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic trafficMetricsTopic() {
         return TopicBuilder.name(TRAFFIC_METRICS_TOPIC)
-                .partitions(3)
+                .partitions(6)
                 .replicas(1)
                 .build();
     }

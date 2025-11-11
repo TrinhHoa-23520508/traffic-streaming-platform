@@ -29,7 +29,7 @@ class YOLOModel:
             5: 'bus',
             7: 'truck'
         }
-
+        
         logger.info(f"Đã tải model YOLO thành công trên {self.device}")
         logger.info(f"Các đối tượng sẽ được phát hiện: {list(self.detection_classes.values())}")
 
@@ -45,7 +45,7 @@ class YOLOModel:
         """Đếm tất cả đối tượng"""
         total_count = 0
         object_types = {}
-
+        
         for r in results:
             boxes = r.boxes
             for box in boxes:
@@ -54,16 +54,16 @@ class YOLOModel:
                     total_count += 1
                     object_type = self.detection_classes[cls_id]
                     object_types[object_type] = object_types.get(object_type, 0) + 1
-
+        
         logger.info(f"Phát hiện tổng cộng {total_count} đối tượng:")
         for obj_type, count in object_types.items():
             logger.info(f"  - {obj_type}: {count}")
-
+        
         return {
             'total': total_count,
             'details': object_types
         }
-
+    
     def count_vehicles_only(self, results):
         """
         Chỉ đếm phương tiện (không bao gồm người và xe đạp)
@@ -77,7 +77,7 @@ class YOLOModel:
         vehicle_classes = {2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck'}
         vehicle_count = 0
         vehicle_types = {}
-
+        
         for r in results:
             boxes = r.boxes
             for box in boxes:
@@ -86,7 +86,7 @@ class YOLOModel:
                     vehicle_count += 1
                     vehicle_type = vehicle_classes[cls_id]
                     vehicle_types[vehicle_type] = vehicle_types.get(vehicle_type, 0) + 1
-
+        
         return {
             'total': vehicle_count,
             'details': vehicle_types

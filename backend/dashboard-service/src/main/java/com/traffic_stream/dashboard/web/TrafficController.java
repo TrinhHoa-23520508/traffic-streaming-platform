@@ -3,7 +3,8 @@ package com.traffic_stream.dashboard.web;
 import com.traffic_stream.dashboard.entity.TrafficMetric;
 import com.traffic_stream.dashboard.service.TrafficService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*; // Thêm RequestParam
+import org.springframework.web.bind.annotation.*;
+import com.traffic_stream.dashboard.dto.DistrictDailySummaryDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -33,15 +34,13 @@ public class TrafficController {
     }
 
     /**
-     * API 2: Lấy dữ liệu tổng hợp theo quận
+     * API 2: Lấy dữ liệu tổng hợp CHI TIẾT theo quận
      * Lọc (optional): ?date=YYYY-MM-DD (Mặc định là hôm nay)
      * Endpoint: GET /api/traffic/summary/by-district
-     * Endpoint: GET /api/traffic/summary/by-district?date=2025-10-30
      */
     @GetMapping("/summary/by-district")
-    public ResponseEntity<Map<String, Long>> getDistrictSummary(
-            @RequestParam(required = false) String date) {
-        Map<String, Long> summary = trafficService.getDistrictSummary(date);
+    public ResponseEntity<Map<String, DistrictDailySummaryDTO>> getDistrictSummary(@RequestParam(required = false) String date) {
+        Map<String, DistrictDailySummaryDTO> summary = trafficService.getDistrictSummary(date);
         return ResponseEntity.ok(summary);
     }
 
@@ -60,7 +59,7 @@ public class TrafficController {
     }
 
     /**
-     * API 4 (MỚI - CHO CHART 24H): Lấy tổng count theo giờ
+     * API 4 (CHO CHART 24H): Lấy tổng count theo giờ
      * Lọc (optional): ?date=YYYY-MM-DD (Mặc định là hôm nay)
      * Lọc (optional): ?district=Tên Quận
      * Endpoint: GET /api/traffic/hourly-summary

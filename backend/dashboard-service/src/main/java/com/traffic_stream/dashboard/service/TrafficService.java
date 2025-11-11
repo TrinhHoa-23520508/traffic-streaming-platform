@@ -3,6 +3,10 @@ package com.traffic_stream.dashboard.service;
 import com.traffic_stream.dashboard.entity.TrafficMetric;
 import com.traffic_stream.dashboard.repository.TrafficMetricRepository;
 import org.springframework.stereotype.Service;
+import com.traffic_stream.dashboard.dto.HourlyDistrictSummaryDTO;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import com.traffic_stream.dashboard.dto.DistrictDailySummaryDTO;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -18,7 +22,6 @@ public class TrafficService {
 
     private final TrafficMetricRepository repository;
 
-    // Đặt múi giờ Việt Nam
     private final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private final String VIETNAM_TZ_NAME = "Asia/Ho_Chi_Minh";
 
@@ -37,20 +40,31 @@ public class TrafficService {
     }
 
     /**
-     * API 2: Lấy dữ liệu tổng hợp theo quận (có lọc theo ngày)
+     * API 2: Lấy dữ liệu tổng hợp CHI TIẾT theo quận (có lọc theo ngày)
      */
-    public Map<String, Long> getDistrictSummary(String dateStr) {
+    public Map<String, DistrictDailySummaryDTO> getDistrictSummary(String dateStr) {
         LocalDate date = parseDateOrDefault(dateStr);
         Instant startOfDay = date.atStartOfDay(VIETNAM_ZONE).toInstant();
         Instant endOfDay = date.plusDays(1).atStartOfDay(VIETNAM_ZONE).toInstant();
-        List<Object[]> results = repository.getTrafficSummaryByDistrictAndDate(startOfDay, endOfDay);
-        Map<String, Long> summary = new HashMap<>();
-        for (Object[] result : results) {
-            String district = (String) result[0];
-            Long total = (Long) result[1];
-            summary.put(district, total);
+
+        List<TrafficMetric> metrics = repository.findByTimestampBetween(startOfDay, endOfDay);
+
+        Map<String, DistrictDailySummaryDTO> summaryMap = new HashMap<>();
+
+        for (TrafficMetric metric : metrics) {
+            String district = metric.getDistrict();
+            if (district == null || district.isEmpty()) {
+                continue;
+            }
+
+            DistrictDailySummaryDTO summaryDTO = summaryMap.computeIfAbsent(
+                    district,
+                    d -> new DistrictDailySummaryDTO()
+            );
+            summaryDTO.addMetric(metric);
         }
-        return summary;
+
+        return summaryMap;
     }
 
     /**
@@ -110,5 +124,28 @@ public class TrafficService {
     public TrafficMetric getLatestMetricByCameraId(String cameraId) {
         return repository.findFirstByCameraIdOrderByTimestampDesc(cameraId)
                 .orElse(null);
+    }
+
+    /**
+     * HÀM dùng cho Scheduled Task
+     * Tổng hợp chi tiết theo quận cho một khoảng thời gian (1 giờ)
+     */
+    public List<HourlyDistrictSummaryDTO> getDetailedHourlySummaryByDistrict(Instant startTime, Instant endTime) {
+        List<TrafficMetric> metrics = repository.findByTimestampBetween(startTime, endTime);
+        Map<String, HourlyDistrictSummaryDTO> summaryMap = new HashMap<>();
+        int hour = ZonedDateTime.ofInstant(startTime, VIETNAM_ZONE).getHour();
+
+        for (TrafficMetric metric : metrics) {
+            String district = metric.getDistrict(); //
+            if (district == null || district.isEmpty()) {
+                continue;
+            }
+            HourlyDistrictSummaryDTO summaryDTO = summaryMap.computeIfAbsent(
+                    district,
+                    d -> new HourlyDistrictSummaryDTO(d, hour)
+            );
+            summaryDTO.addMetric(metric);
+        }
+        return new ArrayList<>(summaryMap.values());
     }
 }

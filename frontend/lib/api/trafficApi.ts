@@ -1,7 +1,9 @@
 // lib/api/trafficApi.ts
 
 import type { TrafficMetricsDTO } from '@/types/traffic';
-import { API_CONFIG, getBaseUrl } from './config';
+import { API_CONFIG, getBaseUrl, getWsUrl } from './config';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
 /**
  * Query parameters for /latest endpoint
@@ -44,14 +46,224 @@ export type DistrictSummary = Record<string, number>;
 export type HourlySummary = Record<number, number>; // hour (0-23) -> count
 
 /**
+ * Traffic data update callback
+ */
+export type TrafficUpdateCallback = (data: TrafficMetricsDTO) => void;
+
+/**
  * Traffic API Service
- * Centralized service for all traffic-related API calls
+ * Centralized service for all traffic-related API calls and WebSocket management
  */
 class TrafficApiService {
   private baseUrl: string;
+  private stompClient: Client | null = null;
+  private subscribers: Set<TrafficUpdateCallback> = new Set();
+  private trafficDataCache: Map<string, TrafficMetricsDTO> = new Map();
+  private isConnected: boolean = false;
+  private isConnecting: boolean = false;
+  private reconnectAttempts: number = 0;
+  private fallbackInterval: NodeJS.Timeout | null = null;
+  private useFallback: boolean = false;
 
   constructor() {
     this.baseUrl = getBaseUrl();
+  }
+
+  /**
+   * Initialize WebSocket connection
+   * Called automatically when first subscriber is added
+   */
+  private initWebSocket() {
+    if (this.isConnecting || this.isConnected) {
+      return;
+    }
+
+    this.isConnecting = true;
+    const wsUrl = getWsUrl();
+
+    // Set timeout to switch to fallback mode
+    const connectionTimeout = setTimeout(() => {
+      if (!this.isConnected) {
+        console.warn('⚠️ WebSocket connection timeout. Using fallback mode.');
+        this.startFallbackMode();
+      }
+    }, 15000);
+
+    const client = new Client({
+      brokerURL: undefined,
+      webSocketFactory: () => {
+        return new SockJS(wsUrl, null, {
+          transports: ['websocket', 'xhr-streaming', 'xhr-polling']
+        });
+      },
+      reconnectDelay: API_CONFIG.RECONNECT_DELAY,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+      connectionTimeout: API_CONFIG.DEFAULT_TIMEOUT,
+      onConnect: () => {
+        clearTimeout(connectionTimeout);
+        this.isConnected = true;
+        this.isConnecting = false;
+        this.reconnectAttempts = 0;
+        this.stopFallbackMode();
+        
+        console.log('✅ WebSocket connected, real-time traffic updates active');
+        
+        // Subscribe to traffic topic
+        client.subscribe(API_CONFIG.WS_TOPIC, (message) => {
+          try {
+            const trafficData: TrafficMetricsDTO = JSON.parse(message.body);
+            
+            // Update cache
+            this.trafficDataCache.set(trafficData.cameraId, trafficData);
+            
+            // Notify all subscribers
+            this.subscribers.forEach(callback => callback(trafficData));
+          } catch (error) {
+            console.error('Error parsing traffic data:', error);
+          }
+        });
+      },
+      onStompError: (frame) => {
+        console.error('❌ STOMP error:', frame.headers['message']);
+        this.handleDisconnection();
+      },
+      onWebSocketError: (event) => {
+        console.error('❌ WebSocket error:', event);
+        this.handleDisconnection();
+      },
+      onWebSocketClose: () => {
+        this.handleDisconnection();
+      },
+      onDisconnect: () => {
+        this.isConnected = false;
+        this.isConnecting = false;
+      }
+    });
+
+    try {
+      client.activate();
+      this.stompClient = client;
+    } catch (error) {
+      console.error('Failed to activate STOMP client:', error);
+      this.handleDisconnection();
+    }
+  }
+
+  /**
+   * Handle disconnection and attempt reconnection or fallback
+   */
+  private handleDisconnection() {
+    this.isConnected = false;
+    this.isConnecting = false;
+    this.reconnectAttempts++;
+
+    if (this.reconnectAttempts >= API_CONFIG.MAX_RECONNECT_ATTEMPTS) {
+      console.warn('⚠️ Max reconnection attempts reached. Switching to fallback mode.');
+      this.startFallbackMode();
+    }
+  }
+
+  /**
+   * Start fallback mode - fetch data periodically via REST API
+   */
+  private startFallbackMode() {
+    if (this.fallbackInterval || this.useFallback) {
+      return;
+    }
+
+    this.useFallback = true;
+    console.log('📡 Using REST API fallback mode for traffic updates');
+
+    const fetchLatestData = async () => {
+      try {
+        const data = await this.getLatest();
+        data.forEach(traffic => {
+          this.trafficDataCache.set(traffic.cameraId, traffic);
+          this.subscribers.forEach(callback => callback(traffic));
+        });
+      } catch (error) {
+        console.error('⚠️ Error fetching traffic data in fallback mode:', error);
+      }
+    };
+
+    // Initial fetch
+    fetchLatestData();
+
+    // Poll every 5 seconds
+    this.fallbackInterval = setInterval(fetchLatestData, 5000);
+  }
+
+  /**
+   * Stop fallback mode
+   */
+  private stopFallbackMode() {
+    if (this.fallbackInterval) {
+      clearInterval(this.fallbackInterval);
+      this.fallbackInterval = null;
+    }
+    this.useFallback = false;
+  }
+
+  /**
+   * Subscribe to real-time traffic updates
+   * @param callback - Function to call when new traffic data arrives
+   * @returns Unsubscribe function
+   */
+  subscribe(callback: TrafficUpdateCallback): () => void {
+    this.subscribers.add(callback);
+    
+    // Initialize WebSocket if this is the first subscriber
+    if (this.subscribers.size === 1 && !this.isConnected && !this.isConnecting) {
+      this.initWebSocket();
+    }
+
+    // Return unsubscribe function
+    return () => {
+      this.subscribers.delete(callback);
+      
+      // Cleanup if no more subscribers
+      if (this.subscribers.size === 0) {
+        this.cleanup();
+      }
+    };
+  }
+
+  /**
+   * Get cached traffic data for a specific camera
+   */
+  getCachedData(cameraId: string): TrafficMetricsDTO | undefined {
+    return this.trafficDataCache.get(cameraId);
+  }
+
+  /**
+   * Get all cached traffic data
+   */
+  getAllCachedData(): TrafficMetricsDTO[] {
+    return Array.from(this.trafficDataCache.values());
+  }
+
+  /**
+   * Check if WebSocket is connected
+   */
+  isWebSocketConnected(): boolean {
+    return this.isConnected;
+  }
+
+  /**
+   * Cleanup connections
+   */
+  private cleanup() {
+    this.stopFallbackMode();
+    
+    if (this.stompClient) {
+      this.stompClient.deactivate();
+      this.stompClient = null;
+    }
+    
+    this.isConnected = false;
+    this.isConnecting = false;
+    this.reconnectAttempts = 0;
   }
 
   /**

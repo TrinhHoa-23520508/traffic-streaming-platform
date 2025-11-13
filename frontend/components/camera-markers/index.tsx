@@ -106,18 +106,6 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                 updateVisibleMarkers();
             } catch (error) {
                 console.error('⚠️ Error fetching initial traffic data:', error);
-                
-                // Generate random data as fallback
-                console.log('📊 Using random data for cameras');
-                camerasRef.current = camerasRef.current.map(c => ({
-                    ...c,
-                    density: Math.floor(Math.random() * 51) // 0-50
-                }));
-                
-                if (onCamerasUpdate) {
-                    onCamerasUpdate([...camerasRef.current]);
-                }
-                updateVisibleMarkers();
             }
         };
 

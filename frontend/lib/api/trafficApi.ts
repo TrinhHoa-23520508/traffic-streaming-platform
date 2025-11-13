@@ -24,7 +24,7 @@ export interface SummaryByDistrictParams {
  */
 export interface ByDateParams {
   date?: string; // format: YYYY-MM-DD
-  district?: string;
+  cameraId?: string;
 }
 
 /**
@@ -420,10 +420,13 @@ class TrafficApiService {
    * // Get all records for today
    * const data = await trafficApi.getByDate();
    * 
-   * // Get records for specific date and district
+   * // Get records for specific date
+   * const data = await trafficApi.getByDate({ date: '2025-11-06' });
+   * 
+   * // Get records for specific date and camera
    * const data = await trafficApi.getByDate({ 
-   *   date: '2025-10-30', 
-   *   district: 'Quận 1' 
+   *   date: '2025-11-06', 
+   *   cameraId: 'CAM001' 
    * });
    */
   async getByDate(params?: ByDateParams): Promise<TrafficMetricsDTO[]> {
@@ -452,6 +455,21 @@ class TrafficApiService {
   async getHourlySummary(params?: HourlySummaryParams): Promise<HourlySummary> {
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.HOURLY_SUMMARY, params as any);
     return this.fetchWithErrorHandling<HourlySummary>(url);
+  }
+
+  /**
+   * GET /api/traffic/camera/{cameraId}/latest
+   * Get latest traffic metric for a specific camera
+   * 
+   * @param cameraId - Camera ID
+   * @returns Promise<TrafficMetricsDTO>
+   * 
+   * @example
+   * const latest = await trafficApi.getCameraLatest('TTH-29.4');
+   */
+  async getCameraLatest(cameraId: string): Promise<TrafficMetricsDTO> {
+    const url = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERA_LATEST}/${cameraId}/latest`;
+    return this.fetchWithErrorHandling<TrafficMetricsDTO>(url);
   }
 
   /**

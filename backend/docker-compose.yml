@@ -46,6 +46,11 @@ services:
       POSTGRES_DB: traffic_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d traffic_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   minio:
     image: minio/minio:latest
@@ -78,7 +83,7 @@ services:
       broker:
         condition: service_healthy
       postgres:
-        condition: service_started
+        condition: service_healthy
       # BẬT LẠI IMAGE STORAGE SERVICE
       # image-storage-service:
       #   build: ./image-storage-service
@@ -139,7 +144,7 @@ services:
       broker:
         condition: service_healthy
       postgres:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   postgres_data:

@@ -85,8 +85,6 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
         const fetchInitialData = async () => {
             try {
                 const data = await trafficApi.getLatest();
-                console.log('🚦 Initial traffic data loaded:', data);
-                
                 // Update traffic data map with initial data
                 data.forEach(traffic => {
                     trafficDataRef.current.set(traffic.cameraId, traffic.totalCount);
@@ -115,8 +113,15 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
     }, [onCamerasUpdate, updateVisibleMarkers]);
 
     // Subscribe to real-time traffic updates
-    useEffect(() => {
+    useEffect(() => {        
         const unsubscribe = trafficApi.subscribe((trafficData) => {
+            
+            // Check if cameraId exists, if not, log error
+            if (!trafficData.cameraId) {
+                console.error('❌ Invalid traffic data - missing cameraId:', trafficData);
+                return; // Skip invalid data
+            }
+            
             // Update traffic data map
             trafficDataRef.current.set(trafficData.cameraId, trafficData.totalCount);
             
@@ -131,14 +136,22 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
             if (onCamerasUpdate) {
                 onCamerasUpdate([...camerasRef.current]);
             }
-            updateVisibleMarkers();
+            
+            // Force re-render by updating visible cameras
+            if (map) {
+                const bounds = map.getBounds();
+                const inBounds = camerasRef.current.filter((camera) =>
+                    bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
+                );
+                setVisibleCameras([...inBounds]); // Create new array to trigger re-render
+            }
         });
-
+        
         // Cleanup subscription on unmount
         return () => {
             unsubscribe();
         };
-    }, [onCamerasUpdate, updateVisibleMarkers]);
+    }, [map, onCamerasUpdate]);
 
     useEffect(() => {
         if (!map) return;

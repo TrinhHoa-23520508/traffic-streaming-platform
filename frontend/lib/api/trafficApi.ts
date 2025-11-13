@@ -46,6 +46,39 @@ export type DistrictSummary = Record<string, number>;
 export type HourlySummary = Record<number, number>; // hour (0-23) -> count
 
 /**
+ * Backend response format (snake_case)
+ */
+interface BackendTrafficData {
+  camera_id: string;
+  camera_name: string;
+  district: string;
+  liveview_url?: string;
+  coordinates: [number, number];
+  total_count: number;
+  detection_details: Record<string, number>;
+  timestamp: number;
+  timestamp_vn?: string;
+  annotated_image_url: string;
+}
+
+/**
+ * Transform backend data to frontend format
+ */
+function transformTrafficData(backendData: BackendTrafficData): TrafficMetricsDTO {
+  return {
+    id: backendData.timestamp || Date.now(),
+    cameraId: backendData.camera_id,
+    cameraName: backendData.camera_name,
+    district: backendData.district,
+    annotatedImageUrl: backendData.annotated_image_url,
+    coordinates: backendData.coordinates,
+    detectionDetails: backendData.detection_details,
+    totalCount: backendData.total_count,
+    timestamp: backendData.timestamp_vn || new Date(backendData.timestamp).toISOString()
+  };
+}
+
+/**
  * Traffic data update callback
  */
 export type TrafficUpdateCallback = (data: TrafficMetricsDTO) => void;
@@ -112,12 +145,20 @@ class TrafficApiService {
         // Subscribe to traffic topic
         client.subscribe(API_CONFIG.WS_TOPIC, (message) => {
           try {
-            const trafficData: TrafficMetricsDTO = JSON.parse(message.body);
+            const backendData: BackendTrafficData = JSON.parse(message.body);
+            const trafficData = transformTrafficData(backendData);
+            
+            console.log('📨 WebSocket data received:', {
+              cameraId: trafficData.cameraId,
+              totalCount: trafficData.totalCount,
+              subscribers: this.subscribers.size
+            });
             
             // Update cache
             this.trafficDataCache.set(trafficData.cameraId, trafficData);
             
             // Notify all subscribers
+            console.log(`📢 Notifying ${this.subscribers.size} subscribers...`);
             this.subscribers.forEach(callback => callback(trafficData));
           } catch (error) {
             console.error('Error parsing traffic data:', error);
@@ -233,6 +274,8 @@ class TrafficApiService {
       this.trafficDataCache.set(cameraId, randomTraffic);
       this.subscribers.forEach(callback => callback(randomTraffic));
     });
+    
+    console.log(`✅ Random data generated and sent to ${this.subscribers.size} subscribers`);
   }
 
   /**
@@ -252,19 +295,29 @@ class TrafficApiService {
    * @returns Unsubscribe function
    */
   subscribe(callback: TrafficUpdateCallback): () => void {
+    console.log('📝 New subscriber added');
     this.subscribers.add(callback);
+    console.log('📊 Total subscribers:', this.subscribers.size);
     
     // Initialize WebSocket if this is the first subscriber
     if (this.subscribers.size === 1 && !this.isConnected && !this.isConnecting) {
+      console.log('🚀 First subscriber! Initializing connection...');
       this.initWebSocket();
+    } else if (this.isConnected) {
+      console.log('✅ Already connected, subscriber added to existing connection');
+    } else if (this.isConnecting) {
+      console.log('⏳ Connection in progress, subscriber will receive updates when connected');
     }
 
     // Return unsubscribe function
     return () => {
+      console.log('🚪 Subscriber removed');
       this.subscribers.delete(callback);
+      console.log('📊 Remaining subscribers:', this.subscribers.size);
       
       // Cleanup if no more subscribers
       if (this.subscribers.size === 0) {
+        console.log('😴 No more subscribers, cleaning up...');
         this.cleanup();
       }
     };

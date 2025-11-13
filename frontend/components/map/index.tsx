@@ -109,7 +109,6 @@ const Map = (props: MapProps) => {
             <ZoomControl position="bottomright" />
             <ChangeMapView center={posix} zoom={zoom} />
             <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
@@ -185,12 +184,12 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
         if (cameras.length === 0) return;
 
         // Log camera densities when they update
-        console.log('🚗 Camera Density Update:', cameras.map((c: any) => ({
-            id: c.id || c._id,
-            name: c.name,
-            density: c.density,
-            coordinates: [c.loc.coordinates[1], c.loc.coordinates[0]]
-        })));
+        // console.log('🚗 Camera Density Update:', cameras.map((c: any) => ({
+        //     id: c.id || c._id,
+        //     name: c.name,
+        //     density: c.density,
+        //     coordinates: [c.loc.coordinates[1], c.loc.coordinates[0]]
+        // })));
 
     }, [cameras, imageRefreshKey]);
 
@@ -209,7 +208,7 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
                 const lon = c.loc.coordinates[0];
                  const zoomLevel = map.getZoom();
                 // normalize weight between 0 and 1 - spread out more evenly
-                const weight = c.density / 30;
+                const weight = c.density / 50;
                 return [lat, lon, weight];
             });
             // Use larger radius and prevent fading on zoom out

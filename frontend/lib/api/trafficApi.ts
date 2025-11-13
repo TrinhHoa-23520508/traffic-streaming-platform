@@ -165,7 +165,7 @@ class TrafficApiService {
   }
 
   /**
-   * Start fallback mode - fetch data periodically via REST API
+   * Start fallback mode - generate random data since backend is unavailable
    */
   private startFallbackMode() {
     if (this.fallbackInterval || this.useFallback) {
@@ -173,34 +173,25 @@ class TrafficApiService {
     }
 
     this.useFallback = true;
-    console.log('📡 Using REST API fallback mode for traffic updates');
+    console.log('📡 Backend unavailable, generating random traffic data...');
 
-    const fetchLatestData = async () => {
-      try {
-        const data = await this.getLatest();
-        
-        if (data && data.length > 0) {
-          // Real data available
-          data.forEach(traffic => {
-            this.trafficDataCache.set(traffic.cameraId, traffic);
-            this.subscribers.forEach(callback => callback(traffic));
-          });
-        } else {
-          // No real data, use random data
-          console.log('⚠️ No traffic data from API, generating random data...');
-          this.generateRandomTrafficData();
-        }
-      } catch (error) {
-        console.error('⚠️ Error fetching traffic data in fallback mode, using random data:', error);
-        this.generateRandomTrafficData();
+    const generateData = () => {
+      const cameraIds = Array.from(this.trafficDataCache.keys());
+      
+      if (cameraIds.length === 0) {
+        console.log('⚠️ No cameras in cache, skipping random data generation');
+        return;
       }
+
+      console.log('🎲 Generating random traffic data for', cameraIds.length, 'cameras');
+      this.generateRandomTrafficData();
     };
 
-    // Initial fetch
-    fetchLatestData();
+    // Initial generation
+    generateData();
 
-    // Poll every 5 seconds
-    this.fallbackInterval = setInterval(fetchLatestData, 5000);
+    // Generate new random data every 5 seconds
+    this.fallbackInterval = setInterval(generateData, 5000);
   }
 
   /**

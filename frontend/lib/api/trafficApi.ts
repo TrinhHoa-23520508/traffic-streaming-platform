@@ -178,12 +178,21 @@ class TrafficApiService {
     const fetchLatestData = async () => {
       try {
         const data = await this.getLatest();
-        data.forEach(traffic => {
-          this.trafficDataCache.set(traffic.cameraId, traffic);
-          this.subscribers.forEach(callback => callback(traffic));
-        });
+        
+        if (data && data.length > 0) {
+          // Real data available
+          data.forEach(traffic => {
+            this.trafficDataCache.set(traffic.cameraId, traffic);
+            this.subscribers.forEach(callback => callback(traffic));
+          });
+        } else {
+          // No real data, use random data
+          console.log('⚠️ No traffic data from API, generating random data...');
+          this.generateRandomTrafficData();
+        }
       } catch (error) {
-        console.error('⚠️ Error fetching traffic data in fallback mode:', error);
+        console.error('⚠️ Error fetching traffic data in fallback mode, using random data:', error);
+        this.generateRandomTrafficData();
       }
     };
 
@@ -192,6 +201,47 @@ class TrafficApiService {
 
     // Poll every 5 seconds
     this.fallbackInterval = setInterval(fetchLatestData, 5000);
+  }
+
+  /**
+   * Generate random traffic data for all cached cameras
+   */
+  private generateRandomTrafficData() {
+    // Generate random data for all cameras in cache or create dummy data
+    const cameraIds = Array.from(this.trafficDataCache.keys());
+    
+    if (cameraIds.length === 0) {
+      // No cameras in cache, notify subscribers with random camera IDs
+      console.log('⚠️ No cameras in cache, skipping random data generation');
+      return;
+    }
+
+    cameraIds.forEach(cameraId => {
+      const carCount = Math.floor(Math.random() * 30);
+      const motorcycleCount = Math.floor(Math.random() * 20);
+      const busCount = Math.floor(Math.random() * 5);
+      const truckCount = Math.floor(Math.random() * 5);
+      
+      const randomTraffic: TrafficMetricsDTO = {
+        id: Date.now(),
+        cameraId,
+        cameraName: cameraId,
+        totalCount: carCount + motorcycleCount + busCount + truckCount,
+        detectionDetails: {
+          car: carCount,
+          motorcycle: motorcycleCount,
+          bus: busCount,
+          truck: truckCount,
+        },
+        timestamp: new Date().toISOString(),
+        district: 'Unknown',
+        annotatedImageUrl: '',
+        coordinates: [0, 0]
+      };
+      
+      this.trafficDataCache.set(cameraId, randomTraffic);
+      this.subscribers.forEach(callback => callback(randomTraffic));
+    });
   }
 
   /**
@@ -241,6 +291,30 @@ class TrafficApiService {
    */
   getAllCachedData(): TrafficMetricsDTO[] {
     return Array.from(this.trafficDataCache.values());
+  }
+
+  /**
+   * Pre-populate cache with camera IDs
+   * This allows random data generation to work even when real API is unavailable
+   */
+  initializeCameraIds(cameraIds: string[]): void {
+    cameraIds.forEach(id => {
+      if (!this.trafficDataCache.has(id)) {
+        // Create minimal entry so random data generation knows about this camera
+        this.trafficDataCache.set(id, {
+          id: Date.now(),
+          cameraId: id,
+          cameraName: id,
+          totalCount: 0,
+          detectionDetails: {},
+          timestamp: new Date().toISOString(),
+          district: 'Unknown',
+          annotatedImageUrl: '',
+          coordinates: [0, 0]
+        });
+      }
+    });
+    console.log('✅ Cache pre-initialized with', cameraIds.length, 'camera IDs');
   }
 
   /**

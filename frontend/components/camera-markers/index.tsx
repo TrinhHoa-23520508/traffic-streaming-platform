@@ -64,6 +64,10 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                 camerasRef.current = withCounts as any;
                 setLoading(false);
                 
+                // Pre-populate trafficApi cache with camera IDs for random data generation
+                const cameraIds = data.map(c => c.id || (c as any)._id || c.name);
+                trafficApi.initializeCameraIds(cameraIds);
+                
                 // Notify parent component of camera data
                 if (onCamerasUpdate) onCamerasUpdate(withCounts);
                 updateVisibleMarkers();
@@ -102,6 +106,18 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                 updateVisibleMarkers();
             } catch (error) {
                 console.error('⚠️ Error fetching initial traffic data:', error);
+                
+                // Generate random data as fallback
+                console.log('📊 Using random data for cameras');
+                camerasRef.current = camerasRef.current.map(c => ({
+                    ...c,
+                    density: Math.floor(Math.random() * 51) // 0-50
+                }));
+                
+                if (onCamerasUpdate) {
+                    onCamerasUpdate([...camerasRef.current]);
+                }
+                updateVisibleMarkers();
             }
         };
 
@@ -178,8 +194,15 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                         key={camera._id}
                         position={position}
                         icon={isSelected ? selectedCameraIcon : cameraIcon}
+                        zIndexOffset={isSelected ? 1000 : 0}
                         eventHandlers={{
-                            click: () => {
+                            click: (e) => {
+                                // Bring marker to front on click
+                                const marker = e.target;
+                                if (marker && marker._icon) {
+                                    marker._icon.style.zIndex = '1000';
+                                }
+                                
                                 if (onCameraClick) {
                                     onCameraClick(camera);
                                 }

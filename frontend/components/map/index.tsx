@@ -33,9 +33,40 @@ const defaults = {
 // Component to update map center when location changes
 function ChangeMapView({ center, zoom }: { center: LatLngExpression, zoom: number }) {
     const map = useMap();
+    const prevCenterRef = useRef<LatLngExpression | null>(null);
+    const prevZoomRef = useRef<number | null>(null);
+
     useEffect(() => {
-        map.setView(center, zoom);
+        const centerArray = Array.isArray(center) ? center : [center.lat, center.lng];
+        const prevCenterArray = prevCenterRef.current 
+            ? (Array.isArray(prevCenterRef.current) ? prevCenterRef.current : [prevCenterRef.current.lat, prevCenterRef.current.lng])
+            : null;
+
+        // Check if center actually changed
+        const centerChanged = !prevCenterArray || 
+            centerArray[0] !== prevCenterArray[0] || 
+            centerArray[1] !== prevCenterArray[1];
+
+        // Check if zoom actually changed
+        const zoomChanged = prevZoomRef.current !== zoom;
+
+        // Only update if something actually changed
+        if (centerChanged && zoomChanged) {
+            // Both changed - use setView
+            map.setView(center, zoom);
+        } else if (centerChanged) {
+            // Only center changed - pan without zoom
+            map.panTo(center);
+        } else if (zoomChanged) {
+            // Only zoom changed
+            map.setZoom(zoom);
+        }
+
+        // Update refs
+        prevCenterRef.current = center;
+        prevZoomRef.current = zoom;
     }, [center, zoom, map]);
+
     return null;
 }
 
@@ -157,7 +188,7 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
         console.log('🚗 Camera Density Update:', cameras.map((c: any) => ({
             id: c.id || c._id,
             name: c.name,
-            density: c._randCount,
+            density: c.density,
             coordinates: [c.loc.coordinates[1], c.loc.coordinates[0]]
         })));
 
@@ -178,8 +209,7 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
                 const lon = c.loc.coordinates[0];
                  const zoomLevel = map.getZoom();
                 // normalize weight between 0 and 1 - spread out more evenly
-                const weight = c._randCount / 30;
-               
+                const weight = c.density / 30;
                 return [lat, lon, weight];
             });
             // Use larger radius and prevent fading on zoom out

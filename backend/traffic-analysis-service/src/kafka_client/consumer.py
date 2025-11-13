@@ -65,16 +65,25 @@ class KafkaConsumer:
         self.image_fetcher = ImageFetcher(IMAGE_BASE_URL)
         self.vehicle_counter = VehicleCounter(self.yolo_model)
         
-        logger.info("Khởi tạo consumer hoàn tất, sẵn sàng xử lý TOÀN BỘ camera")
+        # Chỉ phân tích camera có ID cụ thể
+        self.target_camera_id = "BD 4.1"
+        logger.info(f"Khởi tạo consumer hoàn tất, chỉ xử lý camera ID: {self.target_camera_id}")
+        # logger.info("Khởi tạo consumer hoàn tất, sẵn sàng xử lý TOÀN BỘ camera")
 
     def consume_messages(self):
-        logger.info("Bắt đầu lắng nghe dữ liệu từ TẤT CẢ camera")
+        logger.info(f"Bắt đầu lắng nghe dữ liệu, chỉ xử lý camera ID: {self.target_camera_id}")
+        # logger.info("Bắt đầu lắng nghe dữ liệu từ TẤT CẢ camera")
         
         for message in self.consumer:
             try:
                 camera_data = message.value
                 camera_id = camera_data.get('id', 'Unknown')
                 camera_name = camera_data.get('name', 'Unknown')
+                
+                # Chỉ xử lý camera có ID là "BD 4.1"
+                if camera_id != self.target_camera_id:
+                    logger.debug(f"Bỏ qua camera: {camera_name} (ID: {camera_id})")
+                    continue
                 
                 logger.info(f"Nhận dữ liệu từ camera: {camera_name} (ID: {camera_id})")
                 self.process_message(camera_data)

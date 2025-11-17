@@ -41,8 +41,19 @@ export default function ImageModal({ imageUrl, onClose }: ImageModalProps) {
                 <img 
                     src={imageUrl} 
                     alt="Phóng to hình ảnh camera" 
-                    className="object-contain max-w-full max-h-full scale-200 rounded-lg"
+                    className="object-contain max-w-full max-h-[90vh] rounded-lg shadow-2xl"
                 />
+                
+                {/* Nút đóng */}
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all hover:scale-110"
+                    aria-label="Đóng"
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
         </div>
     );

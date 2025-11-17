@@ -5,6 +5,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { Camera } from '@/types/camera';
 import StatCardWithProgress from '@/components/stat-card-progress'; // Đảm bảo đường dẫn đúng
 import StatCardWithBadge from '@/components/stat-card-badge';
+import { trafficApi } from '@/lib/api/trafficApi';
+import type { TrafficMetricsDTO } from '@/types/traffic';
 
 // Giả sử kiểu 'Camera' của bạn có cấu trúc dữ liệu như sau
 
@@ -40,6 +42,60 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     const [loadingImage, setLoadingImage] = useState<boolean>(false);
     const imgRef = useRef<HTMLImageElement | null>(null);
 
+    // ⭐ Real-time traffic data states
+    const [trafficData, setTrafficData] = useState<TrafficMetricsDTO | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [countHistory, setCountHistory] = useState<Array<{count: number, timestamp: number}>>([]);
+    const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+
+    // ⭐ Fetch initial traffic data from API
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            try {
+                setLoading(true);
+                const cameraId = camera.id || (camera as any)._id || camera.name;
+                console.log('🔍 Fetching initial data for camera:', cameraId);
+                
+                // ⭐ Thử lấy từ API trước
+                const data = await trafficApi.getCameraLatest(cameraId);
+                console.log('✅ Initial data loaded from API:', data);
+                
+                setTrafficData(data);
+                setLastUpdateTime(new Date());
+                
+                // Initialize history with first data point
+                setCountHistory([{
+                    count: data.totalCount,
+                    timestamp: Date.now()
+                }]);
+            } catch (error) {
+                console.error('⚠️ Error fetching camera data from API:', error);
+                
+                // ⭐ FALLBACK: Lấy từ cache của trafficApi (có thể là random data nếu fallback mode active)
+                const cameraId = camera.id || (camera as any)._id || camera.name;
+                const cachedData = trafficApi.getCachedData(cameraId);
+                
+                if (cachedData) {
+                    console.log('✅ Using cached data from trafficApi:', cachedData);
+                    setTrafficData(cachedData);
+                    setLastUpdateTime(new Date());
+                    
+                    setCountHistory([{
+                        count: cachedData.totalCount,
+                        timestamp: Date.now()
+                    }]);
+                } else {
+                    console.warn('⚠️ No cached data available for camera:', cameraId);
+                    // Keep loading = false, trafficData = null sẽ hiện "Không có dữ liệu"
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        fetchInitialData();
+    }, [camera]);
+
     // Preload new image when imageRefreshKey or liveviewUrl changes
     useEffect(() => {
         const newUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
@@ -69,11 +125,69 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
         };
     }, [imageRefreshKey, camera.liveviewUrl]);
 
-    const fakeAnalytics = {
-        vehicleCount: 68,
-        flowRate: 39,
-        congestionStatus: 'CAO' as const,
+    // ⭐ Subscribe to real-time traffic updates via WebSocket
+    useEffect(() => {
+        const cameraId = camera.id || (camera as any)._id || camera.name;
+        console.log('📡 Subscribing to real-time updates for camera:', cameraId);
+        
+        const unsubscribe = trafficApi.subscribe((data) => {
+            // ⭐ Filter: chỉ update nếu data thuộc camera này
+            if (data.cameraId === cameraId) {
+                console.log('📨 Camera data updated:', {
+                    cameraId: data.cameraId,
+                    totalCount: data.totalCount,
+                    timestamp: data.timestamp
+                });
+                
+                setTrafficData(data);
+                setLastUpdateTime(new Date());
+                
+                // ⭐ Update history cho flow rate calculation (keep 2 minutes)
+                setCountHistory(prev => {
+                    const now = Date.now();
+                    const twoMinutesAgo = now - 2 * 60 * 1000;
+                    
+                    // Filter data trong 2 phút gần nhất + add new data
+                    const filtered = prev.filter(item => item.timestamp > twoMinutesAgo);
+                    return [...filtered, { count: data.totalCount, timestamp: now }];
+                });
+            }
+        });
+        
+        // ⭐ Cleanup subscription khi component unmount hoặc camera thay đổi
+        return () => {
+            console.log('🚪 Unsubscribing from camera:', cameraId);
+            unsubscribe();
+        };
+    }, [camera]);
+
+    // ⭐ Calculate flow rate từ history (xe/phút)
+    const calculateFlowRate = (): number => {
+        if (countHistory.length < 2) return 0;
+        
+        const latest = countHistory[countHistory.length - 1];
+        const oldest = countHistory[0];
+        
+        const countDiff = latest.count - oldest.count;
+        const timeDiff = (latest.timestamp - oldest.timestamp) / 1000 / 60; // convert to minutes
+        
+        if (timeDiff === 0) return 0;
+        
+        return Math.max(0, Math.round(countDiff / timeDiff)); // Không âm
     };
+
+    // ⭐ Calculate congestion status dựa trên totalCount
+    const getCongestionStatus = (): 'CAO' | 'TRUNG BÌNH' | 'THẤP' => {
+        if (!trafficData) return 'THẤP';
+        
+        const count = trafficData.totalCount;
+        if (count > 50) return 'CAO';
+        if (count > 20) return 'TRUNG BÌNH';
+        return 'THẤP';
+    };
+
+    const flowRate = calculateFlowRate();
+    const congestionStatus = getCongestionStatus();
 
     return (
         // Container chính với nền xám nhạt để làm nổi bật các thẻ trắng
@@ -122,25 +236,73 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 </button>
             </div>
 
-            <StatCardWithProgress
-                label="Số lượng xe"
-                value={`${fakeAnalytics.vehicleCount} xe`}
-                progressPercent={Math.min(fakeAnalytics.vehicleCount, 100)}
-                progressColorClass="bg-blue-500"
-            />
+            {/* ⭐ Loading state */}
+            {loading ? (
+                <div className="text-center py-4 text-gray-500">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                    <p className="mt-2 text-sm">Đang tải dữ liệu...</p>
+                </div>
+            ) : trafficData ? (
+                <>
+                    <StatCardWithProgress
+                        label="Số lượng xe"
+                        value={`${trafficData.totalCount} xe`}
+                        progressPercent={Math.min(trafficData.totalCount, 100)}
+                        progressColorClass="bg-blue-500"
+                    />
 
-            <StatCardWithProgress
-                label="Lưu lượng xe"
-                value={`${fakeAnalytics.flowRate} xe/phút`}
-                progressPercent={Math.min(fakeAnalytics.flowRate * 1.5, 100)}
-                progressColorClass="bg-purple-500"
-            />
+                    <StatCardWithProgress
+                        label="Lưu lượng xe"
+                        value={`${flowRate} xe/phút`}
+                        progressPercent={Math.min(flowRate * 1.5, 100)}
+                        progressColorClass="bg-purple-500"
+                    />
 
-            <StatCardWithBadge
-                label="Tình trạng kẹt xe"
-                badgeText={fakeAnalytics.congestionStatus}
-                badgeColorClass={getCongestionColor(fakeAnalytics.congestionStatus)}
-            />
+                    <StatCardWithBadge
+                        label="Tình trạng kẹt xe"
+                        badgeText={congestionStatus}
+                        badgeColorClass={getCongestionColor(congestionStatus)}
+                    />
+
+                    {/* ⭐ Hiển thị Detection Details */}
+                    {trafficData.detectionDetails && Object.keys(trafficData.detectionDetails).length > 0 && (
+                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-2">Chi tiết phát hiện:</h4>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                {Object.entries(trafficData.detectionDetails).map(([type, count]) => (
+                                    <div key={type} className="flex justify-between items-center bg-gray-50 p-2 rounded">
+                                        <span className="text-gray-600 capitalize">{type}:</span>
+                                        <span className="font-semibold text-gray-800">{count}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ⭐ Timestamps */}
+                    <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+                        {trafficData.timestamp && (
+                            <p className="text-xs text-gray-500">
+                                <span className="font-medium">Dữ liệu từ:</span>{' '}
+                                {typeof trafficData.timestamp === 'string' 
+                                    ? new Date(trafficData.timestamp).toLocaleString('vi-VN')
+                                    : new Date(trafficData.timestamp).toLocaleString('vi-VN')
+                                }
+                            </p>
+                        )}
+                        {lastUpdateTime && (
+                            <p className="text-xs text-green-600">
+                                <span className="font-medium">🔄 Cập nhật lúc:</span>{' '}
+                                {lastUpdateTime.toLocaleTimeString('vi-VN')}
+                            </p>
+                        )}
+                    </div>
+                </>
+            ) : (
+                <div className="text-center py-4 text-gray-500">
+                    <p className="text-sm">⚠️ Không có dữ liệu giao thông</p>
+                </div>
+            )}
         </div>
     );
 }

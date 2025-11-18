@@ -84,22 +84,6 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-      # BẬT LẠI IMAGE STORAGE SERVICE
-      # image-storage-service:
-      #   build: ./image-storage-service
-      #   ports:
-      #     - "8079:8079"
-      #   environment:
-      #     KAFKA_BOOTSTRAP_SERVERS: broker:29092
-      #     MINIO_ENDPOINT: http://minio:9000
-      #     MINIO_ACCESS_KEY: minioadmin
-      #     MINIO_SECRET_KEY: minioadmin
-      #     MINIO_BUCKET_NAME: traffic-images
-      #   depends_on:
-      #     minio:
-      #       condition: service_healthy
-      #     broker:
-      #       condition: service_healthy
 
   traffic-analysis-service:
     build: ./traffic-analysis-service
@@ -117,19 +101,17 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    # ============ CẤU HÌNH GPU ============
     deploy:
       replicas: 6
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1 # Số GPU muốn dùng (hoặc 'all')
+              count: 1
               capabilities: [ gpu ]
-    # Tăng tài nguyên khi dùng GPU
     cpus: '2'
     mem_limit: 4G
-    # ======================================
+
   dashboard-service:
     build: ./dashboard-service
     ports:
@@ -145,6 +127,20 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+
+  # image-retrieval-service:
+  #   build: ./image-retrieval-service
+  #   ports:
+  #     - "1810:1810"
+  #   environment:
+  #     MINIO_ENDPOINT: http://minio:9000
+  #     MINIO_ACCESS_KEY: minioadmin
+  #     MINIO_SECRET_KEY: minioadmin
+  #     MINIO_BUCKET_NAME: traffic-analyzed-images
+  #     SERVER_PORT: 1810
+  #   depends_on:
+  #     minio:
+  #       condition: service_healthy
 
 volumes:
   postgres_data:

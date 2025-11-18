@@ -65,14 +65,12 @@ class KafkaConsumer:
         self.image_fetcher = ImageFetcher(IMAGE_BASE_URL)
         self.vehicle_counter = VehicleCounter(self.yolo_model)
         
-        # Chỉ phân tích camera có ID cụ thể
-        self.target_camera_id = "BD 4.1"
-        logger.info(f"Khởi tạo consumer hoàn tất, chỉ xử lý camera ID: {self.target_camera_id}")
-        # logger.info("Khởi tạo consumer hoàn tất, sẵn sàng xử lý TOÀN BỘ camera")
+        # Chỉ phân tích camera có ID bắt đầu bằng "BD"
+        self.target_camera_prefix = "BD"
+        logger.info(f"Khởi tạo consumer hoàn tất, chỉ xử lý camera có ID bắt đầu bằng: {self.target_camera_prefix}")
 
     def consume_messages(self):
-        logger.info(f"Bắt đầu lắng nghe dữ liệu, chỉ xử lý camera ID: {self.target_camera_id}")
-        # logger.info("Bắt đầu lắng nghe dữ liệu từ TẤT CẢ camera")
+        logger.info(f"Bắt đầu lắng nghe dữ liệu, chỉ xử lý camera có ID bắt đầu bằng: {self.target_camera_prefix}")
         
         for message in self.consumer:
             try:
@@ -80,8 +78,8 @@ class KafkaConsumer:
                 camera_id = camera_data.get('id', 'Unknown')
                 camera_name = camera_data.get('name', 'Unknown')
                 
-                # Chỉ xử lý camera có ID là "BD 4.1"
-                if camera_id != self.target_camera_id:
+                # Chỉ xử lý camera có ID bắt đầu bằng "BD"
+                if not camera_id.startswith(self.target_camera_prefix):
                     logger.debug(f"Bỏ qua camera: {camera_name} (ID: {camera_id})")
                     continue
                 

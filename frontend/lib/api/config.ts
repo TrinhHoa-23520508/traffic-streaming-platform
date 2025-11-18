@@ -8,7 +8,7 @@
 export const API_CONFIG = {
   BASE_URL: 'http://localhost:6677',
   WS_URL: 'http://localhost:6677/ws',
-  
+
   ENDPOINTS: {
     TRAFFIC: {
       LATEST: '/api/traffic/latest',
@@ -18,9 +18,10 @@ export const API_CONFIG = {
       CAMERA_LATEST: '/api/traffic/camera',
     },
   },
-  
+
   WS_TOPIC: '/topic/traffic',
-  
+  WS_CITY_STATS_TOPIC: '/topic/hourly-summary-by-district',
+
   DEFAULT_TIMEOUT: 10000,
   MAX_RECONNECT_ATTEMPTS: 10,
   RECONNECT_DELAY: 5000,
@@ -34,10 +35,10 @@ export const getBaseUrl = (): string => {
   if (typeof window === 'undefined') {
     return API_CONFIG.BASE_URL;
   }
-  
+
   const isProduction = process.env.NODE_ENV === 'production';
-  return isProduction 
-    ? process.env.NEXT_PUBLIC_API_URL || API_CONFIG.BASE_URL 
+  return isProduction
+    ? process.env.NEXT_PUBLIC_API_URL || API_CONFIG.BASE_URL
     : API_CONFIG.BASE_URL;
 };
 
@@ -48,9 +49,9 @@ export const getWsUrl = (): string => {
   if (typeof window === 'undefined') {
     return API_CONFIG.WS_URL;
   }
-  
+
   const isProduction = process.env.NODE_ENV === 'production';
-  return isProduction 
-    ? process.env.NEXT_PUBLIC_WS_URL || API_CONFIG.WS_URL 
+  return isProduction
+    ? process.env.NEXT_PUBLIC_WS_URL || API_CONFIG.WS_URL
     : API_CONFIG.WS_URL;
 };

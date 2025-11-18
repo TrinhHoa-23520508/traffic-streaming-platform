@@ -1,6 +1,7 @@
 // lib/api/trafficApi.ts
 
 import type { TrafficMetricsDTO } from '@/types/traffic';
+import type { CityStatsByDistrict } from '@/types/city-stats';
 import { API_CONFIG, getBaseUrl, getWsUrl } from './config';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -36,9 +37,9 @@ export interface HourlySummaryParams {
 }
 
 /**
- * Response type for summary by district
+ * Response type for summary by district (simple count map for backward compatibility)
  */
-export type DistrictSummary = Record<string, number>;
+export type DistrictCountMap = Record<string, number>;
 
 /**
  * Response type for hourly summary
@@ -84,6 +85,11 @@ function transformTrafficData(backendData: BackendTrafficData): TrafficMetricsDT
 export type TrafficUpdateCallback = (data: TrafficMetricsDTO) => void;
 
 /**
+ * City stats update callback
+ */
+export type CityStatsUpdateCallback = (data: any) => void;
+
+/**
  * Traffic API Service
  * Centralized service for all traffic-related API calls and WebSocket management
  */
@@ -91,6 +97,7 @@ class TrafficApiService {
   private baseUrl: string;
   private stompClient: Client | null = null;
   private subscribers: Set<TrafficUpdateCallback> = new Set();
+  private cityStatsSubscribers: Set<CityStatsUpdateCallback> = new Set();
   private trafficDataCache: Map<string, TrafficMetricsDTO> = new Map();
   private isConnected: boolean = false;
   private isConnecting: boolean = false;
@@ -139,29 +146,40 @@ class TrafficApiService {
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.stopFallbackMode();
-        
+
         console.log('✅ WebSocket connected, real-time traffic updates active');
-        
+
         // Subscribe to traffic topic
         client.subscribe(API_CONFIG.WS_TOPIC, (message) => {
           try {
             const backendData: BackendTrafficData = JSON.parse(message.body);
             const trafficData = transformTrafficData(backendData);
-            
+
             console.log('📨 WebSocket data received:', {
               cameraId: trafficData.cameraId,
               totalCount: trafficData.totalCount,
               subscribers: this.subscribers.size
             });
-            
+
             // Update cache
             this.trafficDataCache.set(trafficData.cameraId, trafficData);
-            
+
             // Notify all subscribers
             console.log(`📢 Notifying ${this.subscribers.size} subscribers...`);
             this.subscribers.forEach(callback => callback(trafficData));
           } catch (error) {
             console.error('Error parsing traffic data:', error);
+          }
+        });
+
+        client.subscribe(API_CONFIG.WS_CITY_STATS_TOPIC, (message) => {
+          try {
+            const cityStatsData = JSON.parse(message.body);
+            console.log('City stats WebSocket data received:', cityStatsData);
+
+            this.cityStatsSubscribers.forEach(callback => callback(cityStatsData));
+          } catch (error) {
+            console.error('Error parsing city stats data:', error);
           }
         });
       },
@@ -218,7 +236,7 @@ class TrafficApiService {
 
     const generateData = () => {
       const cameraIds = Array.from(this.trafficDataCache.keys());
-      
+
       if (cameraIds.length === 0) {
         console.log('⚠️ No cameras in cache, skipping random data generation');
         return;
@@ -241,7 +259,7 @@ class TrafficApiService {
   private generateRandomTrafficData() {
     // Generate random data for all cameras in cache or create dummy data
     const cameraIds = Array.from(this.trafficDataCache.keys());
-    
+
     if (cameraIds.length === 0) {
       // No cameras in cache, notify subscribers with random camera IDs
       console.log('⚠️ No cameras in cache, skipping random data generation');
@@ -253,7 +271,7 @@ class TrafficApiService {
       const motorcycleCount = Math.floor(Math.random() * 20);
       const busCount = Math.floor(Math.random() * 5);
       const truckCount = Math.floor(Math.random() * 5);
-      
+
       const randomTraffic: TrafficMetricsDTO = {
         id: Date.now(),
         cameraId,
@@ -270,11 +288,11 @@ class TrafficApiService {
         annotatedImageUrl: '',
         coordinates: [0, 0]
       };
-      
+
       this.trafficDataCache.set(cameraId, randomTraffic);
       this.subscribers.forEach(callback => callback(randomTraffic));
     });
-    
+
     console.log(`✅ Random data generated and sent to ${this.subscribers.size} subscribers`);
   }
 
@@ -298,9 +316,9 @@ class TrafficApiService {
     console.log('📝 New subscriber added');
     this.subscribers.add(callback);
     console.log('📊 Total subscribers:', this.subscribers.size);
-    
+
     // Initialize WebSocket if this is the first subscriber
-    if (this.subscribers.size === 1 && !this.isConnected && !this.isConnecting) {
+    if (this.subscribers.size === 1 && this.cityStatsSubscribers.size === 0 && !this.isConnected && !this.isConnecting) {
       console.log('🚀 First subscriber! Initializing connection...');
       this.initWebSocket();
     } else if (this.isConnected) {
@@ -314,9 +332,40 @@ class TrafficApiService {
       console.log('🚪 Subscriber removed');
       this.subscribers.delete(callback);
       console.log('📊 Remaining subscribers:', this.subscribers.size);
-      
+
       // Cleanup if no more subscribers
-      if (this.subscribers.size === 0) {
+      if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 0) {
+        console.log('😴 No more subscribers, cleaning up...');
+        this.cleanup();
+      }
+    };
+  }
+
+  /**
+   * Subscribe to real-time city stats updates
+   * @param callback - Function to call when new city stats data arrives
+   * @returns Unsubscribe function
+   */
+  subscribeCityStats(callback: CityStatsUpdateCallback): () => void {
+    console.log('📝 New city stats subscriber added');
+    this.cityStatsSubscribers.add(callback);
+    console.log('📊 Total city stats subscribers:', this.cityStatsSubscribers.size);
+
+    if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 1 && !this.isConnected && !this.isConnecting) {
+      console.log('🚀 First city stats subscriber! Initializing connection...');
+      this.initWebSocket();
+    } else if (this.isConnected) {
+      console.log('✅ Already connected, city stats subscriber added to existing connection');
+    } else if (this.isConnecting) {
+      console.log('⏳ Connection in progress, city stats subscriber will receive updates when connected');
+    }
+
+    return () => {
+      console.log('🚪 City stats subscriber removed');
+      this.cityStatsSubscribers.delete(callback);
+      console.log('📊 Remaining city stats subscribers:', this.cityStatsSubscribers.size);
+
+      if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 0) {
         console.log('😴 No more subscribers, cleaning up...');
         this.cleanup();
       }
@@ -373,12 +422,12 @@ class TrafficApiService {
    */
   private cleanup() {
     this.stopFallbackMode();
-    
+
     if (this.stompClient) {
       this.stompClient.deactivate();
       this.stompClient = null;
     }
-    
+
     this.isConnected = false;
     this.isConnecting = false;
     this.reconnectAttempts = 0;
@@ -447,19 +496,19 @@ class TrafficApiService {
    * Get total count grouped by district
    * 
    * @param params - Optional query parameters
-   * @returns Promise<DistrictSummary>
+   * @returns Promise<CityStatsByDistrict>
    * 
    * @example
    * // Get today's summary
    * const summary = await trafficApi.getSummaryByDistrict();
-   * // Result: { "Quận 1": 150, "Quận 3": 230, ... }
+   * // Result: { "Quận 1": { totalCount: 150, detectionDetailsSummary: {...} }, ... }
    * 
    * // Get summary for specific date
    * const summary = await trafficApi.getSummaryByDistrict({ date: '2025-10-30' });
    */
-  async getSummaryByDistrict(params?: SummaryByDistrictParams): Promise<DistrictSummary> {
+  async getSummaryByDistrict(params?: SummaryByDistrictParams): Promise<CityStatsByDistrict> {
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.SUMMARY_BY_DISTRICT, params as any);
-    return this.fetchWithErrorHandling<DistrictSummary>(url);
+    return this.fetchWithErrorHandling<CityStatsByDistrict>(url);
   }
 
   /**

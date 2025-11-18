@@ -12,10 +12,21 @@ interface InforPanelProps {
     filterOptionHasAll?: boolean;
     onFilterChange?: (value: string) => void;
     showFilter?: boolean;
+    dateValue?: Date;
+    onDateChange?: (date: Date | undefined) => void;
 }
 
-export default function InforPanel({ title, children, filterLabel = "Quận/Huyện", filterValue, onFilterChange, showFilter = true, filterOptionHasAll = false }: InforPanelProps) {
-    const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date())
+export default function InforPanel({ title, children, filterLabel = "Quận/Huyện", filterValue, onFilterChange, showFilter = true, filterOptionHasAll = false, dateValue, onDateChange }: InforPanelProps) {
+    const [internalDate, setInternalDate] = React.useState<Date | undefined>(new Date())
+
+    const selectedDate = dateValue !== undefined ? dateValue : internalDate;
+    const handleDateChange = (date: Date | undefined) => {
+        if (onDateChange) {
+            onDateChange(date);
+        } else {
+            setInternalDate(date);
+        }
+    };
 
     const districtData = [
         'Bình Chánh (huyện)',
@@ -40,6 +51,7 @@ export default function InforPanel({ title, children, filterLabel = "Quận/Huy�
         'Tân Bình (quận)',
         'Tân Phú (quận)',
         'Thành phố Thủ Đức',
+        'Bình Dương',
     ]
 
     const options = filterOptionHasAll ? ['Tất cả', ...districtData] : districtData
@@ -65,7 +77,7 @@ export default function InforPanel({ title, children, filterLabel = "Quận/Huy�
                         </div>
                     )}
                 </div>
-                <DatePicker value={selectedDate} onChange={(d) => setSelectedDate(d)} />
+                <DatePicker value={selectedDate} onChange={handleDateChange} />
             </div>
             {children}
         </div>

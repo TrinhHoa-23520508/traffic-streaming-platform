@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import { FiMenu, FiX } from "react-icons/fi"
+import { useState, useEffect } from "react"
+import { FiX } from "react-icons/fi"
 import { Button } from "../ui/button"
 import TrafficDensityStatisticsAreaChart from "./traffic-density_stats"
 import VehicleStatisticsStackChart from "./vehicle-stats"
 import TrafficAlertsPanel from "./traffic-alert"
+import { trafficApi } from "@/lib/api/trafficApi"
 
 type CityStatsDrawerProps = {
     open?: boolean
@@ -14,8 +15,26 @@ type CityStatsDrawerProps = {
 
 export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerProps) {
     const [internalOpen, setInternalOpen] = useState(false)
+    const [cityStatsData, setCityStatsData] = useState<any>(null)
+    const [lastUpdate, setLastUpdate] = useState<string>('')
     const isOpen = open ?? internalOpen
     const setIsOpen = onOpenChange ?? setInternalOpen
+
+    useEffect(() => {
+        console.log('Setting up city stats WebSocket subscription...');
+
+        const unsubscribe = trafficApi.subscribeCityStats((data) => {
+            console.log('City stats data received in component:', data);
+            setCityStatsData(data);
+            setLastUpdate(new Date().toLocaleString('vi-VN'));
+        });
+
+        // Cleanup subscription on unmount
+        return () => {
+            console.log('Cleaning up city stats subscription');
+            unsubscribe();
+        };
+    }, []);
 
     return (
         <>
@@ -25,7 +44,12 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                 <div className="flex items-center justify-between py-2 px-4 border-b border-gray-200 relative flex-none">
                     <div>
                         <h1 className="text-black text-2xl font-semibold">Thống kê toàn thành phố</h1>
-                        <h2 className="text-gray-500 text-sm">Cập nhật lần cuối: <span className="text-gray-400 text-xs">01/01/2025 12:00:00</span></h2>
+                        <h2 className="text-gray-500 text-sm">
+                            Cập nhật lần cuối:
+                            <span className="text-gray-400 text-xs ml-1">
+                                {lastUpdate || '01/01/2025 12:00:00'}
+                            </span>
+                        </h2>
                     </div>
                     <div className="flex items-center gap-3">
                         <RefreshButton />
@@ -39,7 +63,7 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                 </div>
                 <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 flex flex-col gap-3">
                     <TrafficAlertsPanel />
-                    <TrafficDensityStatisticsAreaChart />
+                    <TrafficDensityStatisticsAreaChart data={cityStatsData} />
                     <VehicleStatisticsStackChart />
                 </div>
             </div>

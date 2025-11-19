@@ -57,7 +57,7 @@ image-retrieval-service
 4. **Access the API**:
    The application exposes a REST API to retrieve images. You can access it at:
    ```
-   http://localhost:8080/images/latest
+   http://localhost:1810/api/images/camera/camera_id/latest (nếu camera có khoảng cách thì thay dấu khoảng cách thành %20 ví dụ: BD 4.1 -> BD%204.1)
    ```
 
 ## Configuration
@@ -74,14 +74,15 @@ mvn test
 
 ## Docker
 
-To build and run the application in a Docker container, use the provided `Dockerfile`. Build the Docker image with:
+To build and run the application in a Docker container, use the provided `Dockerfile`. 
+Build the Docker image with:
 ```
 docker build -t image-retrieval-service .
 ```
 
 Run the Docker container with:
 ```
-docker run -p 8080:8080 image-retrieval-service
+docker run -p 1810:1810 image-retrieval-service
 ```
 
 ## License

@@ -21,4 +21,22 @@ public class ImageController {
         List<ImageResponse> images = imageService.getLatestImages(limit);
         return ResponseEntity.ok(images);
     }
+
+    @GetMapping("/camera/{cameraId}/latest")
+    public ResponseEntity<ImageResponse> getLatestImageByCamera(
+            @PathVariable String cameraId) {
+        ImageResponse image = imageService.getLatestImageByCamera(cameraId);
+        if (image != null) {
+            return ResponseEntity.ok(image);
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/camera/{cameraId}")
+    public ResponseEntity<List<ImageResponse>> getImagesByCamera(
+            @PathVariable String cameraId,
+            @RequestParam(defaultValue = "10") int limit) {
+        List<ImageResponse> images = imageService.getImagesByCamera(cameraId, limit);
+        return ResponseEntity.ok(images);
+    }
 }

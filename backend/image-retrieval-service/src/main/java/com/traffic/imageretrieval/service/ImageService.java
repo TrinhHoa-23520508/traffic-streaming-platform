@@ -24,6 +24,9 @@ public class ImageService {
     @Value("${minio.bucket-name}")
     private String bucketName;
 
+    @Value("${minio.public-endpoint:http://localhost:9000}")
+    private String minioPublicEndpoint;
+
     public List<ImageResponse> getLatestImages(int limit) {
         log.info("Fetching {} latest images from MinIO bucket: {}", limit, bucketName);
 
@@ -34,8 +37,32 @@ public class ImageService {
                 .collect(Collectors.toList());
     }
 
+    public List<ImageResponse> getImagesByCamera(String cameraId, int limit) {
+        log.info("Fetching {} latest images for camera: {}", limit, cameraId);
+
+        List<Item> items = minioService.getObjectsByCamera(cameraId, limit);
+
+        return items.stream()
+                .map(this::convertToImageResponse)
+                .collect(Collectors.toList());
+    }
+
+    public ImageResponse getLatestImageByCamera(String cameraId) {
+        log.info("Fetching latest image for camera: {}", cameraId);
+
+        Item item = minioService.getLatestObjectByCamera(cameraId);
+
+        if (item == null) {
+            log.warn("No image found for camera: {}", cameraId);
+            return null;
+        }
+
+        return convertToImageResponse(item);
+    }
+
     private ImageResponse convertToImageResponse(Item item) {
-        String url = String.format("%s/%s/%s", minioEndpoint, bucketName, item.objectName());
+        // Sử dụng public endpoint (localhost) thay vì internal endpoint (minio)
+        String url = String.format("%s/%s/%s", minioPublicEndpoint, bucketName, item.objectName());
         String lastModified = item.lastModified()
                 .format(DateTimeFormatter.ISO_DATE_TIME);
 

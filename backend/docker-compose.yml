@@ -128,19 +128,20 @@ services:
       postgres:
         condition: service_healthy
 
-  # image-retrieval-service:
-  #   build: ./image-retrieval-service
-  #   ports:
-  #     - "1810:1810"
-  #   environment:
-  #     MINIO_ENDPOINT: http://minio:9000
-  #     MINIO_ACCESS_KEY: minioadmin
-  #     MINIO_SECRET_KEY: minioadmin
-  #     MINIO_BUCKET_NAME: traffic-analyzed-images
-  #     SERVER_PORT: 1810
-  #   depends_on:
-  #     minio:
-  #       condition: service_healthy
+  image-retrieval-service:
+    build: ./image-retrieval-service
+    ports:
+      - "1810:1810"
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET_NAME: traffic-analyzed-images
+      SERVER_PORT: 1810
+    depends_on:
+      minio:
+        condition: service_healthy
 
 volumes:
   postgres_data:

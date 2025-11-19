@@ -17,8 +17,35 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
     const [internalOpen, setInternalOpen] = useState(false)
     const [cityStatsData, setCityStatsData] = useState<any>(null)
     const [lastUpdate, setLastUpdate] = useState<string>('')
+    const [refreshKey, setRefreshKey] = useState(0)
+    const [isRefreshing, setIsRefreshing] = useState(false)
+    const [completedCount, setCompletedCount] = useState(0)
     const isOpen = open ?? internalOpen
     const setIsOpen = onOpenChange ?? setInternalOpen
+
+    const handleApiComplete = () => {
+        setCompletedCount(prev => {
+            const newCount = prev + 1;
+            if (newCount >= 2) {
+                setIsRefreshing(false);
+                setLastUpdate(new Date().toLocaleString('vi-VN'));
+                return 0;
+            }
+            return newCount;
+        });
+    };
+
+    const handleRefresh = () => {
+        if (isRefreshing) return;
+        console.log('Refreshing all city stats...');
+        setIsRefreshing(true);
+        setCompletedCount(0);
+        setRefreshKey(prev => prev + 1);
+    };
+
+    useEffect(() => {
+        setLastUpdate(new Date().toLocaleString('vi-VN'));
+    }, []);
 
     useEffect(() => {
         console.log('Setting up city stats WebSocket subscription...');
@@ -29,7 +56,6 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
             setLastUpdate(new Date().toLocaleString('vi-VN'));
         });
 
-        // Cleanup subscription on unmount
         return () => {
             console.log('Cleaning up city stats subscription');
             unsubscribe();
@@ -47,12 +73,12 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                         <h2 className="text-gray-500 text-sm">
                             Cập nhật lần cuối:
                             <span className="text-gray-400 text-xs ml-1">
-                                {lastUpdate || '01/01/2025 12:00:00'}
+                                {lastUpdate || new Date().toLocaleString('vi-VN')}
                             </span>
                         </h2>
                     </div>
                     <div className="flex items-center gap-3">
-                        <RefreshButton />
+                        <RefreshButton onClick={handleRefresh} isLoading={isRefreshing} />
                         <button
                             onClick={() => setIsOpen(false)}
                             className="text-gray-500 hover:text-black cursor-pointer"
@@ -63,18 +89,30 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                 </div>
                 <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 flex flex-col gap-3">
                     <TrafficAlertsPanel />
-                    <TrafficDensityStatisticsAreaChart data={cityStatsData} />
-                    <VehicleStatisticsStackChart />
+                    <TrafficDensityStatisticsAreaChart
+                        data={cityStatsData}
+                        refreshTrigger={refreshKey}
+                        onLoadComplete={handleApiComplete}
+                    />
+                    <VehicleStatisticsStackChart
+                        refreshTrigger={refreshKey}
+                        onLoadComplete={handleApiComplete}
+                    />
                 </div>
             </div>
         </>
     )
 }
 
-function RefreshButton() {
+function RefreshButton({ onClick, isLoading }: { onClick: () => void; isLoading: boolean }) {
     return (
-        <Button variant="outline" className="cursor-pointer">
-            Làm mới
+        <Button
+            variant="outline"
+            className="cursor-pointer"
+            onClick={onClick}
+            disabled={isLoading}
+        >
+            {isLoading ? 'Đang tải...' : 'Làm mới'}
         </Button>
     )
 }

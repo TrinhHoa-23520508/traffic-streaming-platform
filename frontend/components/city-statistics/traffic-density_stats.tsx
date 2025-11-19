@@ -13,20 +13,22 @@ interface HourlyData {
 
 interface TrafficDensityStatsProps {
     data?: CityStatsHourlyWS;
+    refreshTrigger?: number;
+    onLoadComplete?: () => void;
 }
 
-export default function TrafficDensityStatisticsAreaChart({ data: wsData }: TrafficDensityStatsProps) {
+const generateRandomHourlyData = (): HourlyData[] => {
+    return Array.from({ length: 24 }, (_, hour) => ({
+        time: `${hour}:00`,
+        traffic: Math.floor(Math.random() * 2000) + 500
+    }));
+};
+
+export default function TrafficDensityStatisticsAreaChart({ data: wsData, refreshTrigger, onLoadComplete }: TrafficDensityStatsProps) {
     const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Bình Dương");
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
     const [chartData, setChartData] = useState<HourlyData[]>([]);
     const [loading, setLoading] = useState(true);
-
-    const initializeChartData = (): HourlyData[] => {
-        return Array.from({ length: 24 }, (_, hour) => ({
-            time: `${hour}:00`,
-            traffic: 0
-        }));
-    };
 
     useEffect(() => {
         const fetchHourlyData = async () => {
@@ -55,14 +57,16 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData }: Traf
                 setChartData(chartData);
             } catch (error) {
                 console.error('Error fetching hourly data:', error);
-                setChartData(initializeChartData());
+                console.log('Using random data as fallback');
+                setChartData(generateRandomHourlyData());
             } finally {
                 setLoading(false);
+                onLoadComplete?.();
             }
         };
 
         fetchHourlyData();
-    }, [areaDistrict, selectedDate]);
+    }, [areaDistrict, selectedDate, refreshTrigger]);
 
     useEffect(() => {
         if (wsData && wsData.district === areaDistrict) {

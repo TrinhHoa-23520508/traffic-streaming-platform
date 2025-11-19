@@ -41,6 +41,7 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
                             setOpen(false)
                             onChange && onChange(d)
                         }}
+                        disabled={(date) => date > new Date()}
                         captionLayout="dropdown"
                     />
                 </PopoverContent>

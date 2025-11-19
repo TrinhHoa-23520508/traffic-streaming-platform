@@ -87,7 +87,7 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                         </button>
                     </div>
                 </div>
-                <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 flex flex-col gap-3">
+                <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 flex flex-col gap-3">
                     <TrafficAlertsPanel />
                     <TrafficDensityStatisticsAreaChart
                         data={cityStatsData}

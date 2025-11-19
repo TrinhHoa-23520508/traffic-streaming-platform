@@ -158,7 +158,8 @@ class TrafficApiService {
             console.log('📨 WebSocket data received:', {
               cameraId: trafficData.cameraId,
               totalCount: trafficData.totalCount,
-              subscribers: this.subscribers.size
+              subscribers: this.subscribers.size,
+              timestamp: trafficData.timestamp
             });
 
             // Update cache

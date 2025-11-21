@@ -3,12 +3,12 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl, Polyline, useMapEvents } from "react-leaflet";
 import { LatLngExpression, LatLngTuple } from 'leaflet';
 import L from 'leaflet';
 import CameraMarkers from "@/components/camera-markers";
 import type { Camera } from "@/types/camera";
-import { FiMenu } from "react-icons/fi";
+import { FiMenu, FiNavigation, FiX } from "react-icons/fi";
 
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
@@ -90,6 +90,7 @@ function ZoomLogger() {
 const Map = (props: MapProps) => {
     const { zoom = defaults.zoom, posix, locationName, onCameraClick, selectedCamera, selectedLocation, isDrawerOpen, onOpenDrawer, isModalOpen } = props
     const [heatEnabled, setHeatEnabled] = useState<boolean>(false);
+    const [routingEnabled, setRoutingEnabled] = useState<boolean>(false);
     const [cameras, setCameras] = useState<any[]>([]);
 
     useEffect(() => {
@@ -132,11 +133,19 @@ const Map = (props: MapProps) => {
             >
                 <div className="flex items-center gap-2">
                     <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2">
-                        <label className="flex items-center gap-2 select-none">
+                        <label className="flex items-center gap-2 select-none cursor-pointer">
                             <input type="checkbox" checked={heatEnabled} onChange={(e) => setHeatEnabled(e.target.checked)} />
-                            <span className="text-red-500">Heatmap</span>
+                            <span className="text-red-500 font-medium">Heatmap</span>
                         </label>
                     </div>
+
+                    <button
+                        onClick={() => setRoutingEnabled(!routingEnabled)}
+                        className={`p-2 rounded-lg shadow transition-colors ${routingEnabled ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                        title="Toggle Routing Mode"
+                    >
+                        <FiNavigation size={18} />
+                    </button>
 
                     {!isDrawerOpen && !isModalOpen && (
                         <button
@@ -153,11 +162,174 @@ const Map = (props: MapProps) => {
             {typeof window !== 'undefined' && (
                 <HeatLayerManager enabled={heatEnabled} cameras={cameras} imageRefreshKey={(props as any).imageRefreshKey} />
             )}
+
+            {/* Routing Manager */}
+            {routingEnabled && (
+                <RoutingManager cameras={cameras} onCancel={() => setRoutingEnabled(false)} />
+            )}
         </MapContainer>
     )
 }
 
 export default Map
+
+// --- Routing Components ---
+
+function RoutingManager({ cameras, onCancel }: { cameras: any[], onCancel: () => void }) {
+    const [startPoint, setStartPoint] = useState<L.LatLng | null>(null);
+    const [endPoint, setEndPoint] = useState<L.LatLng | null>(null);
+    const [routeSegments, setRouteSegments] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const map = useMap();
+
+    // Handle map clicks
+    useMapEvents({
+        click(e) {
+            if (!startPoint) {
+                setStartPoint(e.latlng);
+            } else if (!endPoint) {
+                setEndPoint(e.latlng);
+                fetchRoute(startPoint, e.latlng);
+            }
+        }
+    });
+
+    const fetchRoute = async (start: L.LatLng, end: L.LatLng) => {
+        setLoading(true);
+        try {
+            // Use OSRM public API
+            const response = await fetch(
+                `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`
+            );
+            const data = await response.json();
+
+            if (data.routes && data.routes.length > 0) {
+                const coordinates = data.routes[0].geometry.coordinates;
+                // Process route to color segments based on traffic
+                const segments = processTrafficRoute(coordinates, cameras);
+                setRouteSegments(segments);
+                
+                // Fit bounds to show route
+                const bounds = L.latLngBounds([start, end]);
+                coordinates.forEach((coord: any) => bounds.extend([coord[1], coord[0]]));
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        } catch (error) {
+            console.error("Error fetching route:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const reset = () => {
+        setStartPoint(null);
+        setEndPoint(null);
+        setRouteSegments([]);
+    };
+
+    return (
+        <>
+            {/* Instructions / Controls */}
+            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-[1000] bg-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-4">
+                <div className="text-sm font-medium">
+                    {!startPoint ? "Click map to set Start point" : 
+                     !endPoint ? "Click map to set End point" : 
+                     loading ? "Calculating route..." : "Route calculated"}
+                </div>
+                {(startPoint || endPoint) && (
+                    <button onClick={reset} className="text-gray-500 hover:text-gray-700">
+                        Reset
+                    </button>
+                )}
+                <button onClick={onCancel} className="text-red-500 hover:text-red-700">
+                    <FiX size={18} />
+                </button>
+            </div>
+
+            {/* Start Marker */}
+            {startPoint && (
+                <Marker position={startPoint} icon={createIcon('green')} />
+            )}
+
+            {/* End Marker */}
+            {endPoint && (
+                <Marker position={endPoint} icon={createIcon('red')} />
+            )}
+
+            {/* Route Segments */}
+            {routeSegments.map((segment, i) => (
+                <Polyline 
+                    key={i} 
+                    positions={segment.positions} 
+                    pathOptions={{ color: segment.color, weight: 6, opacity: 0.8 }} 
+                />
+            ))}
+        </>
+    );
+}
+
+// Helper to create simple colored icons
+const createIcon = (color: string) => L.divIcon({
+    className: 'custom-pin',
+    html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6]
+});
+
+// Logic to split route and color based on traffic
+function processTrafficRoute(coordinates: number[][], cameras: any[]) {
+    const segments: any[] = [];
+    
+    // Convert GeoJSON [lon, lat] to Leaflet [lat, lon]
+    const path = coordinates.map(coord => L.latLng(coord[1], coord[0]));
+
+    // We'll create small segments and check nearest camera for each
+    for (let i = 0; i < path.length - 1; i++) {
+        const p1 = path[i];
+        const p2 = path[i+1];
+        const midPoint = L.latLng(
+            (p1.lat + p2.lat) / 2,
+            (p1.lng + p2.lng) / 2
+        );
+
+        // Find nearest camera
+        let nearestCamera = null;
+        let minDistance = Infinity;
+
+        cameras.forEach(camera => {
+            const camLatLng = L.latLng(camera.loc.coordinates[1], camera.loc.coordinates[0]);
+            const dist = midPoint.distanceTo(camLatLng);
+            if (dist < minDistance) {
+                minDistance = dist;
+                nearestCamera = camera;
+            }
+        });
+
+        // Determine color
+        let color = '#3b82f6'; // Default Blue (No data/Far)
+        
+        // Only apply traffic color if camera is within 500m
+        if (nearestCamera && minDistance < 500) {
+            const density = (nearestCamera as any).density || 0;
+            if (density > 40) color = '#ef4444'; // Red - Heavy
+            else if (density > 20) color = '#f97316'; // Orange - Moderate
+            else if (density > 10) color = '#eab308'; // Yellow - Light
+            else color = '#22c55e'; // Green - Clear
+        }
+
+        // Optimization: Merge with previous segment if color is same
+        if (segments.length > 0 && segments[segments.length - 1].color === color) {
+            segments[segments.length - 1].positions.push(p2);
+        } else {
+            segments.push({
+                positions: [p1, p2],
+                color: color
+            });
+        }
+    }
+
+    return segments;
+}
 
 // HeatLayerManager component: client-only, creates a heat layer using leaflet.heat
 function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: boolean, cameras: any[], imageRefreshKey?: number }) {

@@ -202,40 +202,65 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
             // @ts-ignore: no types for leaflet.heat
             await import('leaflet.heat');
 
+            // Calculate max density to normalize or use a fixed scale
+            // Using a fixed scale allows comparing traffic levels objectively
+            // Assuming ~50 vehicles is "high traffic" for a single camera view
+            const MAX_DENSITY_THRESHOLD = 50;
+
             // build points with [lat, lon, weight] using cameras from props
             const points = cameras.map((c: any) => {
                 const lat = c.loc.coordinates[1];
                 const lon = c.loc.coordinates[0];
-                 const zoomLevel = map.getZoom();
-                // normalize weight between 0 and 1 - spread out more evenly
-                const weight = c.density / 50;
+                
+                // Normalize weight: 0 to 1
+                // We clamp it at 1.0 so extremely high traffic doesn't break the visual
+                let weight = (c.density || 0) / MAX_DENSITY_THRESHOLD;
+                if (weight > 1) weight = 1;
+                if (weight < 0) weight = 0;
+                
                 return [lat, lon, weight];
             });
-            // Use larger radius and prevent fading on zoom out
-            const radius = 60;
-            const blur = 0;
 
-            // gradient: green (low) -> yellow -> red (high)
-            const gradient = {
-                0.0: 'green',
-                0.25: '#7fff00',
-                0.5: 'yellow',
-                0.75: 'orange',
-                1.0: 'red'
+            // Dynamic configuration based on zoom
+            const currentZoom = map.getZoom();
+            
+            // Adjust max intensity to prevent oversaturation when zooming out
+            // When points overlap at low zoom, we need a higher threshold for "red"
+            const baseZoom = 15;
+            let dynamicMax = 1.0;
+            if (currentZoom < baseZoom) {
+                // Increase max intensity as we zoom out to compensate for point overlap
+                dynamicMax = 1.0 + (baseZoom - currentZoom) * 0.8;
+            }
+
+            // Configuration for better visibility
+            const options = {
+                radius: 35, // Larger radius to cover more area and connect sparse points
+                blur: 20,   // Smooth blur for better visual appeal
+                maxZoom: currentZoom, // CRITICAL: Set maxZoom to current zoom to prevent fading when zooming out
+                max: dynamicMax,   // Dynamic maximum intensity
+                minOpacity: 0.3, // Ensure even low traffic is slightly visible
+                gradient: {
+                    0.0: 'blue',
+                    0.2: 'cyan',
+                    0.4: 'lime',
+                    0.6: 'yellow',
+                    0.8: 'orange',
+                    1.0: 'red'
+                }
             };
 
             if (enabled) {
                 if (!heat) {
-                    heat = (L as any).heatLayer(points, { 
-                        radius, 
-                        blur, 
-                        gradient 
-                    });
+                    heat = (L as any).heatLayer(points, options);
                     heat.addTo(map as any);
                     heatLayerRef.current = heat;
                 } else {
-                    // Just update points, don't recreate layer
+                    // Update points and options
                     heat.setLatLngs(points);
+                    if (heat.setOptions) {
+                        heat.setOptions(options);
+                    }
                 }
             } else {
                 if (heat) {
@@ -244,9 +269,6 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
                 }
             }
         };
-
-        // Don't recreate on zoom, leaflet.heat handles zoom automatically
-        // Only update when enabled/disabled or data changes
 
         // Ensure global L is available
         if (typeof (window as any).L === 'undefined') {
@@ -260,12 +282,10 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
 
         // cleanup
         return () => {
-            if (heatLayerRef.current) {
-                try { map.removeLayer(heatLayerRef.current); } catch (e) { }
-                heatLayerRef.current = null;
-            }
+            // We don't remove the layer here to prevent flickering on re-renders
+            // The layer is managed by the 'enabled' flag check above
         };
-    }, [enabled, cameras, map, zoomLevel]);
+    }, [enabled, cameras, map, zoomLevel]); // Re-run when zoom changes to update maxZoom
 
     return null;
 }

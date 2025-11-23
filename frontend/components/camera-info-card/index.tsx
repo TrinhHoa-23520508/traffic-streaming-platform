@@ -196,9 +196,11 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     const congestionStatus = getCongestionStatus();
 
     // Determine image source based on toggle
-    const displaySrc = showAI && trafficData?.annotatedImageUrl 
-        ? trafficData.annotatedImageUrl 
-        : currentSrc;
+    const cameraId = camera.id || (camera as any)._id || camera.name;
+    const encodedCameraId = encodeURIComponent(cameraId);
+    const aiImageUrl = `http://localhost:1810/api/images/camera/${encodedCameraId}/latest`;
+
+    const displaySrc = showAI ? aiImageUrl : currentSrc;
 
     const vehicleConfig = {
         car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },

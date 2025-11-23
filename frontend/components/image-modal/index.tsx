@@ -33,7 +33,7 @@ export default function ImageModal({ imageUrl, onClose }: ImageModalProps) {
             onClick={onClose} // Click vào nền đen để đóng
         >
             <div 
-                className="relative max-w-[90vw] max-h-[90vh]"
+                className="relative w-[95vw] h-[95vh] flex items-center justify-center"
                 // Ngăn việc click vào ảnh làm modal bị đóng
                 onClick={(e) => e.stopPropagation()} 
             >
@@ -41,7 +41,7 @@ export default function ImageModal({ imageUrl, onClose }: ImageModalProps) {
                 <img 
                     src={imageUrl} 
                     alt="Phóng to hình ảnh camera" 
-                    className="object-contain max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+                    className="w-full h-full object-contain rounded-lg shadow-2xl"
                 />
                 
                 {/* Nút đóng */}

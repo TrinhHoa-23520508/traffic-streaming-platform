@@ -5,6 +5,8 @@ import React, { useState, useEffect } from 'react'
 import InforPanel from "./infor-panel"
 import { trafficApi } from "@/lib/api/trafficApi"
 import type { TrafficMetricsDTO } from "@/types/traffic"
+import { CHART_COLORS } from "./color"
+import { sl } from "date-fns/locale"
 
 type AlertSeverity = "high" | "medium" | "low"
 
@@ -41,17 +43,21 @@ const getSeverityLabel = (totalCount: number): string => {
     if (totalCount >= SEVERITY_THRESHOLDS.MEDIUM) return "Kẹt xe khá nghiêm trọng";
     return "Kẹt xe nhẹ";
 };
+type Props = { onAlertsUpdate?: () => void }
 
-export default function TrafficAlertsPanel() {
+export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
     const [alerts, setAlerts] = useState<TrafficAlert[]>([]);
     const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Tất cả");
+    const [severityFilter, setSeverityFilter] = useState<AlertSeverity | "all">("all");
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = ITEMS_PER_PAGE;
     const maxAlerts = MAX_ALERTS;
 
-    const filteredAlerts = areaDistrict === "Tất cả"
-        ? alerts
-        : alerts.filter(a => a.district === areaDistrict);
+    const filteredAlerts = alerts.filter(a => {
+        const matchDistrict = areaDistrict === "Tất cả" || a.district === areaDistrict;
+        const matchSeverity = severityFilter === "all" || a.severity === severityFilter;
+        return matchDistrict && matchSeverity;
+    });
 
     const totalPages = Math.ceil(filteredAlerts.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -60,7 +66,7 @@ export default function TrafficAlertsPanel() {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [areaDistrict]);
+    }, [areaDistrict, severityFilter]);
 
     useEffect(() => {
         console.log('🚦 Setting up traffic alerts WebSocket subscription...');
@@ -84,6 +90,7 @@ export default function TrafficAlertsPanel() {
             setAlerts(prev => {
                 // const filtered = prev.filter(a => a.cameraId !== data.cameraId);
                 const updated = [newAlert, ...prev];
+                onAlertsUpdate?.();
                 return updated.slice(0, maxAlerts);
             });
         });
@@ -119,6 +126,13 @@ export default function TrafficAlertsPanel() {
         return t
     }
 
+    const severityOptions: { value: AlertSeverity | "all", label: string, activeClass: string }[] = [
+        { value: "all", label: "Tất cả", activeClass: "" },
+        { value: "high", label: "Cao", activeClass: "bg-rose-600 text-white border-rose-600" },
+        { value: "medium", label: "Trung bình", activeClass: "bg-orange-500 text-white border-orange-500" },
+        { value: "low", label: "Thấp", activeClass: "bg-amber-400 text-white border-amber-400" },
+    ];
+
     return (
         <InforPanel
             title="Cảnh báo giao thông"
@@ -126,7 +140,27 @@ export default function TrafficAlertsPanel() {
             showFilter={true}
             filterValue={areaDistrict}
             onFilterChange={setAreaDistrict}
-            children={<div className="py-3 h-[444px] flex flex-col justify-between">
+            children={<div className="pb-3 h-[470px] flex flex-col justify-between">
+                <div className="flex gap-2 items-center overflow-hidden scrollbar-hide">
+                    {severityOptions.map((option) => (
+                        <button
+                            key={option.value}
+                            onClick={() => setSeverityFilter(option.value)}
+                            style={severityFilter === option.value && option.value === 'all' ? {
+                                backgroundColor: CHART_COLORS.quaternary,
+                                borderColor: CHART_COLORS.quaternary,
+                                color: 'white'
+                            } : undefined}
+                            className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors whitespace-nowrap cursor-pointer ${severityFilter === option.value
+                                ? option.activeClass
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                }`}
+                        >
+                            {option.label}
+                        </button>
+                    ))}
+                </div>
+
                 <div className="flex flex-col gap-2 h-[376px]">
                     {paginatedAlerts.length === 0 ? (
                         <div className="flex items-center justify-center text-sm text-gray-500 h-full">Không có cảnh báo giao thông nào phù hợp</div>
@@ -139,21 +173,29 @@ export default function TrafficAlertsPanel() {
                                     tabIndex={0}
                                     onClick={() => onSelect(a)}
                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(a) } }}
-                                    className={`rounded-sm border border-gray-100 bg-white pl-3 pr-4 py-2 cursor-pointer select-none transition-colors hover:bg-gray-50 focus:bg-gray-100 active:bg-gray-100 focus:outline-none min-h-[120px]`}
+                                    className="relative group rounded-lg bg-white border border-slate-100 py-2 px-4 cursor-pointer select-none transition-colors focus:outline-none focus:ring-2 focus:ring-sky-100 hover:border-sky-400 min-h-[120px]"
                                 >
-                                    <div className="flex items-start justify-between gap-3 py-1">
-                                        <div className="flex items-start gap-3">
-                                            <div>
-                                                <div className="text-black font-medium">{a.title}</div>
-                                                <div className="text-gray-500 text-sm min-h-[2.5rem]">{a.description}</div>
-                                            </div>
+
+                                    <div className="flex items-start justify-between gap-4 py-1 pl-2">
+                                        <div className="flex-1">
+                                            <div className="text-slate-900 font-semibold text-sm leading-tight">{a.title}</div>
+                                            <div className="text-slate-500 text-sm mt-1 min-h-[2.5rem] break-words">{a.description}</div>
                                         </div>
-                                        <span className={`shrink-0 inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium border ${badgeClassesBySeverity[a.severity]}`}>{labelBySeverity[a.severity]}</span>
+                                        <span className={`shrink-0 inline-flex items-center rounded-md px-3 py-1 text-xs font-semibold border ${badgeClassesBySeverity[a.severity]}`}>
+                                            {labelBySeverity[a.severity]}
+                                        </span>
                                     </div>
-                                    <div className="mt-1.5 text-xs text-gray-500 flex items-center gap-2 pl-0">
-                                        <span className="inline-flex items-center gap-1.5 rounded-md bg-gray-50 px-1.5 py-0.5 font-medium text-gray-600 ring-1 ring-inset ring-gray-200">
-                                            <FiClock className="h-3 w-3 text-gray-400" />
+
+                                    <div className="text-xs text-slate-500 flex items-center gap-2 pl-4 mt-1">
+                                        <span className="inline-flex items-center gap-2 rounded-md bg-slate-50 px-2 py-1 font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
+                                            <FiClock className="h-4 w-4 text-slate-400" />
                                             <span>{toReadableTime(a.time)}</span>
+                                        </span>
+                                        <span
+                                            className="inline-flex items-center gap-2 rounded-md px-2 py-1 font-medium"
+                                            style={{ backgroundColor: CHART_COLORS.octonary, color: CHART_COLORS.primary }}
+                                        >
+                                            <span>{a.district}</span>
                                         </span>
                                     </div>
                                 </div>
@@ -167,7 +209,7 @@ export default function TrafficAlertsPanel() {
                 </div>
 
                 {filteredAlerts.length > 0 && (
-                    <div className="flex items-center justify-between pt-3 h-[52px]">
+                    <div className="flex items-center justify-between pt-2 h-[10px]">
                         <div className="text-xs text-gray-500">
                             Trang {currentPage} / {totalPages} ({filteredAlerts.length} cảnh báo)
                         </div>

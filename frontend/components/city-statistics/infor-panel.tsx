@@ -3,6 +3,7 @@
 import Combobox from "@/components/combo-box"
 import DatePicker from "../date-picker"
 import React from "react";
+import { CHART_COLORS } from "./color";
 
 interface InforPanelProps {
     title: string;
@@ -58,15 +59,16 @@ export default function InforPanel({ title, children, filterLabel = "Quận/Huy�
     const options = filterOptionHasAll ? ['Tất cả', ...districtData] : districtData
 
     return (
-        <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-100/80 px-6 py-4 w-full">
-            <div className="flex justify-between items-start mb-4 gap-4">
-                <div className="flex flex-col gap-1">
-                    <h2 className="text-xl font-bold text-gray-900">
+        <div className="bg-white rounded-2xl border border-slate-100 px-6 py-5 w-full transition-all hover:shadow-[0_4px_20px_-4px_rgba(6,81,237,0.15)]">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-50 pb-4">
+                <div className="flex flex-col gap-2">
+                    <h2 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                        <span className="w-1 h-6 rounded-full inline-block" style={{ backgroundColor: CHART_COLORS.quaternary }}></span>
                         {title}
                     </h2>
                     {showFilter && options && (
-                        <div className="flex items-center gap-2">
-                            <label className="text-base text-gray-600" htmlFor="district-filter">{filterLabel}:</label>
+                        <div className="flex items-center gap-2 pl-3">
+                            <label className="text-sm font-medium text-slate-500" htmlFor="district-filter">{filterLabel}:</label>
                             <Combobox
                                 options={options.map((d) => ({ value: d, label: d }))}
                                 value={filterValue}
@@ -78,9 +80,13 @@ export default function InforPanel({ title, children, filterLabel = "Quận/Huy�
                         </div>
                     )}
                 </div>
+
                 <DatePicker value={selectedDate} onChange={handleDateChange} />
+
             </div>
-            {children}
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                {children}
+            </div>
         </div>
     )
 }

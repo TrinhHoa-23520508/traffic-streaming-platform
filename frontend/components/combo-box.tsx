@@ -61,7 +61,7 @@ export default function Combobox({
   }, [options, selected])
 
   function handleSelect(next: string) {
-    const nextVal = next === selected ? null : next
+    const nextVal = next === selected ? (options[0]?.value ?? null) : next
     if (!isControlled) setInternalValue(nextVal)
     onChange?.(nextVal)
     setOpen(false)
@@ -75,7 +75,7 @@ export default function Combobox({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn("justify-between font-normal", buttonClassName)}
+          className={cn("justify-between font-normal cursor-pointer", buttonClassName)}
         >
           {selectedLabel ?? "Chọn..."}
           <ChevronsUpDown className="opacity-50" />
@@ -92,6 +92,7 @@ export default function Combobox({
                   key={option.value}
                   value={option.value}
                   onSelect={handleSelect}
+                  className={cn("cursor-pointer")}
                 >
                   {option.label}
                   <Check

@@ -7,7 +7,7 @@ import StatCardWithProgress from '@/components/stat-card-progress'; // Đảm b�
 import StatCardWithBadge from '@/components/stat-card-badge';
 import { trafficApi } from '@/lib/api/trafficApi';
 import type { TrafficMetricsDTO } from '@/types/traffic';
-import { FaCar, FaMotorcycle, FaBus, FaTruck } from 'react-icons/fa6';
+import { FaCar, FaMotorcycle, FaBus, FaTruck, FaPersonWalking } from 'react-icons/fa6';
 import { RiRobot2Fill, RiLiveFill } from 'react-icons/ri';
 import { IoClose } from 'react-icons/io5';
 
@@ -102,23 +102,46 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
         fetchInitialData();
     }, [camera]);
 
-    // Preload new image when imageRefreshKey or liveviewUrl changes
-    useEffect(() => {
-        const newUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
-        // if no liveview url, nothing to do
-        if (!camera.liveviewUrl) return;
+    // Calculate target URL for image preloading
+    const cameraIdForImg = camera.id || (camera as any)._id || camera.name;
+    
+    // Log để debug ID
+    console.log('📸 Camera ID raw:', cameraIdForImg);
 
+    const encodedCameraId = encodeURIComponent(cameraIdForImg);
+    
+    // Link lấy ảnh AI từ Backend
+    // Đảm bảo imageRefreshKey luôn có giá trị để tránh lỗi undefined
+    const timestamp = imageRefreshKey || Date.now();
+    const aiImageUrl = `http://localhost:1810/api/images/camera/${encodedCameraId}/latest?t=${timestamp}`;
+
+    const targetUrl = showAI 
+        ? aiImageUrl
+        : `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${timestamp}`;
+
+    // Preload new image when targetUrl changes
+    useEffect(() => {
         // If url is already current, do nothing
-        if (newUrl === currentSrc) return;
+        if (targetUrl === currentSrc) return;
+
+        // If not showing AI and no liveviewUrl, skip
+        if (!showAI && !camera.liveviewUrl) return;
+
+        console.log('🔗 Loading Image URL:', targetUrl); // Debug URL
 
         setLoadingImage(true);
         const img = new Image();
-        img.src = newUrl;
+        img.src = targetUrl;
+        // Thêm crossOrigin để tránh lỗi CORS nếu backend có cấu hình
+        img.crossOrigin = "anonymous"; 
+        
         img.onload = () => {
-            setCurrentSrc(newUrl);
+            console.log('✅ Image loaded successfully:', targetUrl);
+            setCurrentSrc(targetUrl);
             setLoadingImage(false);
         };
-        img.onerror = () => {
+        img.onerror = (e) => {
+            console.error('❌ Failed to load image:', targetUrl, e);
             // fallback placeholder
             setCurrentSrc('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="340" height="200"%3E%3Crect width="340" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="Arial" font-size="14"%3EKhông có hình ảnh%3C/text%3E%3C/svg%3E');
             setLoadingImage(false);
@@ -129,7 +152,7 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
             img.onload = null;
             img.onerror = null;
         };
-    }, [imageRefreshKey, camera.liveviewUrl]);
+    }, [targetUrl, currentSrc, showAI, camera.liveviewUrl]);
 
     // ⭐ Subscribe to real-time traffic updates via WebSocket
     useEffect(() => {
@@ -196,17 +219,15 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     const congestionStatus = getCongestionStatus();
 
     // Determine image source based on toggle
-    const cameraId = camera.id || (camera as any)._id || camera.name;
-    const encodedCameraId = encodeURIComponent(cameraId);
-    const aiImageUrl = `http://localhost:1810/api/images/camera/${encodedCameraId}/latest`;
-
-    const displaySrc = showAI ? aiImageUrl : currentSrc;
+    // Logic moved to useEffect for preloading to ensure smooth transitions
+    const displaySrc = currentSrc;
 
     const vehicleConfig = {
         car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
         motorcycle: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
         bus: { label: 'Xe buýt', icon: FaBus, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
-        truck: { label: 'Xe tải', icon: FaTruck, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' }
+        truck: { label: 'Xe tải', icon: FaTruck, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
+        person: { label: 'Người đi bộ', icon: FaPersonWalking, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-100' }
     };
 
     return (

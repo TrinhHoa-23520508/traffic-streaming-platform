@@ -3,6 +3,7 @@ from minio import Minio
 from minio.error import S3Error
 from datetime import datetime
 import io
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 

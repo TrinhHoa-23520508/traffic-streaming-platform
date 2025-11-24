@@ -4,7 +4,6 @@ import { FiClock } from "react-icons/fi"
 import React, { useState, useEffect } from 'react'
 import InforPanel from "./infor-panel"
 import { trafficApi } from "@/lib/api/trafficApi"
-import type { TrafficMetricsDTO } from "@/types/traffic"
 import { CHART_COLORS } from "./color"
 
 type AlertSeverity = "high" | "medium" | "low"
@@ -23,9 +22,9 @@ type TrafficAlert = {
 }
 
 const SEVERITY_THRESHOLDS = {
-    HIGH: 7,
-    MEDIUM: 5,
-    LOW: 3
+    HIGH: 35,
+    MEDIUM: 25,
+    LOW: 15
 } as const;
 
 const ITEMS_PER_PAGE = 3;

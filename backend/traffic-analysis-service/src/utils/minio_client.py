@@ -97,9 +97,9 @@ class MinioClient:
                 len(image_data),
                 content_type='image/jpeg'
             )
-            
+            encoded_filename = quote(filename, safe='/')
             # Tạo URL với localhost:9000
-            url = f"http://localhost:9000/{self.bucket_name}/{filename}"
+            url = f"http://localhost:9000/{self.bucket_name}/{encoded_filename}"
             
             logger.info(f"✓ Đã upload ảnh thành công!")
             logger.info(f"  - Kích thước: {len(image_data) / 1024:.2f} KB")

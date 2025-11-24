@@ -37,11 +37,18 @@ export default function ImageModal({ imageUrl, onClose }: ImageModalProps) {
                 // Ngăn việc click vào ảnh làm modal bị đóng
                 onClick={(e) => e.stopPropagation()} 
             >
-                {/* Hình ảnh được phóng to tối đa */}
+                {/* 
+                    ⭐ HƯỚNG DẪN CHỈNH SIZE ẢNH:
+                    Bạn có thể thay đổi các class trong className dưới đây để chỉnh kích thước:
+                    - max-w-[85vw]: Chiều rộng tối đa là 85% chiều rộng màn hình. (Muốn nhỏ hơn thì giảm số 85 xuống, ví dụ 60vw)
+                    - max-h-[85vh]: Chiều cao tối đa là 85% chiều cao màn hình.
+                    - w-auto h-auto: Giữ nguyên tỉ lệ ảnh.
+                    - rounded-lg: Bo tròn góc ảnh.
+                */}
                 <img 
                     src={imageUrl} 
                     alt="Phóng to hình ảnh camera" 
-                    className="w-full h-full object-contain animate-in zoom-in-95 duration-300"
+                    className="max-w-[85vw] max-h-[85vh] w-auto h-auto object-contain animate-in zoom-in-95 duration-300 rounded-lg shadow-2xl"
                 />
                 
                 {/* Nút đóng - Làm to và nổi bật hơn */}

@@ -27,31 +27,31 @@ export default function ImageModal({ imageUrl, onClose }: ImageModalProps) {
     }, [onClose]); // Dependency là onClose để đảm bảo hàm luôn mới nhất
 
     return (
-        // Lớp phủ (backdrop)
+        // Lớp phủ (backdrop) - Tăng z-index lên cao nhất và làm tối nền hơn
         <div 
-            className="fixed inset-0 bg-black/30 backdrop-blur-md flex justify-center items-center z-50"
+            className="fixed inset-0 bg-black/95 backdrop-blur-xl flex justify-center items-center z-[9999]"
             onClick={onClose} // Click vào nền đen để đóng
         >
             <div 
-                className="relative max-w-[90vw] max-h-[90vh]"
+                className="relative w-full h-full flex items-center justify-center p-4"
                 // Ngăn việc click vào ảnh làm modal bị đóng
                 onClick={(e) => e.stopPropagation()} 
             >
-                {/* Hình ảnh được phóng to */}
+                {/* Hình ảnh được phóng to tối đa */}
                 <img 
                     src={imageUrl} 
                     alt="Phóng to hình ảnh camera" 
-                    className="object-contain max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+                    className="w-full h-full object-contain animate-in zoom-in-95 duration-300"
                 />
                 
-                {/* Nút đóng */}
+                {/* Nút đóng - Làm to và nổi bật hơn */}
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all hover:scale-110"
+                    className="absolute top-6 right-6 bg-white/10 hover:bg-white/20 text-white rounded-full p-3 backdrop-blur-md transition-all hover:scale-110 hover:rotate-90 border border-white/20"
                     aria-label="Đóng"
                 >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>

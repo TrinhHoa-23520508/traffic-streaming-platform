@@ -11,6 +11,7 @@ import SockJS from 'sockjs-client';
  */
 export interface LatestParams {
   district?: string;
+  date?: string;
 }
 
 /**

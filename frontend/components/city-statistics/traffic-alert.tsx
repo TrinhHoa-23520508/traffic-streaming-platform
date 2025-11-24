@@ -6,7 +6,6 @@ import InforPanel from "./infor-panel"
 import { trafficApi } from "@/lib/api/trafficApi"
 import type { TrafficMetricsDTO } from "@/types/traffic"
 import { CHART_COLORS } from "./color"
-import { sl } from "date-fns/locale"
 
 type AlertSeverity = "high" | "medium" | "low"
 
@@ -24,9 +23,9 @@ type TrafficAlert = {
 }
 
 const SEVERITY_THRESHOLDS = {
-    HIGH: 20,
-    MEDIUM: 15,
-    LOW: 8
+    HIGH: 7,
+    MEDIUM: 5,
+    LOW: 3
 } as const;
 
 const ITEMS_PER_PAGE = 3;
@@ -43,13 +42,23 @@ const getSeverityLabel = (totalCount: number): string => {
     if (totalCount >= SEVERITY_THRESHOLDS.MEDIUM) return "Kẹt xe khá nghiêm trọng";
     return "Kẹt xe nhẹ";
 };
-type Props = { onAlertsUpdate?: () => void }
+
+const isSameDay = (date1: Date, date2: Date): boolean => {
+    return date1.getFullYear() === date2.getFullYear() &&
+        date1.getMonth() === date2.getMonth() &&
+        date1.getDate() === date2.getDate();
+};
+
+type Props = {
+    onAlertsUpdate?: () => void;
+}
 
 export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
     const [alerts, setAlerts] = useState<TrafficAlert[]>([]);
     const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Tất cả");
     const [severityFilter, setSeverityFilter] = useState<AlertSeverity | "all">("all");
     const [currentPage, setCurrentPage] = useState(1);
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
     const itemsPerPage = ITEMS_PER_PAGE;
     const maxAlerts = MAX_ALERTS;
 
@@ -69,37 +78,114 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
     }, [areaDistrict, severityFilter]);
 
     useEffect(() => {
-        console.log('🚦 Setting up traffic alerts WebSocket subscription...');
+        const fetchInitialData = async () => {
+            try {
+                const dateStr = (selectedDate || new Date()).toLocaleDateString('vi-VN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                }).split('/').reverse().join('-');
 
-        const unsubscribe = trafficApi.subscribe((data: TrafficMetricsDTO) => {
-            if (data.totalCount < SEVERITY_THRESHOLDS.LOW) return;
+                const latestData = await trafficApi.getLatest({
+                    district: areaDistrict !== "Tất cả" ? areaDistrict : undefined,
+                    date: selectedDate ? dateStr : undefined,
+                });
 
-            const newAlert: TrafficAlert = {
-                id: `${data.cameraId}-${Date.now()}`,
-                title: `${data.cameraName} - ${data.district}`,
-                description: `${getSeverityLabel(data.totalCount)}, được phát hiện tại camera ${data.cameraId}`,
-                cameraId: data.cameraId,
-                cameraName: data.cameraName,
-                district: data.district,
-                date: new Date(data.timestamp).toISOString().split('T')[0],
-                time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
-                severity: getSeverity(data.totalCount),
-                totalCount: data.totalCount
-            };
+                const initialAlerts: TrafficAlert[] = latestData
+                    .filter(data => data.totalCount >= SEVERITY_THRESHOLDS.LOW)
+                    .map(data => ({
+                        id: `${data.cameraId}-${data.id}`,
+                        title: `${data.cameraName} - ${data.district}`,
+                        description: `${getSeverityLabel(data.totalCount)}, được phát hiện tại camera ${data.cameraId}`,
+                        cameraId: data.cameraId,
+                        cameraName: data.cameraName,
+                        district: data.district,
+                        date: new Date(data.timestamp).toISOString().split('T')[0],
+                        time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
+                        severity: getSeverity(data.totalCount),
+                        totalCount: data.totalCount
+                    }))
+                    .slice(0, maxAlerts);
 
-            setAlerts(prev => {
-                // const filtered = prev.filter(a => a.cameraId !== data.cameraId);
-                const updated = [newAlert, ...prev];
-                onAlertsUpdate?.();
-                return updated.slice(0, maxAlerts);
-            });
-        });
+                setAlerts(initialAlerts);
+
+                const unsubscribe = trafficApi.subscribe((data) => {
+                    if (data.totalCount < SEVERITY_THRESHOLDS.LOW) return;
+
+                    const alertDate = new Date(data.timestamp);
+                    const today = new Date();
+
+                    if (selectedDate) {
+                        const selected = new Date(selectedDate);
+                        if (!isSameDay(alertDate, selected)) return;
+                    } else if (!isSameDay(alertDate, today)) {
+                        return;
+                    }
+
+                    if (areaDistrict && areaDistrict !== "Tất cả" && data.district !== areaDistrict) return;
+
+                    const newAlert: TrafficAlert = {
+                        id: `${data.cameraId}-${Date.now()}`,
+                        title: `${data.cameraName} - ${data.district}`,
+                        description: `${getSeverityLabel(data.totalCount)}, được phát hiện tại camera ${data.cameraId}`,
+                        cameraId: data.cameraId,
+                        cameraName: data.cameraName,
+                        district: data.district,
+                        date: new Date(data.timestamp).toISOString().split('T')[0],
+                        time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
+                        severity: getSeverity(data.totalCount),
+                        totalCount: data.totalCount
+                    };
+
+                    setAlerts(prev => {
+                        const updated = [newAlert, ...prev];
+                        return updated.slice(0, maxAlerts);
+                    });
+                    Promise.resolve().then(() => onAlertsUpdate?.());
+                });
+
+                return unsubscribe;
+            } catch (error) {
+                const unsubscribe = trafficApi.subscribe((data) => {
+                    if (data.totalCount < SEVERITY_THRESHOLDS.LOW) return;
+
+                    const alertDate = new Date(data.timestamp);
+                    const today = new Date();
+                    if (!isSameDay(alertDate, today)) return;
+
+                    if (areaDistrict && areaDistrict !== "Tất cả" && data.district !== areaDistrict) return;
+
+                    const newAlert: TrafficAlert = {
+                        id: `${data.cameraId}-${Date.now()}`,
+                        title: `${data.cameraName} - ${data.district}`,
+                        description: `${getSeverityLabel(data.totalCount)}, được phát hiện tại camera ${data.cameraId}`,
+                        cameraId: data.cameraId,
+                        cameraName: data.cameraName,
+                        district: data.district,
+                        date: new Date(data.timestamp).toISOString().split('T')[0],
+                        time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
+                        severity: getSeverity(data.totalCount),
+                        totalCount: data.totalCount
+                    };
+
+                    setAlerts(prev => {
+                        const updated = [newAlert, ...prev];
+                        onAlertsUpdate?.();
+                        return updated.slice(0, maxAlerts);
+                    });
+                });
+
+                return unsubscribe;
+            }
+        };
+
+        let unsubscribePromise = fetchInitialData();
 
         return () => {
             console.log('🧹 Cleaning up traffic alerts subscription');
-            unsubscribe();
+            unsubscribePromise.then(unsubscribe => unsubscribe?.());
         };
-    }, []);
+    }, [areaDistrict, selectedDate, onAlertsUpdate]);
 
     const labelBySeverity: Record<AlertSeverity, string> = {
         high: "Mức độ CAO",
@@ -138,10 +224,12 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
             title="Cảnh báo giao thông"
             filterOptionHasAll={true}
             showFilter={true}
+            dateValue={selectedDate}
+            onDateChange={setSelectedDate}
             filterValue={areaDistrict}
             onFilterChange={setAreaDistrict}
-            children={<div className="pb-3 h-[470px] flex flex-col justify-between">
-                <div className="flex gap-2 items-center overflow-hidden scrollbar-hide">
+            children={<div className="pb-3 h-[520px] flex flex-col justify-between">
+                <div className="flex gap-2 items-center overflow-hidden scrollbar-hide flex-shrink-0">
                     {severityOptions.map((option) => (
                         <button
                             key={option.value}
@@ -161,7 +249,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                     ))}
                 </div>
 
-                <div className="flex flex-col gap-2 h-[376px]">
+                <div className="flex flex-col gap-2 h-[390px]">
                     {paginatedAlerts.length === 0 ? (
                         <div className="flex items-center justify-center text-sm text-gray-500 h-full">Không có cảnh báo giao thông nào phù hợp</div>
                     ) : (
@@ -173,7 +261,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                                     tabIndex={0}
                                     onClick={() => onSelect(a)}
                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(a) } }}
-                                    className="relative group rounded-lg bg-white border border-slate-100 py-2 px-4 cursor-pointer select-none transition-colors focus:outline-none focus:ring-2 focus:ring-sky-100 hover:border-sky-400 min-h-[120px]"
+                                    className="relative group rounded-lg bg-white border border-slate-100 py-2 px-4 cursor-pointer select-none transition-colors focus:outline-none focus:ring-2 focus:ring-sky-100 hover:border-sky-400 min-h-[120px] flex-shrink-0"
                                 >
 
                                     <div className="flex items-start justify-between gap-4 py-1 pl-2">
@@ -202,14 +290,14 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                             ))}
 
                             {Array.from({ length: itemsPerPage - paginatedAlerts.length }).map((_, i) => (
-                                <div key={`placeholder-${i}`} className="min-h-[120px]" />
+                                <div key={`placeholder-${i}`} className="min-h-[120px] flex-shrink-0" />
                             ))}
                         </>
                     )}
                 </div>
 
                 {filteredAlerts.length > 0 && (
-                    <div className="flex items-center justify-between pt-2 h-[10px]">
+                    <div className="flex items-center justify-between flex-shrink-0 pt-2 h-[10px]">
                         <div className="text-xs text-gray-500">
                             Trang {currentPage} / {totalPages} ({filteredAlerts.length} cảnh báo)
                         </div>

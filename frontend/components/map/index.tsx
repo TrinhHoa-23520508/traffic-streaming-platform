@@ -38,13 +38,13 @@ function ChangeMapView({ center, zoom }: { center: LatLngExpression, zoom: numbe
 
     useEffect(() => {
         const centerArray = Array.isArray(center) ? center : [center.lat, center.lng];
-        const prevCenterArray = prevCenterRef.current 
+        const prevCenterArray = prevCenterRef.current
             ? (Array.isArray(prevCenterRef.current) ? prevCenterRef.current : [prevCenterRef.current.lat, prevCenterRef.current.lng])
             : null;
 
         // Check if center actually changed
-        const centerChanged = !prevCenterArray || 
-            centerArray[0] !== prevCenterArray[0] || 
+        const centerChanged = !prevCenterArray ||
+            centerArray[0] !== prevCenterArray[0] ||
             centerArray[1] !== prevCenterArray[1];
 
         // Check if zoom actually changed
@@ -120,18 +120,18 @@ const Map = (props: MapProps) => {
             )}
 
             {/* All camera markers */}
-            <CameraMarkers 
-                onCameraClick={onCameraClick} 
+            <CameraMarkers
+                onCameraClick={onCameraClick}
                 selectedCameraId={selectedCamera?._id}
                 onCamerasUpdate={setCameras}
             />
 
             <div
                 className="absolute top-4 z-[1000] pointer-events-auto"
-                style={{ right: isDrawerOpen ? 616 : 16 }}
+                style={{ right: isDrawerOpen ? 656 : 16 }}
             >
                 <div className="flex items-center gap-2">
-                    <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2">
+                    <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2 mr-2">
                         <label className="flex items-center gap-2 select-none">
                             <input type="checkbox" checked={heatEnabled} onChange={(e) => setHeatEnabled(e.target.checked)} />
                             <span className="text-red-500">Heatmap</span>
@@ -206,7 +206,7 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
             const points = cameras.map((c: any) => {
                 const lat = c.loc.coordinates[1];
                 const lon = c.loc.coordinates[0];
-                 const zoomLevel = map.getZoom();
+                const zoomLevel = map.getZoom();
                 // normalize weight between 0 and 1 - spread out more evenly
                 const weight = c.density / 50;
                 return [lat, lon, weight];
@@ -226,10 +226,10 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
 
             if (enabled) {
                 if (!heat) {
-                    heat = (L as any).heatLayer(points, { 
-                        radius, 
-                        blur, 
-                        gradient 
+                    heat = (L as any).heatLayer(points, {
+                        radius,
+                        blur,
+                        gradient
                     });
                     heat.addTo(map as any);
                     heatLayerRef.current = heat;

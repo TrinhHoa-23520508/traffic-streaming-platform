@@ -58,16 +58,16 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
             try {
                 const response = await fetch('/camera_api.json');
                 const data: Camera[] = await response.json();
-                
+
                 // Initialize with zero counts (will be updated from API)
                 const withCounts = data.map(d => ({ ...d, density: 0 }));
                 camerasRef.current = withCounts as any;
                 setLoading(false);
-                
+
                 // Pre-populate trafficApi cache with camera IDs for random data generation
                 const cameraIds = data.map(c => c.id || (c as any)._id || c.name);
                 trafficApi.initializeCameraIds(cameraIds);
-                
+
                 // Notify parent component of camera data
                 if (onCamerasUpdate) onCamerasUpdate(withCounts);
                 updateVisibleMarkers();
@@ -89,14 +89,14 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                 data.forEach(traffic => {
                     trafficDataRef.current.set(traffic.cameraId, traffic.totalCount);
                 });
-                
+
                 // Update camera counts
                 camerasRef.current = camerasRef.current.map(c => {
                     const cameraId = c.id || (c as any)._id || c.name;
                     const count = trafficDataRef.current.get(cameraId) ?? 0;
                     return { ...c, density: count };
                 });
-                
+
                 // Notify parent component
                 if (onCamerasUpdate) {
                     onCamerasUpdate([...camerasRef.current]);
@@ -112,31 +112,56 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
         return () => clearTimeout(timer);
     }, [onCamerasUpdate, updateVisibleMarkers]);
 
+    // Listen for camera selection from traffic alerts
+    useEffect(() => {
+        const handleSelectCamera = (event: CustomEvent) => {
+            const { cameraId } = event.detail;
+            console.log('📹 Selecting camera from alert:', cameraId);
+
+            // Find camera by ID
+            const camera = camerasRef.current.find(c =>
+                (c.id === cameraId || (c as any)._id === cameraId || c.name === cameraId)
+            );
+
+            if (camera && onCameraClick) {
+                onCameraClick(camera);
+            } else {
+                console.warn('Camera not found:', cameraId);
+            }
+        };
+
+        window.addEventListener('selectCamera', handleSelectCamera as EventListener);
+
+        return () => {
+            window.removeEventListener('selectCamera', handleSelectCamera as EventListener);
+        };
+    }, [onCameraClick]);
+
     // Subscribe to real-time traffic updates
-    useEffect(() => {        
+    useEffect(() => {
         const unsubscribe = trafficApi.subscribe((trafficData) => {
-            
+
             // Check if cameraId exists, if not, log error
             if (!trafficData.cameraId) {
                 console.error('❌ Invalid traffic data - missing cameraId:', trafficData);
                 return; // Skip invalid data
             }
-            
+
             // Update traffic data map
             trafficDataRef.current.set(trafficData.cameraId, trafficData.totalCount);
-            
+
             // Update camera counts
             camerasRef.current = camerasRef.current.map(c => {
                 const cameraId = c.id || (c as any)._id || c.name;
                 const count = trafficDataRef.current.get(cameraId) ?? 0;
                 return { ...c, density: count };
             });
-            
+
             // Notify parent component
             if (onCamerasUpdate) {
                 onCamerasUpdate([...camerasRef.current]);
             }
-            
+
             // Force re-render by updating visible cameras
             if (map) {
                 const bounds = map.getBounds();
@@ -146,7 +171,7 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                 setVisibleCameras([...inBounds]); // Create new array to trigger re-render
             }
         });
-        
+
         // Cleanup subscription on unmount
         return () => {
             unsubscribe();
@@ -203,7 +228,7 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                                 if (marker && marker._icon) {
                                     marker._icon.style.zIndex = '1000';
                                 }
-                                
+
                                 if (onCameraClick) {
                                     onCameraClick(camera);
                                 }

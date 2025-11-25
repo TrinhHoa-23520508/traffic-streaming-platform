@@ -20,8 +20,14 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
     const [refreshKey, setRefreshKey] = useState(0)
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [completedCount, setCompletedCount] = useState(0)
+    const [isMounted, setIsMounted] = useState(false)
     const isOpen = open ?? internalOpen
     const setIsOpen = onOpenChange ?? setInternalOpen
+
+    // Ensure client-side only rendering for timestamp
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     const handleApiComplete = () => {
         setCompletedCount(prev => {
@@ -75,7 +81,7 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                             <h2 className="text-gray-500 text-[14px]">
                                 Cập nhật lần cuối:
                                 <span className="text-gray-400 text-[13px] ml-1">
-                                    {lastUpdate || new Date().toLocaleString('vi-VN')}
+                                    {isMounted ? (lastUpdate || 'Chưa có dữ liệu') : 'Đang tải...'}
                                 </span>
                             </h2>
                         </div>

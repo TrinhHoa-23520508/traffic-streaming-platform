@@ -146,6 +146,7 @@ html, body {
 .camera-marker {
   background: none;
   border: none;
+  will-change: transform;
 }
 
 .camera-marker-content {
@@ -158,8 +159,9 @@ html, body {
   background-color: var(--primary);
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease;
   border: 2px solid white;
+  will-change: transform;
 }
 
 .camera-marker-content svg {
@@ -167,6 +169,7 @@ html, body {
   height: 18px;
   color: white;
   z-index: 2;
+  pointer-events: none;
 }
 
 /* Pulsing effect */

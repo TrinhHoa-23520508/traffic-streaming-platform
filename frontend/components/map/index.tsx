@@ -92,6 +92,7 @@ const Map = (props: MapProps) => {
     const [heatEnabled, setHeatEnabled] = useState<boolean>(false);
     const [routingEnabled, setRoutingEnabled] = useState<boolean>(false);
     const [cameras, setCameras] = useState<any[]>([]);
+    const [routingCameraClickHandler, setRoutingCameraClickHandler] = useState<((camera: any) => void) | null>(null);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -125,6 +126,8 @@ const Map = (props: MapProps) => {
                 onCameraClick={onCameraClick}
                 selectedCameraId={selectedCamera?._id}
                 onCamerasUpdate={setCameras}
+                routingMode={routingEnabled}
+                onRoutingCameraClick={routingCameraClickHandler}
             />
 
             <div
@@ -165,7 +168,11 @@ const Map = (props: MapProps) => {
 
             {/* Routing Manager */}
             {routingEnabled && (
-                <RoutingManager cameras={cameras} onCancel={() => setRoutingEnabled(false)} />
+                <RoutingManager 
+                    cameras={cameras} 
+                    onCancel={() => setRoutingEnabled(false)}
+                    onSetCameraClickHandler={setRoutingCameraClickHandler}
+                />
             )}
         </MapContainer>
     )
@@ -175,12 +182,29 @@ export default Map
 
 // --- Routing Components ---
 
-function RoutingManager({ cameras, onCancel }: { cameras: any[], onCancel: () => void }) {
+function RoutingManager({ cameras, onCancel, onSetCameraClickHandler }: { cameras: any[], onCancel: () => void, onSetCameraClickHandler: (handler: ((camera: any) => void) | null) => void }) {
     const [startPoint, setStartPoint] = useState<L.LatLng | null>(null);
     const [endPoint, setEndPoint] = useState<L.LatLng | null>(null);
     const [routeSegments, setRouteSegments] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const map = useMap();
+
+    // Set up camera click handler for routing mode
+    useEffect(() => {
+        const handleCameraClick = (camera: any) => {
+            const cameraLatLng = L.latLng(camera.loc.coordinates[1], camera.loc.coordinates[0]);
+            if (!startPoint) {
+                setStartPoint(cameraLatLng);
+            } else if (!endPoint) {
+                setEndPoint(cameraLatLng);
+                fetchRoute(startPoint, cameraLatLng);
+            }
+        };
+        onSetCameraClickHandler(() => handleCameraClick);
+        return () => {
+            onSetCameraClickHandler(null);
+        };
+    }, [startPoint, endPoint, onSetCameraClickHandler]);
 
     // Handle map clicks
     useMapEvents({

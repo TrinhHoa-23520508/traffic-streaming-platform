@@ -140,7 +140,8 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                         const updated = [newAlert, ...prev];
                         return updated.slice(0, maxAlerts);
                     });
-                    Promise.resolve().then(() => onAlertsUpdate?.());
+                    // Call onAlertsUpdate after state update completes
+                    setTimeout(() => onAlertsUpdate?.(), 0);
                 });
 
                 return unsubscribe;
@@ -169,9 +170,10 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
 
                     setAlerts(prev => {
                         const updated = [newAlert, ...prev];
-                        onAlertsUpdate?.();
                         return updated.slice(0, maxAlerts);
                     });
+                    // Call onAlertsUpdate after state update completes
+                    setTimeout(() => onAlertsUpdate?.(), 0);
                 });
 
                 return unsubscribe;

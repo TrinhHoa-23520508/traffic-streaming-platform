@@ -11,6 +11,8 @@ interface CameraMarkersProps {
     onCameraClick?: (camera: Camera) => void;
     selectedCameraId?: string;
     onCamerasUpdate?: (cameras: any[]) => void;
+    routingMode?: boolean;
+    onRoutingCameraClick?: ((camera: any) => void) | null;
 }
 
 // Custom camera icon using DivIcon for CSS styling
@@ -36,27 +38,37 @@ const createCameraIcon = (isSelected: boolean) => divIcon({
     popupAnchor: [0, -32]
 });
 
-export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate }: CameraMarkersProps) {
+export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate, routingMode, onRoutingCameraClick }: CameraMarkersProps) {
     const [visibleCameras, setVisibleCameras] = useState<Camera[]>([]);
     const [loading, setLoading] = useState(true);
     const map = useMap();
     const camerasRef = useRef<Camera[]>([]);
     const trafficDataRef = useRef<Map<string, number>>(new Map());
 
+    const updateVisibleMarkersRef = useRef<NodeJS.Timeout | null>(null);
+    
     const updateVisibleMarkers = useCallback(() => {
-        if (!map) return;
-        if (camerasRef.current.length === 0) {
-            setVisibleCameras([]);
-            return;
+        // Clear any pending updates
+        if (updateVisibleMarkersRef.current) {
+            clearTimeout(updateVisibleMarkersRef.current);
         }
+        
+        // Debounce to reduce excessive updates during pan/zoom
+        updateVisibleMarkersRef.current = setTimeout(() => {
+            if (!map) return;
+            if (camerasRef.current.length === 0) {
+                setVisibleCameras([]);
+                return;
+            }
 
-        const bounds = map.getBounds();
+            const bounds = map.getBounds();
 
-        const inBounds = camerasRef.current.filter((camera) =>
-            bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
-        );
+            const inBounds = camerasRef.current.filter((camera) =>
+                bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
+            );
 
-        setVisibleCameras(inBounds);
+            setVisibleCameras(inBounds);
+        }, 150); // 150ms debounce
     }, [map]);
 
     // Load camera data once
@@ -146,6 +158,9 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
 
     // Subscribe to real-time traffic updates
     useEffect(() => {
+        let updateTimeout: NodeJS.Timeout | null = null;
+        let pendingUpdate = false;
+        
         const unsubscribe = trafficApi.subscribe((trafficData) => {
 
             // Check if cameraId exists, if not, log error
@@ -164,23 +179,34 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                 return { ...c, density: count };
             });
 
-            // Notify parent component
-            if (onCamerasUpdate) {
-                onCamerasUpdate([...camerasRef.current]);
-            }
+            // Throttle updates to every 500ms to reduce re-renders
+            if (!updateTimeout) {
+                updateTimeout = setTimeout(() => {
+                    // Notify parent component
+                    if (onCamerasUpdate) {
+                        onCamerasUpdate([...camerasRef.current]);
+                    }
 
-            // Force re-render by updating visible cameras
-            if (map) {
-                const bounds = map.getBounds();
-                const inBounds = camerasRef.current.filter((camera) =>
-                    bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
-                );
-                setVisibleCameras([...inBounds]); // Create new array to trigger re-render
+                    // Force re-render by updating visible cameras
+                    if (map) {
+                        const bounds = map.getBounds();
+                        const inBounds = camerasRef.current.filter((camera) =>
+                            bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
+                        );
+                        setVisibleCameras([...inBounds]);
+                    }
+                    
+                    updateTimeout = null;
+                    pendingUpdate = false;
+                }, 500);
+            } else {
+                pendingUpdate = true;
             }
         });
 
         // Cleanup subscription on unmount
         return () => {
+            if (updateTimeout) clearTimeout(updateTimeout);
             unsubscribe();
         };
     }, [map, onCamerasUpdate]);
@@ -200,6 +226,9 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
         return () => {
             map.off('moveend', handleMapChange);
             map.off('zoomend', handleMapChange);
+            if (updateVisibleMarkersRef.current) {
+                clearTimeout(updateVisibleMarkersRef.current);
+            }
         };
     }, [map, updateVisibleMarkers]);
 
@@ -230,6 +259,12 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                         zIndexOffset={isSelected ? 1000 : 0}
                         eventHandlers={{
                             click: (e) => {
+                                // In routing mode, use routing handler instead
+                                if (routingMode && onRoutingCameraClick) {
+                                    onRoutingCameraClick(camera);
+                                    return;
+                                }
+                                
                                 // Bring marker to front on click
                                 const marker = e.target;
                                 if (marker && marker._icon) {

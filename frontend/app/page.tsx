@@ -54,7 +54,6 @@ export default function Page() {
     const handleLocationSelect = (lat: number, lon: number, name: string) => {
         setMapCenter([lat, lon]);
         setLocationName(name);
-        setMapZoom(15);
         setSelectedCamera(null);
         setSelectedLocation({ lat, lon, name });
     };
@@ -63,13 +62,12 @@ export default function Page() {
         console.log('📹 Camera Clicked:', {
             id: camera.id || camera._id,
             name: camera.name,
-            density: (camera as any)._randCount || 'N/A',
+            density: (camera as any).density || 'N/A',
             coordinates: [camera.loc.coordinates[1], camera.loc.coordinates[0]]
         });
         setSelectedCamera(camera);
         setMapCenter([camera.loc.coordinates[1], camera.loc.coordinates[0]]);
         setLocationName(camera.name);
-        setMapZoom(17);
         setSelectedLocation(null);
     };
 
@@ -79,14 +77,11 @@ export default function Page() {
 
     return (
         <div className="fixed inset-0 h-screen w-screen overflow-visible">
-            <div className="fixed top-6 left-6 z-[1000] flex flex-col gap-2 w-[600px] max-w-full pointer-events-auto">
-                {!modalImageUrl && (
-                    // Render SearchBox directly and let it fill the parent width; remove the behind white panel
-                    <div className="w-full">
-                        <SearchBox onSelectLocation={handleLocationSelect} />
-                    </div>
-                )}
-                {selectedCamera && !modalImageUrl && (
+            <div className={`fixed top-6 left-6 z-[1000] flex flex-col gap-2 w-[600px] max-w-full pointer-events-auto ${modalImageUrl ? 'hidden' : ''}`}>
+                <div className="w-full">
+                    <SearchBox onSelectLocation={handleLocationSelect} />
+                </div>
+                {selectedCamera && (
                     <CameraInfoCard
                         camera={selectedCamera}
                         onClose={() => setSelectedCamera(null)}

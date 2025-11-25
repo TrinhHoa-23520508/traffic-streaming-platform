@@ -77,14 +77,11 @@ export default function Page() {
 
     return (
         <div className="fixed inset-0 h-screen w-screen overflow-visible">
-            <div className="fixed top-6 left-6 z-[1000] flex flex-col gap-2 w-[600px] max-w-full pointer-events-auto">
-                {!modalImageUrl && (
-                    // Render SearchBox directly and let it fill the parent width; remove the behind white panel
-                    <div className="w-full">
-                        <SearchBox onSelectLocation={handleLocationSelect} />
-                    </div>
-                )}
-                {selectedCamera && !modalImageUrl && (
+            <div className={`fixed top-6 left-6 z-[1000] flex flex-col gap-2 w-[600px] max-w-full pointer-events-auto ${modalImageUrl ? 'hidden' : ''}`}>
+                <div className="w-full">
+                    <SearchBox onSelectLocation={handleLocationSelect} />
+                </div>
+                {selectedCamera && (
                     <CameraInfoCard
                         camera={selectedCamera}
                         onClose={() => setSelectedCamera(null)}

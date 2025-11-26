@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { trafficApi } from "@/lib/api/trafficApi";
 import type { CityStatsHourlyWS } from "@/types/city-stats";
 import { CHART_COLORS } from "./color";
+import LoadingSpinner from "./loading-spinner";
 
 interface HourlyData {
     time: string;
@@ -48,8 +49,6 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                     district: areaDistrict
                 });
 
-                console.log('📊 Hourly summary response:', response);
-
                 const chartData: HourlyData[] = Array.from({ length: 24 }, (_, hour) => ({
                     time: `${hour}:00`,
                     traffic: response[hour] || 0
@@ -57,8 +56,6 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
                 setChartData(chartData);
             } catch (error) {
-                console.error('Error fetching hourly data:', error);
-                console.log('Using random data as fallback');
                 setChartData(generateRandomHourlyData());
             } finally {
                 setLoading(false);
@@ -71,8 +68,6 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
     useEffect(() => {
         if (wsData && wsData.district === areaDistrict) {
-            console.log('📨 WebSocket hourly data received:', wsData);
-
             setChartData(prevData => {
                 const newData = [...prevData];
                 const hourIndex = wsData.hour;
@@ -127,19 +122,6 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         );
     }
 
-    if (loading && chartData.length === 0) {
-        return (
-            <InforPanel
-                title="Thống kê lưu lượng xe theo giờ"
-                filterValue={areaDistrict}
-                onFilterChange={setAreaDistrict}
-                dateValue={selectedDate}
-                onDateChange={setSelectedDate}
-                children={<div className="w-full h-[300px] flex items-center justify-center text-gray-500">Đang tải dữ liệu...</div>}
-            />
-        );
-    }
-
     return (
         <InforPanel
             title="Thống kê lưu lượng xe theo giờ"
@@ -151,17 +133,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 <div className="relative w-full h-[300px]">
                     {loading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10 backdrop-blur-[2px]">
-                            <div className="flex items-center gap-4 bg-white/95 px-5 py-3 rounded-xl border border-white/95">
-
-                                <svg className="animate-spin h-8 w-8 text-indigo-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                                </svg>
-
-                                <div className="flex flex-col">
-                                    <span className="text-gray-900 dark:text-gray-100 font-semibold">Đang tải dữ liệu...</span>
-                                </div>
-                            </div>
+                            <LoadingSpinner />
                         </div>
                     )}
                     <ResponsiveContainer width="100%" height={300}><AreaChart data={chartData} margin={{ top: 20, right: 20, left: 15, bottom: 30 }}>

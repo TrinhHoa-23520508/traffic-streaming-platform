@@ -43,7 +43,6 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
 
     const handleRefresh = () => {
         if (isRefreshing) return;
-        console.log('Refreshing all city stats...');
         setIsRefreshing(true);
         setCompletedCount(0);
         setRefreshKey(prev => prev + 1);
@@ -98,7 +97,9 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                     </div>
 
                     <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 flex flex-col gap-3">
-                        <TrafficAlertsPanel onAlertsUpdate={() => setLastUpdate(new Date().toLocaleString('vi-VN'))} />
+                        <TrafficAlertsPanel onAlertsUpdate={
+                            () => setLastUpdate(new Date().toLocaleString('vi-VN'))}
+                            refreshTrigger={refreshKey} />
                         <TrafficDensityStatisticsAreaChart
                             data={cityStatsData}
                             refreshTrigger={refreshKey}

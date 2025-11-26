@@ -18,10 +18,16 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
     // API 1: Lấy 100 bản ghi mới nhất
     List<TrafficMetric> findFirst100ByOrderByTimestampDesc();
 
-    // API 1 (MỚI): Lấy 100 bản ghi mới nhất CÓ LỌC THEO QUẬN
+    // API 1 : Lấy 100 bản ghi mới nhất CÓ LỌC THEO QUẬN
     List<TrafficMetric> findFirst100ByDistrictOrderByTimestampDesc(String district);
 
-    // API 2 (CŨ): Lấy summary (không lọc)
+    // API 1 : Lấy 100 bản ghi mới nhất TRONG KHOẢNG THỜI GIAN (không lọc quận)
+    List<TrafficMetric> findFirst100ByTimestampBetweenOrderByTimestampDesc(Instant start, Instant end);
+
+    // API 1 : Lấy 100 bản ghi mới nhất TRONG KHOẢNG THỜI GIAN VÀ THEO QUẬN
+    List<TrafficMetric> findFirst100ByDistrictAndTimestampBetweenOrderByTimestampDesc(String district, Instant start, Instant end);
+
+    // API 2 : Lấy summary (không lọc)
     @Query("SELECT t.district, SUM(t.totalCount) as total " +
             "FROM TrafficMetric t " +
             "GROUP BY t.district " +

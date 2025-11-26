@@ -30,9 +30,23 @@ public class TrafficService {
     }
 
     /**
-     * API 1: Lấy 100 bản ghi mới nhất (có thể lọc theo quận)
+     * API 1: Lấy 100 bản ghi mới nhất
+     * - Nếu có date: Lấy 100 bản ghi mới nhất CỦA NGÀY ĐÓ.
+     * - Nếu không có date: Lấy 100 bản ghi mới nhất TÍNH ĐẾN HIỆN TẠI (Real-time).
      */
-    public List<TrafficMetric> getLatestTrafficMetrics(String district) {
+    public List<TrafficMetric> getLatestTrafficMetrics(String district, String dateStr) {
+        if (dateStr != null && !dateStr.isEmpty()) {
+            LocalDate date = parseDateOrDefault(dateStr);
+            Instant startOfDay = date.atStartOfDay(VIETNAM_ZONE).toInstant();
+            Instant endOfDay = date.plusDays(1).atStartOfDay(VIETNAM_ZONE).toInstant();
+
+            if (district != null && !district.isEmpty()) {
+                return repository.findFirst100ByDistrictAndTimestampBetweenOrderByTimestampDesc(district, startOfDay, endOfDay);
+            } else {
+                return repository.findFirst100ByTimestampBetweenOrderByTimestampDesc(startOfDay, endOfDay);
+            }
+        }
+
         if (district != null && !district.isEmpty()) {
             return repository.findFirst100ByDistrictOrderByTimestampDesc(district);
         }

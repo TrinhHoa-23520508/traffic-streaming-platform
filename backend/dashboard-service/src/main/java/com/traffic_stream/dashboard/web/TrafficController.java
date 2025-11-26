@@ -25,11 +25,14 @@ public class TrafficController {
      * Lọc (optional): ?district=Tên Quận
      * Endpoint: GET /api/traffic/latest
      * Endpoint: GET /api/traffic/latest?district=Quận 1
+     * Endpoint: GET /api/traffic/latest?district=Quận 1&date=2025-11-25 (năm - tháng - ngày)
      */
     @GetMapping("/latest")
     public ResponseEntity<List<TrafficMetric>> getLatestMetrics(
-            @RequestParam(required = false) String district) {
-        List<TrafficMetric> metrics = trafficService.getLatestTrafficMetrics(district);
+            @RequestParam(required = false) String district,
+            @RequestParam(required = false) String date)
+    {
+        List<TrafficMetric> metrics = trafficService.getLatestTrafficMetrics(district, date);
         return ResponseEntity.ok(metrics);
     }
 

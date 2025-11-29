@@ -115,7 +115,7 @@ const Map = (props: MapProps) => {
             />
 
             {/* User's selected location marker (default Leaflet icon) - Only show when location selected, not camera */}
-            {selectedLocation && !selectedCamera && (
+            {selectedLocation && !selectedCamera && !heatEnabled && (
                 <Marker position={posix} draggable={false}>
                     <Popup>{locationName || "Hey ! I study here"}</Popup>
                 </Marker>
@@ -128,6 +128,7 @@ const Map = (props: MapProps) => {
                 onCamerasUpdate={setCameras}
                 routingMode={routingEnabled}
                 onRoutingCameraClick={routingCameraClickHandler}
+                heatEnabled={heatEnabled}
             />
 
             <div

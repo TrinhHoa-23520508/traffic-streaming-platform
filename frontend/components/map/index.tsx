@@ -8,7 +8,8 @@ import { LatLngExpression, LatLngTuple } from 'leaflet';
 import L from 'leaflet';
 import CameraMarkers from "@/components/camera-markers";
 import type { Camera } from "@/types/camera";
-import { FiMenu, FiNavigation, FiX } from "react-icons/fi";
+import { FiMenu, FiNavigation, FiX, FiFileText } from "react-icons/fi";
+import ReportDialog from "@/components/report-dialog";
 
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
@@ -93,12 +94,32 @@ const Map = (props: MapProps) => {
     const [routingEnabled, setRoutingEnabled] = useState<boolean>(false);
     const [cameras, setCameras] = useState<any[]>([]);
     const [routingCameraClickHandler, setRoutingCameraClickHandler] = useState<((camera: any) => void) | null>(null);
+    const [isReportOpen, setIsReportOpen] = useState(false);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
             require('leaflet-defaulticon-compatibility');
         }
     }, []);
+
+    // Handle toggling report dialog
+    const handleReportToggle = () => {
+        if (isReportOpen) {
+            setIsReportOpen(false);
+        } else {
+            // Close drawer if open
+            if (isDrawerOpen && onOpenDrawer) {
+                // We need a way to close the drawer from here, but currently onOpenDrawer only opens it.
+                // Assuming the parent handles the state, we might need a onCloseDrawer prop or similar.
+                // For now, we'll just open the report dialog.
+                // Ideally: onOpenDrawer(false) or similar if supported.
+                // Since we can't close it directly via props, we'll just open the report.
+                // If the user requirement is strict "turn off city stats if on", we might need to lift this state up or add a callback.
+                // However, based on current props, let's just open the report.
+            }
+            setIsReportOpen(true);
+        }
+    };
 
     return (
         <MapContainer
@@ -151,15 +172,28 @@ const Map = (props: MapProps) => {
                     </button>
 
                     {!isDrawerOpen && !isModalOpen && (
-                        <button
-                            onClick={() => onOpenDrawer && onOpenDrawer()}
-                            className="bg-white text-black p-2 rounded-full shadow hover:bg-gray-50 cursor-pointer"
-                        >
-                            <FiMenu size={18} />
-                        </button>
+                        <>
+                            <button
+                                onClick={handleReportToggle}
+                                className={`p-2 rounded-full shadow transition-colors ${isReportOpen ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                                title="Báo cáo giao thông"
+                            >
+                                <FiFileText size={18} />
+                            </button>
+                            <button
+                                onClick={() => onOpenDrawer && onOpenDrawer()}
+                                className="bg-white text-black p-2 rounded-full shadow hover:bg-gray-50 cursor-pointer"
+                                title="Thống kê thành phố"
+                            >
+                                <FiMenu size={18} />
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
+
+            {/* Report Dialog */}
+            <ReportDialog open={isReportOpen} onOpenChange={setIsReportOpen} />
 
             {/* Heat layer manager (client-only) */}
             {typeof window !== 'undefined' && (

@@ -6,6 +6,8 @@ import { BarChart, Bar, CartesianGrid, Legend, Tooltip, XAxis, YAxis, Responsive
 import { trafficApi } from "@/lib/api/trafficApi";
 import type { CityStatsByDistrict } from "@/types/city-stats";
 import { CHART_COLORS } from "./color";
+import { DateRange } from "react-day-picker";
+import { startOfDay } from "date-fns";
 
 interface VehicleChartData {
     district: string;
@@ -47,18 +49,29 @@ const generateRandomVehicleData = (): VehicleChartData[] => {
 
 export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLoadComplete }: VehicleStatsProps) {
     const [vehicleData, setVehicleData] = useState<VehicleChartData[]>([]);
-    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+        const now = new Date();
+        now.setMinutes(0, 0, 0);
+        return {
+            from: startOfDay(now),
+            to: now,
+        };
+    });
+
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchVehicleData = async () => {
             try {
                 setLoading(true);
-                const dateStr = (selectedDate || new Date()).toLocaleDateString('vi-VN', {
+                const targetDate = dateRange?.from || new Date();
+                const dateStr = targetDate.toLocaleDateString('vi-VN', {
                     year: 'numeric',
                     month: '2-digit',
                     day: '2-digit'
                 }).split('/').reverse().join('-');
+
                 const response = await trafficApi.getSummaryByDistrict({ date: dateStr });
                 console.log('📊 Vehicle summary response:', response);
 
@@ -82,7 +95,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
         };
 
         fetchVehicleData();
-    }, [selectedDate, refreshTrigger]);
+    }, [dateRange, refreshTrigger]);
 
     useEffect(() => {
         if (data) {
@@ -136,8 +149,11 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
             <InforPanel
                 title="Thống kê phương tiện theo quận"
                 showFilter={false}
-                dateValue={selectedDate}
-                onDateChange={setSelectedDate}
+                useDateRange={true}
+                dateRangeValue={dateRange}
+                onDateRangeChange={setDateRange}
+                showCameraFilter={false}
+                showCurrentTimeOptionInDatePicker={true}
                 children={<div className="w-full min-h-[240px] flex items-center justify-center text-gray-500">Đang tải dữ liệu...</div>}
             />
         );
@@ -147,8 +163,11 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
         <InforPanel
             title="Thống kê phương tiện theo quận"
             showFilter={false}
-            dateValue={selectedDate}
-            onDateChange={setSelectedDate}
+            useDateRange={true}
+            dateRangeValue={dateRange}
+            onDateRangeChange={setDateRange}
+            showCameraFilter={false}
+            showCurrentTimeOptionInDatePicker={true}
             children={
                 <div className="relative w-full">
                     {loading && (

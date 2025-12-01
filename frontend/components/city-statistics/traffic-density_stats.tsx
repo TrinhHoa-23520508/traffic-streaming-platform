@@ -6,6 +6,8 @@ import { useState, useEffect } from "react";
 import { trafficApi } from "@/lib/api/trafficApi";
 import type { CityStatsHourlyWS } from "@/types/city-stats";
 import { CHART_COLORS } from "./color";
+import { DateRange } from "react-day-picker";
+import { subHours, addDays } from "date-fns";
 
 interface HourlyData {
     time: string;
@@ -27,9 +29,27 @@ const generateRandomHourlyData = (): HourlyData[] => {
 
 export default function TrafficDensityStatisticsAreaChart({ data: wsData, refreshTrigger, onLoadComplete }: TrafficDensityStatsProps) {
     const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Bình Dương");
-    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+        const now = new Date();
+        now.setMinutes(0, 0, 0);
+        return {
+            from: subHours(now, 24),
+            to: now,
+        };
+    });
+
+    const [selectedCamera, setSelectedCamera] = useState<string>("");
+
     const [chartData, setChartData] = useState<HourlyData[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const cameraOptions = [
+        { value: "CAM-01", label: "Camera Ngã 4 Hàng Xanh" },
+        { value: "CAM-02", label: "Camera Cầu Sài Gòn" },
+        { value: "CAM-03", label: "Camera Phạm Văn Đồng" },
+        { value: "CAM-04", label: "Camera Mai Chí Thọ" },
+    ];
 
     useEffect(() => {
         const fetchHourlyData = async () => {
@@ -37,7 +57,9 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
             try {
                 setLoading(true);
-                const dateStr = (selectedDate || new Date()).toLocaleDateString('vi-VN', {
+                const targetDate = dateRange?.from || new Date();
+
+                const dateStr = targetDate.toLocaleDateString('vi-VN', {
                     year: 'numeric',
                     month: '2-digit',
                     day: '2-digit'
@@ -67,7 +89,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         };
 
         fetchHourlyData();
-    }, [areaDistrict, selectedDate, refreshTrigger]);
+    }, [areaDistrict, dateRange, refreshTrigger, selectedCamera]);
 
     useEffect(() => {
         if (wsData && wsData.district === areaDistrict) {
@@ -133,8 +155,14 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 title="Thống kê lưu lượng xe theo giờ"
                 filterValue={areaDistrict}
                 onFilterChange={setAreaDistrict}
-                dateValue={selectedDate}
-                onDateChange={setSelectedDate}
+                useDateRange={true}
+                dateRangeValue={dateRange}
+                onDateRangeChange={setDateRange}
+                showCameraFilter={true}
+                cameraOptions={cameraOptions}
+                cameraFilterValue={selectedCamera}
+                onCameraFilterChange={setSelectedCamera}
+                showCurrentTimeOptionInDatePicker={false}
                 children={<div className="w-full h-[300px] flex items-center justify-center text-gray-500">Đang tải dữ liệu...</div>}
             />
         );
@@ -145,8 +173,14 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
             title="Thống kê lưu lượng xe theo giờ"
             filterValue={areaDistrict}
             onFilterChange={setAreaDistrict}
-            dateValue={selectedDate}
-            onDateChange={setSelectedDate}
+            useDateRange={true}
+            dateRangeValue={dateRange}
+            onDateRangeChange={setDateRange}
+            showCameraFilter={true}
+            cameraOptions={cameraOptions}
+            cameraFilterValue={selectedCamera}
+            onCameraFilterChange={setSelectedCamera}
+            showCurrentTimeOptionInDatePicker={false}
             children={
                 <div className="relative w-full h-[300px]">
                     {loading && (

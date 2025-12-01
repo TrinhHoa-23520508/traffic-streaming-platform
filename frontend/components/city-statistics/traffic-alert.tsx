@@ -225,6 +225,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
             title="Cảnh báo giao thông"
             filterOptionHasAll={true}
             showFilter={true}
+            useDateRange={false}
             dateValue={selectedDate}
             onDateChange={setSelectedDate}
             filterValue={areaDistrict}

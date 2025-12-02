@@ -11,7 +11,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/traffic")
-@CrossOrigin(originPatterns = "*") // Đổi sang originPatterns
+@CrossOrigin(originPatterns = "*")
 public class TrafficController {
 
     private final TrafficService trafficService;
@@ -40,10 +40,14 @@ public class TrafficController {
      * API 2: Lấy dữ liệu tổng hợp CHI TIẾT theo quận
      * Lọc (optional): ?date=YYYY-MM-DD (Mặc định là hôm nay)
      * Endpoint: GET /api/traffic/summary/by-district
+     * VD: GET /api/traffic/summary/by-district?start=2025-12-01&end=2025-12-01
+     * VD: GET /api/traffic/summary/by-district?start=2025-12-01T08:00:00&end=2025-12-01T10:00:00
      */
     @GetMapping("/summary/by-district")
-    public ResponseEntity<Map<String, DistrictDailySummaryDTO>> getDistrictSummary(@RequestParam(required = false) String date) {
-        Map<String, DistrictDailySummaryDTO> summary = trafficService.getDistrictSummary(date);
+    public ResponseEntity<Map<String, DistrictDailySummaryDTO>> getDistrictSummary(
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        Map<String, DistrictDailySummaryDTO> summary = trafficService.getDistrictSummary(start, end);
         return ResponseEntity.ok(summary);
     }
 
@@ -67,12 +71,17 @@ public class TrafficController {
      * Lọc (optional): ?district=Tên Quận
      * Endpoint: GET /api/traffic/hourly-summary
      * Endpoint: GET /api/traffic/hourly-summary?date=2025-10-30&district=Quận 1
+     * VD: GET /api/traffic/hourly-summary?start=2025-12-02T07:00:00&end=2025-12-02T17:00:00
+     * VD: GET /api/traffic/hourly-summary?cameraId=cam-thu-duc-01&start=2025-12-02T00:00:00&end=2025-12-02T23:59:59
+     * VD: GET /api/traffic/hourly-summary?district=Quận 1&start=2025-12-01T00:00:00&end=2025-12-02T00:00:00
      */
     @GetMapping("/hourly-summary")
-    public ResponseEntity<Map<Integer, Long>> getHourlySummary(
-            @RequestParam(required = false) String date,
-            @RequestParam(required = false) String district) {
-        Map<Integer, Long> summary = trafficService.getHourlySummary(date, district);
+    public ResponseEntity<Map<String, Long>> getHourlySummary(
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(required = false) String district,
+            @RequestParam(required = false) String cameraId) {
+        Map<String, Long> summary = trafficService.getHourlyTimeSeries(start, end, district, cameraId);
         return ResponseEntity.ok(summary);
     }
 

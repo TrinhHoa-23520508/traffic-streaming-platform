@@ -1,13 +1,17 @@
 // lib/api/trafficApi.ts
 
 import type { TrafficMetricsDTO } from '@/types/traffic';
-import { API_CONFIG, getBaseUrl } from './config';
+import type { CityStatsByDistrict } from '@/types/city-stats';
+import { API_CONFIG, getBaseUrl, getWsUrl } from './config';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
 /**
  * Query parameters for /latest endpoint
  */
 export interface LatestParams {
   district?: string;
+  date?: string;
 }
 
 /**
@@ -22,7 +26,7 @@ export interface SummaryByDistrictParams {
  */
 export interface ByDateParams {
   date?: string; // format: YYYY-MM-DD
-  district?: string;
+  cameraId?: string;
 }
 
 /**
@@ -34,9 +38,9 @@ export interface HourlySummaryParams {
 }
 
 /**
- * Response type for summary by district
+ * Response type for summary by district (simple count map for backward compatibility)
  */
-export type DistrictSummary = Record<string, number>;
+export type DistrictCountMap = Record<string, number>;
 
 /**
  * Response type for hourly summary
@@ -44,14 +48,391 @@ export type DistrictSummary = Record<string, number>;
 export type HourlySummary = Record<number, number>; // hour (0-23) -> count
 
 /**
+ * Backend response format (snake_case)
+ */
+interface BackendTrafficData {
+  camera_id: string;
+  camera_name: string;
+  district: string;
+  liveview_url?: string;
+  coordinates: [number, number];
+  total_count: number;
+  detection_details: Record<string, number>;
+  timestamp: number;
+  timestamp_vn?: string;
+  annotated_image_url: string;
+}
+
+/**
+ * Transform backend data to frontend format
+ */
+function transformTrafficData(backendData: BackendTrafficData): TrafficMetricsDTO {
+  return {
+    id: backendData.timestamp || Date.now(),
+    cameraId: backendData.camera_id,
+    cameraName: backendData.camera_name,
+    district: backendData.district,
+    annotatedImageUrl: backendData.annotated_image_url,
+    coordinates: backendData.coordinates,
+    detectionDetails: backendData.detection_details,
+    totalCount: backendData.total_count,
+    timestamp: backendData.timestamp_vn || new Date(backendData.timestamp).toISOString()
+  };
+}
+
+/**
+ * Traffic data update callback
+ */
+export type TrafficUpdateCallback = (data: TrafficMetricsDTO) => void;
+
+/**
+ * City stats update callback
+ */
+export type CityStatsUpdateCallback = (data: any) => void;
+
+/**
  * Traffic API Service
- * Centralized service for all traffic-related API calls
+ * Centralized service for all traffic-related API calls and WebSocket management
  */
 class TrafficApiService {
   private baseUrl: string;
+  private stompClient: Client | null = null;
+  private subscribers: Set<TrafficUpdateCallback> = new Set();
+  private cityStatsSubscribers: Set<CityStatsUpdateCallback> = new Set();
+  private trafficDataCache: Map<string, TrafficMetricsDTO> = new Map();
+  private isConnected: boolean = false;
+  private isConnecting: boolean = false;
+  private reconnectAttempts: number = 0;
+  private fallbackInterval: NodeJS.Timeout | null = null;
+  private useFallback: boolean = false;
 
   constructor() {
     this.baseUrl = getBaseUrl();
+  }
+
+  /**
+   * Initialize WebSocket connection
+   * Called automatically when first subscriber is added
+   */
+  private initWebSocket() {
+    if (this.isConnecting || this.isConnected) {
+      return;
+    }
+
+    this.isConnecting = true;
+    const wsUrl = getWsUrl();
+
+    // Set timeout to switch to fallback mode
+    const connectionTimeout = setTimeout(() => {
+      if (!this.isConnected) {
+        console.warn('⚠️ WebSocket connection timeout. Using fallback mode.');
+        this.startFallbackMode();
+      }
+    }, 15000);
+
+    const client = new Client({
+      brokerURL: undefined,
+      webSocketFactory: () => {
+        return new SockJS(wsUrl, null, {
+          transports: ['websocket', 'xhr-streaming', 'xhr-polling']
+        });
+      },
+      reconnectDelay: API_CONFIG.RECONNECT_DELAY,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+      connectionTimeout: API_CONFIG.DEFAULT_TIMEOUT,
+      onConnect: () => {
+        clearTimeout(connectionTimeout);
+        this.isConnected = true;
+        this.isConnecting = false;
+        this.reconnectAttempts = 0;
+        this.stopFallbackMode();
+
+        console.log('✅ WebSocket connected, real-time traffic updates active');
+
+        // Subscribe to traffic topic
+        client.subscribe(API_CONFIG.WS_TOPIC, (message) => {
+          try {
+            const backendData: BackendTrafficData = JSON.parse(message.body);
+            const trafficData = transformTrafficData(backendData);
+
+            console.log('📨 WebSocket data received:', {
+              cameraId: trafficData.cameraId,
+              totalCount: trafficData.totalCount,
+              subscribers: this.subscribers.size,
+              timestamp: trafficData.timestamp
+            });
+
+            // Update cache
+            this.trafficDataCache.set(trafficData.cameraId, trafficData);
+
+            // Notify all subscribers
+            console.log(`📢 Notifying ${this.subscribers.size} subscribers...`);
+            this.subscribers.forEach(callback => callback(trafficData));
+          } catch (error) {
+            console.error('Error parsing traffic data:', error);
+          }
+        });
+
+        client.subscribe(API_CONFIG.WS_CITY_STATS_TOPIC, (message) => {
+          try {
+            const cityStatsData = JSON.parse(message.body);
+            console.log('City stats WebSocket data received:', cityStatsData);
+
+            this.cityStatsSubscribers.forEach(callback => callback(cityStatsData));
+          } catch (error) {
+            console.error('Error parsing city stats data:', error);
+          }
+        });
+      },
+      onStompError: (frame) => {
+        console.error('❌ STOMP error:', frame.headers['message']);
+        this.handleDisconnection();
+      },
+      onWebSocketError: (event) => {
+        console.error('❌ WebSocket error:', event);
+        this.handleDisconnection();
+      },
+      onWebSocketClose: () => {
+        this.handleDisconnection();
+      },
+      onDisconnect: () => {
+        this.isConnected = false;
+        this.isConnecting = false;
+      }
+    });
+
+    try {
+      client.activate();
+      this.stompClient = client;
+    } catch (error) {
+      console.error('Failed to activate STOMP client:', error);
+      this.handleDisconnection();
+    }
+  }
+
+  /**
+   * Handle disconnection and attempt reconnection or fallback
+   */
+  private handleDisconnection() {
+    this.isConnected = false;
+    this.isConnecting = false;
+    this.reconnectAttempts++;
+
+    if (this.reconnectAttempts >= API_CONFIG.MAX_RECONNECT_ATTEMPTS) {
+      console.warn('⚠️ Max reconnection attempts reached. Switching to fallback mode.');
+      this.startFallbackMode();
+    }
+  }
+
+  /**
+   * Start fallback mode - generate random data since backend is unavailable
+   */
+  private startFallbackMode() {
+    if (this.fallbackInterval || this.useFallback) {
+      return;
+    }
+
+    this.useFallback = true;
+    console.log('📡 Backend unavailable, generating random traffic data...');
+
+    const generateData = () => {
+      const cameraIds = Array.from(this.trafficDataCache.keys());
+
+      if (cameraIds.length === 0) {
+        console.log('⚠️ No cameras in cache, skipping random data generation');
+        return;
+      }
+
+      console.log('🎲 Generating random traffic data for', cameraIds.length, 'cameras');
+      this.generateRandomTrafficData();
+    };
+
+    // Initial generation
+    generateData();
+
+    // Generate new random data every 5 seconds
+    this.fallbackInterval = setInterval(generateData, 5000);
+  }
+
+  /**
+   * Generate random traffic data for all cached cameras
+   */
+  private generateRandomTrafficData() {
+    // Generate random data for all cameras in cache or create dummy data
+    const cameraIds = Array.from(this.trafficDataCache.keys());
+
+    if (cameraIds.length === 0) {
+      // No cameras in cache, notify subscribers with random camera IDs
+      console.log('⚠️ No cameras in cache, skipping random data generation');
+      return;
+    }
+
+    cameraIds.forEach(cameraId => {
+      const carCount = Math.floor(Math.random() * 30);
+      const motorcycleCount = Math.floor(Math.random() * 20);
+      const busCount = Math.floor(Math.random() * 5);
+      const truckCount = Math.floor(Math.random() * 5);
+
+      const randomTraffic: TrafficMetricsDTO = {
+        id: Date.now(),
+        cameraId,
+        cameraName: cameraId,
+        totalCount: carCount + motorcycleCount + busCount + truckCount,
+        detectionDetails: {
+          car: carCount,
+          motorcycle: motorcycleCount,
+          bus: busCount,
+          truck: truckCount,
+        },
+        timestamp: new Date().toISOString(),
+        district: 'Unknown',
+        annotatedImageUrl: '',
+        coordinates: [0, 0]
+      };
+
+      this.trafficDataCache.set(cameraId, randomTraffic);
+      this.subscribers.forEach(callback => callback(randomTraffic));
+    });
+
+    console.log(`✅ Random data generated and sent to ${this.subscribers.size} subscribers`);
+  }
+
+  /**
+   * Stop fallback mode
+   */
+  private stopFallbackMode() {
+    if (this.fallbackInterval) {
+      clearInterval(this.fallbackInterval);
+      this.fallbackInterval = null;
+    }
+    this.useFallback = false;
+  }
+
+  /**
+   * Subscribe to real-time traffic updates
+   * @param callback - Function to call when new traffic data arrives
+   * @returns Unsubscribe function
+   */
+  subscribe(callback: TrafficUpdateCallback): () => void {
+    console.log('📝 New subscriber added');
+    this.subscribers.add(callback);
+    console.log('📊 Total subscribers:', this.subscribers.size);
+
+    // Initialize WebSocket if this is the first subscriber
+    if (this.subscribers.size === 1 && this.cityStatsSubscribers.size === 0 && !this.isConnected && !this.isConnecting) {
+      console.log('🚀 First subscriber! Initializing connection...');
+      this.initWebSocket();
+    } else if (this.isConnected) {
+      console.log('✅ Already connected, subscriber added to existing connection');
+    } else if (this.isConnecting) {
+      console.log('⏳ Connection in progress, subscriber will receive updates when connected');
+    }
+
+    // Return unsubscribe function
+    return () => {
+      console.log('🚪 Subscriber removed');
+      this.subscribers.delete(callback);
+      console.log('📊 Remaining subscribers:', this.subscribers.size);
+
+      // Cleanup if no more subscribers
+      if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 0) {
+        console.log('😴 No more subscribers, cleaning up...');
+        this.cleanup();
+      }
+    };
+  }
+
+  /**
+   * Subscribe to real-time city stats updates
+   * @param callback - Function to call when new city stats data arrives
+   * @returns Unsubscribe function
+   */
+  subscribeCityStats(callback: CityStatsUpdateCallback): () => void {
+    console.log('📝 New city stats subscriber added');
+    this.cityStatsSubscribers.add(callback);
+    console.log('📊 Total city stats subscribers:', this.cityStatsSubscribers.size);
+
+    if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 1 && !this.isConnected && !this.isConnecting) {
+      console.log('🚀 First city stats subscriber! Initializing connection...');
+      this.initWebSocket();
+    } else if (this.isConnected) {
+      console.log('✅ Already connected, city stats subscriber added to existing connection');
+    } else if (this.isConnecting) {
+      console.log('⏳ Connection in progress, city stats subscriber will receive updates when connected');
+    }
+
+    return () => {
+      console.log('🚪 City stats subscriber removed');
+      this.cityStatsSubscribers.delete(callback);
+      console.log('📊 Remaining city stats subscribers:', this.cityStatsSubscribers.size);
+
+      if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 0) {
+        console.log('😴 No more subscribers, cleaning up...');
+        this.cleanup();
+      }
+    };
+  }
+
+  /**
+   * Get cached traffic data for a specific camera
+   */
+  getCachedData(cameraId: string): TrafficMetricsDTO | undefined {
+    return this.trafficDataCache.get(cameraId);
+  }
+
+  /**
+   * Get all cached traffic data
+   */
+  getAllCachedData(): TrafficMetricsDTO[] {
+    return Array.from(this.trafficDataCache.values());
+  }
+
+  /**
+   * Pre-populate cache with camera IDs
+   * This allows random data generation to work even when real API is unavailable
+   */
+  initializeCameraIds(cameraIds: string[]): void {
+    cameraIds.forEach(id => {
+      if (!this.trafficDataCache.has(id)) {
+        // Create minimal entry so random data generation knows about this camera
+        this.trafficDataCache.set(id, {
+          id: Date.now(),
+          cameraId: id,
+          cameraName: id,
+          totalCount: 0,
+          detectionDetails: {},
+          timestamp: new Date().toISOString(),
+          district: 'Unknown',
+          annotatedImageUrl: '',
+          coordinates: [0, 0]
+        });
+      }
+    });
+    console.log('✅ Cache pre-initialized with', cameraIds.length, 'camera IDs');
+  }
+
+  /**
+   * Check if WebSocket is connected
+   */
+  isWebSocketConnected(): boolean {
+    return this.isConnected;
+  }
+
+  /**
+   * Cleanup connections
+   */
+  private cleanup() {
+    this.stopFallbackMode();
+
+    if (this.stompClient) {
+      this.stompClient.deactivate();
+      this.stompClient = null;
+    }
+
+    this.isConnected = false;
+    this.isConnecting = false;
+    this.reconnectAttempts = 0;
   }
 
   /**
@@ -117,19 +498,19 @@ class TrafficApiService {
    * Get total count grouped by district
    * 
    * @param params - Optional query parameters
-   * @returns Promise<DistrictSummary>
+   * @returns Promise<CityStatsByDistrict>
    * 
    * @example
    * // Get today's summary
    * const summary = await trafficApi.getSummaryByDistrict();
-   * // Result: { "Quận 1": 150, "Quận 3": 230, ... }
+   * // Result: { "Quận 1": { totalCount: 150, detectionDetailsSummary: {...} }, ... }
    * 
    * // Get summary for specific date
    * const summary = await trafficApi.getSummaryByDistrict({ date: '2025-10-30' });
    */
-  async getSummaryByDistrict(params?: SummaryByDistrictParams): Promise<DistrictSummary> {
+  async getSummaryByDistrict(params?: SummaryByDistrictParams): Promise<CityStatsByDistrict> {
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.SUMMARY_BY_DISTRICT, params as any);
-    return this.fetchWithErrorHandling<DistrictSummary>(url);
+    return this.fetchWithErrorHandling<CityStatsByDistrict>(url);
   }
 
   /**
@@ -143,10 +524,13 @@ class TrafficApiService {
    * // Get all records for today
    * const data = await trafficApi.getByDate();
    * 
-   * // Get records for specific date and district
+   * // Get records for specific date
+   * const data = await trafficApi.getByDate({ date: '2025-11-06' });
+   * 
+   * // Get records for specific date and camera
    * const data = await trafficApi.getByDate({ 
-   *   date: '2025-10-30', 
-   *   district: 'Quận 1' 
+   *   date: '2025-11-06', 
+   *   cameraId: 'CAM001' 
    * });
    */
   async getByDate(params?: ByDateParams): Promise<TrafficMetricsDTO[]> {
@@ -175,6 +559,21 @@ class TrafficApiService {
   async getHourlySummary(params?: HourlySummaryParams): Promise<HourlySummary> {
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.HOURLY_SUMMARY, params as any);
     return this.fetchWithErrorHandling<HourlySummary>(url);
+  }
+
+  /**
+   * GET /api/traffic/camera/{cameraId}/latest
+   * Get latest traffic metric for a specific camera
+   * 
+   * @param cameraId - Camera ID
+   * @returns Promise<TrafficMetricsDTO>
+   * 
+   * @example
+   * const latest = await trafficApi.getCameraLatest('TTH-29.4');
+   */
+  async getCameraLatest(cameraId: string): Promise<TrafficMetricsDTO> {
+    const url = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERA_LATEST}/${cameraId}/latest`;
+    return this.fetchWithErrorHandling<TrafficMetricsDTO>(url);
   }
 
   /**

@@ -10,12 +10,17 @@ import com.traffic_stream.dashboard.dto.DistrictDailySummaryDTO;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 
 @Service
 public class TrafficService {
@@ -30,7 +35,7 @@ public class TrafficService {
     }
 
     /**
-     API 1: Lấy 100 bản ghi mới nhất
+     * API 1: Lấy 100 bản ghi mới nhất
      * - Nếu có date: Lấy 100 bản ghi mới nhất CỦA NGÀY ĐÓ.
      * - Nếu không có date: Lấy 100 bản ghi mới nhất TÍNH ĐẾN HIỆN TẠI (Real-time).
      */
@@ -54,14 +59,32 @@ public class TrafficService {
     }
 
     /**
-     * API 2: Lấy dữ liệu tổng hợp CHI TIẾT theo quận (có lọc theo ngày)
+     * API 2: Lấy dữ liệu tổng hợp CHI TIẾT theo quận
+     * - Input: start, end (String).
+     * - Logic:
+     * + Nếu không truyền start: Mặc định từ 00:00 sáng nay (VN Time).
+     * + Nếu không truyền end: Mặc định đến hiện tại (Real-time).
+     * + Nếu start == end (User chọn cùng 1 ngày): Tự động lấy full 24h ngày đó.
      */
-    public Map<String, DistrictDailySummaryDTO> getDistrictSummary(String dateStr) {
-        LocalDate date = parseDateOrDefault(dateStr);
-        Instant startOfDay = date.atStartOfDay(VIETNAM_ZONE).toInstant();
-        Instant endOfDay = date.plusDays(1).atStartOfDay(VIETNAM_ZONE).toInstant();
+    public Map<String, DistrictDailySummaryDTO> getDistrictSummary(String startStr, String endStr) {
+        Instant now = Instant.now();
+        Instant startOfDay = LocalDate.now(VIETNAM_ZONE).atStartOfDay(VIETNAM_ZONE).toInstant();
 
-        List<TrafficMetric> metrics = repository.findByTimestampBetween(startOfDay, endOfDay);
+        Instant start = (startStr != null && !startStr.isEmpty())
+                ? parseToInstant(startStr, true)
+                : startOfDay;
+
+        Instant end;
+        if (endStr != null && !endStr.isEmpty()) {
+            end = parseToInstant(endStr, false);
+            if (start.equals(end)) {
+                end = end.plus(1, ChronoUnit.DAYS);
+            }
+        } else {
+            end = now;
+        }
+
+        List<TrafficMetric> metrics = repository.findByTimestampBetween(start, end);
 
         Map<String, DistrictDailySummaryDTO> summaryMap = new HashMap<>();
 
@@ -77,7 +100,6 @@ public class TrafficService {
             );
             summaryDTO.addMetric(metric);
         }
-
         return summaryMap;
     }
 
@@ -97,51 +119,87 @@ public class TrafficService {
 
     /**
      * API 4 : Lấy summary theo giờ
-     * (ĐÃ CẬP NHẬT: Tự tính lại total, BỎ QUA "person")
+     * Yêu cầu:
+     *      - Thêm start, end (Mặc định 24h qua).
+     *      - Thêm filter cameraId.
      */
-    public Map<Integer, Long> getHourlySummary(String dateStr, String district) {
-        LocalDate date = parseDateOrDefault(dateStr);
-        Instant startOfDay = date.atStartOfDay(VIETNAM_ZONE).toInstant();
-        Instant endOfDay = date.plusDays(1).atStartOfDay(VIETNAM_ZONE).toInstant();
+    public Map<String, Long> getHourlyTimeSeries(String startStr, String endStr, String district, String cameraId) {
+        Instant now = Instant.now();
+        Instant twentyFourHoursAgo = now.minus(24, ChronoUnit.HOURS);
 
-        Map<Integer, Long> hourlySummary = IntStream.range(0, 24)
-                .boxed()
-                .collect(Collectors.toMap(hour -> hour, hour -> 0L));
+        Instant end = (endStr != null && !endStr.isEmpty()) ? parseToInstant(endStr, false) : now;
+        Instant start = (startStr != null && !startStr.isEmpty()) ? parseToInstant(startStr, true) : twentyFourHoursAgo;
 
-        List<TrafficMetric> metrics = repository.findByTimestampBetween(startOfDay, endOfDay);
-
-        for (TrafficMetric metric : metrics) {
-            if (district != null && !district.isEmpty()) {
-                if (!district.equals(metric.getDistrict())) {
-                    continue;
-                }
-            }
-            int hour = ZonedDateTime.ofInstant(metric.getTimestamp(), VIETNAM_ZONE).getHour();
-
-            long cleanTotalForThisMetric = 0;
-            if (metric.getDetectionDetails() != null) {
-                for (Map.Entry<String, Integer> entry : metric.getDetectionDetails().entrySet()) {
-                    if (!"person".equalsIgnoreCase(entry.getKey())) {
-                        cleanTotalForThisMetric += entry.getValue();
-                    }
-                }
-            }
-
-            hourlySummary.merge(hour, cleanTotalForThisMetric, Long::sum);
+        if (start.equals(end) && endStr != null) {
+            end = end.plus(1, ChronoUnit.DAYS);
         }
 
-        return hourlySummary;
+        Map<String, Long> timeSeries = new LinkedHashMap<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:00:00");
+        ZonedDateTime currentZdt = start.atZone(VIETNAM_ZONE).truncatedTo(ChronoUnit.HOURS);
+        ZonedDateTime endZdt = end.atZone(VIETNAM_ZONE);
+
+        int safety = 0;
+        while (currentZdt.isBefore(endZdt) && safety < 1000) {
+            timeSeries.put(formatter.format(currentZdt), 0L);
+            currentZdt = currentZdt.plusHours(1);
+            safety++;
+        }
+
+        if (cameraId != null && !cameraId.isEmpty()) {
+            List<TrafficMetric> metrics = repository.findByTimestampBetweenAndCameraId(start, end, cameraId);
+            for (TrafficMetric metric : metrics) {
+                ZonedDateTime zdt = metric.getTimestamp().atZone(VIETNAM_ZONE).truncatedTo(ChronoUnit.HOURS);
+                String key = formatter.format(zdt);
+
+                long count = 0;
+                if (metric.getDetectionDetails() != null) {
+                    for (Map.Entry<String, Integer> e : metric.getDetectionDetails().entrySet()) {
+                        if (!"person".equalsIgnoreCase(e.getKey())) count += e.getValue();
+                    }
+                }
+                if (timeSeries.containsKey(key)) {
+                    timeSeries.merge(key, count, Long::sum);
+                }
+            }
+        } else {
+            List<Object[]> rows = repository.getHourlyTimeSeries(start, end, district, VIETNAM_TZ_NAME);
+            for (Object[] row : rows) {
+                String timeKey = (String) row[0];
+                Number total = (Number) row[1];
+                if (timeSeries.containsKey(timeKey)) {
+                    timeSeries.put(timeKey, total.longValue());
+                }
+            }
+        }
+        return timeSeries;
     }
 
     /**
      * Helper: Chuyển chuỗi YYYY-MM-DD sang LocalDate
      * Nếu chuỗi rỗng/null, mặc định là hôm nay (giờ Việt Nam)
      */
-    private LocalDate parseDateOrDefault(String dateStr) {
-        if (dateStr == null || dateStr.isEmpty()) {
-            return LocalDate.now(VIETNAM_ZONE); 
+    private Instant parseToInstant(String dateStr, boolean isStart) {
+        try {
+            return Instant.parse(dateStr);
+        } catch (DateTimeParseException e) {
+            try {
+                LocalDateTime ldt = LocalDateTime.parse(dateStr);
+                return ldt.atZone(VIETNAM_ZONE).toInstant();
+            } catch (DateTimeParseException e2) {
+                try {
+                    LocalDate ld = LocalDate.parse(dateStr);
+                    return ld.atStartOfDay(VIETNAM_ZONE).toInstant();
+                } catch (Exception ex) {
+                    throw new IllegalArgumentException("Invalid date format: " + dateStr);
+                }
+            }
         }
-        return LocalDate.parse(dateStr); 
+    }
+
+    private LocalDate parseDateOrDefault(String dateStr) {
+        if (dateStr == null || dateStr.isEmpty()) return LocalDate.now(VIETNAM_ZONE);
+        return LocalDate.parse(dateStr);
     }
 
     /** API 5
@@ -164,7 +222,7 @@ public class TrafficService {
         int hour = ZonedDateTime.ofInstant(startTime, VIETNAM_ZONE).getHour();
 
         for (TrafficMetric metric : metrics) {
-            String district = metric.getDistrict(); //
+            String district = metric.getDistrict();
             if (district == null || district.isEmpty()) {
                 continue;
             }

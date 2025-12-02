@@ -7,12 +7,14 @@ import CameraInfoCard from "@/components/camera-info-card";
 import ImageModal from "@/components/image-modal";
 import type { Camera } from "@/types/camera";
 import CityStatsDrawer from "@/components/city-statistics";
+import ReportDialog from "@/components/report-dialog";
 
 export default function Page() {
     const [mapCenter, setMapCenter] = useState<[number, number]>([10.8231, 106.6297]);
     const [locationName, setLocationName] = useState<string>("Ho Chi Minh City");
     const [mapZoom, setMapZoom] = useState<number>(13);
     const [isStatsOpen, setIsStatsOpen] = useState<boolean>(false);
+    const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
     const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lon: number, name: string } | null>(null);
     const [imageRefreshKey, setImageRefreshKey] = useState<number>(0);
@@ -75,6 +77,17 @@ export default function Page() {
         setModalImageUrl(imageUrl);
     }
 
+    // Handlers for mutual exclusivity
+    const handleOpenStats = () => {
+        setIsStatsOpen(true);
+        setIsReportOpen(false);
+    };
+
+    const handleOpenReport = () => {
+        setIsReportOpen(true);
+        setIsStatsOpen(false);
+    };
+
     return (
         <div className="fixed inset-0 h-screen w-screen overflow-visible">
             <div className={`fixed top-6 left-6 z-[1000] flex flex-col gap-2 w-[600px] max-w-full pointer-events-auto ${modalImageUrl ? 'hidden' : ''}`}>
@@ -116,8 +129,10 @@ export default function Page() {
                     selectedLocation={selectedLocation}
                     imageRefreshKey={imageRefreshKey}
                     isDrawerOpen={isStatsOpen}
+                    onOpenDrawer={handleOpenStats}
+                    isReportOpen={isReportOpen}
+                    onOpenReport={handleOpenReport}
                     isModalOpen={!!modalImageUrl}
-                    onOpenDrawer={() => setIsStatsOpen(true)}
                 />
             </div>
             {modalImageUrl && (
@@ -128,6 +143,7 @@ export default function Page() {
                 />
             )}
             <CityStatsDrawer open={isStatsOpen} onOpenChange={setIsStatsOpen} />
+            <ReportDialog open={isReportOpen} onOpenChange={setIsReportOpen} />
         </div>
     )
 }

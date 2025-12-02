@@ -24,6 +24,8 @@ interface MapProps {
     imageRefreshKey?: number;
     isDrawerOpen?: boolean;
     onOpenDrawer?: () => void;
+    isReportOpen?: boolean;
+    onOpenReport?: () => void;
     isModalOpen?: boolean;
 }
 
@@ -89,12 +91,11 @@ function ZoomLogger() {
 }
 
 const Map = (props: MapProps) => {
-    const { zoom = defaults.zoom, posix, locationName, onCameraClick, selectedCamera, selectedLocation, isDrawerOpen, onOpenDrawer, isModalOpen } = props
+    const { zoom = defaults.zoom, posix, locationName, onCameraClick, selectedCamera, selectedLocation, isDrawerOpen, onOpenDrawer, isReportOpen, onOpenReport, isModalOpen } = props
     const [heatEnabled, setHeatEnabled] = useState<boolean>(false);
     const [routingEnabled, setRoutingEnabled] = useState<boolean>(false);
     const [cameras, setCameras] = useState<any[]>([]);
     const [routingCameraClickHandler, setRoutingCameraClickHandler] = useState<((camera: any) => void) | null>(null);
-    const [isReportOpen, setIsReportOpen] = useState(false);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -102,24 +103,10 @@ const Map = (props: MapProps) => {
         }
     }, []);
 
-    // Handle toggling report dialog
-    const handleReportToggle = () => {
-        if (isReportOpen) {
-            setIsReportOpen(false);
-        } else {
-            // Close drawer if open
-            if (isDrawerOpen && onOpenDrawer) {
-                // We need a way to close the drawer from here, but currently onOpenDrawer only opens it.
-                // Assuming the parent handles the state, we might need a onCloseDrawer prop or similar.
-                // For now, we'll just open the report dialog.
-                // Ideally: onOpenDrawer(false) or similar if supported.
-                // Since we can't close it directly via props, we'll just open the report.
-                // If the user requirement is strict "turn off city stats if on", we might need to lift this state up or add a callback.
-                // However, based on current props, let's just open the report.
-            }
-            setIsReportOpen(true);
-        }
-    };
+    // Calculate right offset based on open drawers
+    // CityStatsDrawer is w-160 (640px) + 16px margin = 656px
+    // ReportDialog is w-[500px] + 16px margin = 516px
+    const rightOffset = isDrawerOpen ? 656 : (isReportOpen ? 516 : 16);
 
     return (
         <MapContainer
@@ -152,8 +139,8 @@ const Map = (props: MapProps) => {
             />
 
             <div
-                className="absolute top-4 z-[1000] pointer-events-auto"
-                style={{ right: isDrawerOpen ? 656 : 16 }}
+                className="absolute top-4 z-[1000] pointer-events-auto transition-all duration-300 ease-in-out"
+                style={{ right: rightOffset }}
             >
                 <div className="flex items-center gap-2">
                     <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2">
@@ -171,10 +158,10 @@ const Map = (props: MapProps) => {
                         <FiNavigation size={18} />
                     </button>
 
-                    {!isDrawerOpen && !isModalOpen && (
+                    {!isModalOpen && (
                         <>
                             <button
-                                onClick={handleReportToggle}
+                                onClick={() => onOpenReport && onOpenReport()}
                                 className={`p-2 rounded-full shadow transition-colors ${isReportOpen ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                                 title="Báo cáo giao thông"
                             >
@@ -182,7 +169,7 @@ const Map = (props: MapProps) => {
                             </button>
                             <button
                                 onClick={() => onOpenDrawer && onOpenDrawer()}
-                                className="bg-white text-black p-2 rounded-full shadow hover:bg-gray-50 cursor-pointer"
+                                className={`p-2 rounded-full shadow transition-colors ${isDrawerOpen ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                                 title="Thống kê thành phố"
                             >
                                 <FiMenu size={18} />
@@ -191,9 +178,6 @@ const Map = (props: MapProps) => {
                     )}
                 </div>
             </div>
-
-            {/* Report Dialog */}
-            <ReportDialog open={isReportOpen} onOpenChange={setIsReportOpen} />
 
             {/* Heat layer manager (client-only) */}
             {typeof window !== 'undefined' && (

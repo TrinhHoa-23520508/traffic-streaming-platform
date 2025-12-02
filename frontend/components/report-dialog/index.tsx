@@ -3,6 +3,7 @@
 import * as React from "react"
 import { format } from "date-fns"
 import { Calendar as CalendarIcon, FileText, Download, Loader2 } from "lucide-react"
+import { FiX } from "react-icons/fi"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -11,14 +12,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -82,176 +75,186 @@ export default function ReportDialog({ open, onOpenChange }: ReportDialogProps) 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Xuất Báo Cáo Giao Thông</DialogTitle>
-          <DialogDescription>
-            Chọn khoảng thời gian và phạm vi để tạo báo cáo chi tiết.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="grid gap-4 py-4">
-          {/* Date Range Picker */}
-          <div className="grid gap-2">
-            <Label>Khoảng thời gian</Label>
-            <div className="flex gap-2">
-                <Popover>
-                    <PopoverTrigger asChild>
-                    <Button
-                        variant={"outline"}
-                        className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !date?.from && "text-muted-foreground"
-                        )}
-                    >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date?.from ? (
-                        date.to ? (
-                            <>
-                            {format(date.from, "dd/MM/yyyy")} -{" "}
-                            {format(date.to, "dd/MM/yyyy")}
-                            </>
-                        ) : (
-                            format(date.from, "dd/MM/yyyy")
-                        )
-                        ) : (
-                        <span>Chọn ngày bắt đầu - kết thúc</span>
-                        )}
-                    </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={date?.from}
-                        selected={date}
-                        onSelect={(range: any) => setDate(range)}
-                        numberOfMonths={2}
-                    />
-                    </PopoverContent>
-                </Popover>
+    <div className="fixed inset-0 flex justify-end z-40 pointer-events-none">
+        <div
+            className={`pointer-events-auto m-4 pb-3 h-[calc(100vh-2rem)] w-[500px] bg-white rounded-xl shadow-lg border border-gray-200 transform transition-transform duration-100 flex flex-col overflow-hidden ${open ? "translate-x-0" : "translate-x-[110%]"}`}
+            role="dialog" aria-modal="true"
+        >
+            <div className="flex items-center justify-between py-4 px-6 border-b border-gray-200 relative flex-none bg-white">
+                <div>
+                    <h1 className="text-black text-[22px] font-bold">Xuất Báo Cáo Giao Thông</h1>
+                    <p className="text-gray-500 text-sm">Chọn khoảng thời gian và phạm vi để tạo báo cáo.</p>
+                </div>
+                <button
+                    onClick={() => onOpenChange(false)}
+                    className="text-gray-500 hover:text-black cursor-pointer p-1 rounded-md transition-colors"
+                    aria-label="Đóng"
+                >
+                    <FiX size={24} />
+                </button>
             </div>
-          </div>
 
-          {/* Interval Selection */}
-          <div className="grid gap-2">
-            <Label>Độ phân giải thời gian (Interval)</Label>
-            <Select value={interval} onValueChange={setInterval}>
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn khoảng thời gian" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="5">5 phút</SelectItem>
-                <SelectItem value="15">15 phút</SelectItem>
-                <SelectItem value="30">30 phút</SelectItem>
-                <SelectItem value="60">1 giờ</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Date Range Picker */}
+                <div className="grid gap-2">
+                    <Label>Khoảng thời gian</Label>
+                    <div className="flex gap-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !date?.from && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {date?.from ? (
+                                date.to ? (
+                                    <>
+                                    {format(date.from, "dd/MM/yyyy")} -{" "}
+                                    {format(date.to, "dd/MM/yyyy")}
+                                    </>
+                                ) : (
+                                    format(date.from, "dd/MM/yyyy")
+                                )
+                                ) : (
+                                <span>Chọn ngày bắt đầu - kết thúc</span>
+                                )}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={date?.from}
+                                selected={date}
+                                onSelect={(range: any) => setDate(range)}
+                                numberOfMonths={2}
+                            />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
 
-          {/* Scope Selection - Updated Logic */}
-          <div className="grid gap-2">
-            <Label>Phạm vi báo cáo</Label>
-            <div className="border rounded-md p-4 space-y-4 bg-slate-50/50">
-                
-                {/* 1. Chọn Quận/Huyện (Single Select) */}
-                <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-gray-700">Chọn Quận / Huyện</Label>
-                    <Select value={selectedDistrict} onValueChange={setSelectedDistrict}>
-                      <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="-- Chọn khu vực --" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {districts.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>
-                        ))}
-                      </SelectContent>
+                {/* Interval Selection */}
+                <div className="grid gap-2">
+                    <Label>Độ phân giải thời gian (Interval)</Label>
+                    <Select value={interval} onValueChange={setInterval}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Chọn khoảng thời gian" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="5">5 phút</SelectItem>
+                        <SelectItem value="15">15 phút</SelectItem>
+                        <SelectItem value="30">30 phút</SelectItem>
+                        <SelectItem value="60">1 giờ</SelectItem>
+                    </SelectContent>
                     </Select>
                 </div>
 
-                {/* 2. Chọn Camera (Multi Select based on District) */}
-                <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-gray-700">
-                      Danh sách Camera {selectedDistrict ? `(${camerasByDistrict[selectedDistrict]?.length || 0})` : ''}
-                    </Label>
-                    
-                    {!selectedDistrict ? (
-                      <div className="h-[120px] border rounded bg-gray-100 flex items-center justify-center text-xs text-gray-400 italic">
-                        Vui lòng chọn Quận/Huyện trước
-                      </div>
-                    ) : (
-                      <ScrollArea className="h-[120px] border rounded p-2 bg-white">
-                          {camerasByDistrict[selectedDistrict]?.length > 0 ? (
-                            camerasByDistrict[selectedDistrict].map((cam) => (
-                                <div key={cam.id} className="flex items-center space-x-2 mb-2 hover:bg-slate-50 p-1 rounded transition-colors">
-                                    <Checkbox 
-                                        id={cam.id} 
-                                        checked={selectedCameras.includes(cam.id)}
-                                        onCheckedChange={(checked) => {
-                                            if (checked) {
-                                                setSelectedCameras([...selectedCameras, cam.id])
-                                            } else {
-                                                setSelectedCameras(selectedCameras.filter(id => id !== cam.id))
-                                            }
-                                        }}
-                                    />
-                                    <label
-                                        htmlFor={cam.id}
-                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
-                                    >
-                                        {cam.label}
-                                    </label>
-                                </div>
-                            ))
-                          ) : (
-                            <div className="text-xs text-gray-500 p-2 text-center">Không có camera nào trong khu vực này</div>
-                          )}
-                      </ScrollArea>
-                    )}
-                    
-                    {/* Quick Select All Helper */}
-                    {selectedDistrict && camerasByDistrict[selectedDistrict]?.length > 0 && (
-                      <div className="flex justify-end">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 text-[10px] text-blue-600 hover:text-blue-800 px-2"
-                          onClick={() => {
-                            const allIds = camerasByDistrict[selectedDistrict].map(c => c.id);
-                            if (selectedCameras.length === allIds.length) {
-                              setSelectedCameras([]);
-                            } else {
-                              setSelectedCameras(allIds);
-                            }
-                          }}
-                        >
-                          {selectedCameras.length === camerasByDistrict[selectedDistrict].length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-                        </Button>
-                      </div>
-                    )}
+                {/* Scope Selection - Updated Logic */}
+                <div className="grid gap-2">
+                    <Label>Phạm vi báo cáo</Label>
+                    <div className="border rounded-md p-4 space-y-4 bg-slate-50/50">
+                        
+                        {/* 1. Chọn Quận/Huyện (Single Select) */}
+                        <div className="space-y-2">
+                            <Label className="text-xs font-semibold text-gray-700">Chọn Quận / Huyện</Label>
+                            <Select value={selectedDistrict} onValueChange={setSelectedDistrict}>
+                            <SelectTrigger className="bg-white">
+                                <SelectValue placeholder="-- Chọn khu vực --" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {districts.map((d) => (
+                                <SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* 2. Chọn Camera (Multi Select based on District) */}
+                        <div className="space-y-2">
+                            <Label className="text-xs font-semibold text-gray-700">
+                            Danh sách Camera {selectedDistrict ? `(${camerasByDistrict[selectedDistrict]?.length || 0})` : ''}
+                            </Label>
+                            
+                            {!selectedDistrict ? (
+                            <div className="h-[120px] border rounded bg-gray-100 flex items-center justify-center text-xs text-gray-400 italic">
+                                Vui lòng chọn Quận/Huyện trước
+                            </div>
+                            ) : (
+                            <ScrollArea className="h-[120px] border rounded p-2 bg-white">
+                                {camerasByDistrict[selectedDistrict]?.length > 0 ? (
+                                    camerasByDistrict[selectedDistrict].map((cam) => (
+                                        <div key={cam.id} className="flex items-center space-x-2 mb-2 hover:bg-slate-50 p-1 rounded transition-colors">
+                                            <Checkbox 
+                                                id={cam.id} 
+                                                checked={selectedCameras.includes(cam.id)}
+                                                onCheckedChange={(checked) => {
+                                                    if (checked) {
+                                                        setSelectedCameras([...selectedCameras, cam.id])
+                                                    } else {
+                                                        setSelectedCameras(selectedCameras.filter(id => id !== cam.id))
+                                                    }
+                                                }}
+                                            />
+                                            <label
+                                                htmlFor={cam.id}
+                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                                            >
+                                                {cam.label}
+                                            </label>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-xs text-gray-500 p-2 text-center">Không có camera nào trong khu vực này</div>
+                                )}
+                            </ScrollArea>
+                            )}
+                            
+                            {/* Quick Select All Helper */}
+                            {selectedDistrict && camerasByDistrict[selectedDistrict]?.length > 0 && (
+                            <div className="flex justify-end">
+                                <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 text-[10px] text-blue-600 hover:text-blue-800 px-2"
+                                onClick={() => {
+                                    const allIds = camerasByDistrict[selectedDistrict].map(c => c.id);
+                                    if (selectedCameras.length === allIds.length) {
+                                    setSelectedCameras([]);
+                                    } else {
+                                    setSelectedCameras(allIds);
+                                    }
+                                }}
+                                >
+                                {selectedCameras.length === camerasByDistrict[selectedDistrict].length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                                </Button>
+                            </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
-          </div>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-          <Button onClick={handleGenerate} disabled={isGenerating || selectedCameras.length === 0}>
-            {isGenerating ? (
-                <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Đang xử lý...
-                </>
-            ) : (
-                <>
-                    <Download className="mr-2 h-4 w-4" />
-                    Xuất Báo Cáo
-                </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+                <Button onClick={handleGenerate} disabled={isGenerating || selectedCameras.length === 0}>
+                    {isGenerating ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Đang xử lý...
+                        </>
+                    ) : (
+                        <>
+                            <Download className="mr-2 h-4 w-4" />
+                            Xuất Báo Cáo
+                        </>
+                    )}
+                </Button>
+            </div>
+        </div>
+    </div>
   )
 }

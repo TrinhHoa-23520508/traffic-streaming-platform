@@ -33,12 +33,13 @@ class YOLOModel:
         logger.info(f"Đã tải model YOLO thành công trên {self.device}")
         logger.info(f"Các đối tượng sẽ được phát hiện: {list(self.detection_classes.values())}")
 
-    def analyze_image(self, image):
+    def analyze_image(self, images):
         """
         Phân tích hình ảnh với YOLO trên GPU
+        Args:
+            images: Một list các numpy array (batch) hoặc 1 ảnh đơn lẻ
         """
-        # YOLO tự động sử dụng device đã được set
-        results = self.model(image, device=self.device)
+        results = self.model(images, device=self.device, verbose=False)
         return results
 
     def count_objects(self, results):

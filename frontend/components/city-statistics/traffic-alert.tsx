@@ -195,9 +195,9 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
     }
 
     const badgeClassesBySeverity: Record<AlertSeverity, string> = {
-        high: "bg-rose-50 text-rose-700 border-rose-200",
-        medium: "bg-orange-50 text-orange-700 border-orange-200",
-        low: "bg-amber-50 text-amber-700 border-amber-200",
+        high: "bg-rose-50 text-rose-700 border-rose-50",
+        medium: "bg-orange-50 text-orange-700 border-orange-50",
+        low: "bg-amber-50 text-amber-700 border-amber-50",
     }
 
     function onSelect(alert: TrafficAlert) {
@@ -241,9 +241,9 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                                 borderColor: CHART_COLORS.quaternary,
                                 color: 'white'
                             } : undefined}
-                            className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors whitespace-nowrap cursor-pointer ${severityFilter === option.value
+                            className={`px-4 py-1.5 text-xs font-medium rounded-full border transition-all duration-200 whitespace-nowrap cursor-pointer ${severityFilter === option.value
                                 ? option.activeClass
-                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
                                 }`}
                         >
                             {option.label}
@@ -263,27 +263,27 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                                     tabIndex={0}
                                     onClick={() => onSelect(a)}
                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(a) } }}
-                                    className="relative group rounded-lg bg-white border border-slate-100 py-2 px-4 cursor-pointer select-none transition-colors focus:outline-none focus:ring-2 focus:ring-sky-100 hover:border-sky-400 min-h-[120px] flex-shrink-0"
+                                    className="relative group rounded-xl bg-white border border-slate-100 p-4 cursor-pointer select-none transition-all duration-200 hover:shadow-md hover:border-sky-200 hover:bg-sky-50/30 focus:outline-none focus:ring-2 focus:ring-sky-100 min-h-[120px] flex-shrink-0 flex flex-col justify-between"
                                 >
 
-                                    <div className="flex items-start justify-between gap-4 py-1 pl-2">
+                                    <div className="flex items-start justify-between gap-4">
                                         <div className="flex-1">
-                                            <div className="text-slate-900 font-semibold text-sm leading-tight">{a.title}</div>
-                                            <div className="text-slate-500 text-sm mt-1 min-h-[2.5rem] break-words">{a.description}</div>
+                                            <div className="text-slate-900 font-semibold text-sm leading-snug group-hover:text-sky-700 transition-colors">{a.title}</div>
+                                            <div className="text-slate-500 text-xs mt-1.5 line-clamp-2">{a.description}</div>
                                         </div>
-                                        <span className={`shrink-0 inline-flex items-center rounded-md px-3 py-1 text-xs font-semibold border ${badgeClassesBySeverity[a.severity]}`}>
+                                        <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badgeClassesBySeverity[a.severity]}`}>
                                             {labelBySeverity[a.severity]}
                                         </span>
                                     </div>
 
-                                    <div className="text-xs text-slate-500 flex items-center gap-2 pl-4 mt-1">
-                                        <span className="inline-flex items-center gap-2 rounded-md bg-slate-50 px-2 py-1 font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
-                                            <FiClock className="h-4 w-4 text-slate-400" />
-                                            <span>{toReadableTime(a.time)}</span>
+                                    <div className="text-xs text-slate-500 flex items-center gap-3 mt-3 pt-3 border-t border-slate-50 group-hover:border-sky-100/50 transition-colors">
+                                        <span className="inline-flex items-center gap-1.5 text-slate-400">
+                                            <FiClock className="h-3.5 w-3.5" />
+                                            <span className="font-medium text-slate-600">{toReadableTime(a.time)}</span>
                                         </span>
                                         <span
-                                            className="inline-flex items-center gap-2 rounded-md px-2 py-1 font-medium"
-                                            style={{ backgroundColor: CHART_COLORS.octonary, color: CHART_COLORS.primary }}
+                                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-medium text-[10px]"
+                                            style={{ backgroundColor: CHART_COLORS.octonary, color: CHART_COLORS.tertiary }}
                                         >
                                             <span>{a.district}</span>
                                         </span>
@@ -307,14 +307,14 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                             <button
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
-                                className="px-3 py-1 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 enabled:cursor-pointer transition-colors"
+                                className="px-3 py-1 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-600 enabled:cursor-pointer transition-all duration-200 shadow-sm"
                             >
                                 Trước
                             </button>
                             <button
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages}
-                                className="px-3 py-1 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 enabled:cursor-pointer transition-colors"
+                                className="px-3 py-1 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-600 enabled:cursor-pointer transition-all duration-200 shadow-sm"
                             >
                                 Sau
                             </button>

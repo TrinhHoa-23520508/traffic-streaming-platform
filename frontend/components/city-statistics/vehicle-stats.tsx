@@ -124,22 +124,22 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
         const defaultColors = [CHART_COLORS.tertiary, CHART_COLORS.quinary, CHART_COLORS.senary, CHART_COLORS.septenary];
 
         return (
-            <div className="bg-white/95 text-gray-800 p-3 rounded-lg shadow-lg border border-gray-100" style={{ minWidth: 220 }}>
-                <div className="text-sm font-semibold mb-2">{label}</div>
-                <div className="space-y-1 text-xs">
+            <div className="bg-white/95 backdrop-blur-sm text-slate-800 p-3 rounded-xl shadow-lg border border-slate-100" style={{ minWidth: 220 }}>
+                <div className="text-sm font-bold mb-3 text-slate-800 border-b border-slate-100 pb-2">{label}</div>
+                <div className="space-y-2 text-xs">
                     {payload.map((p: any, i: number) => (
                         <div key={p.dataKey ?? i} className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <span
-                                    style={{ width: 10, height: 10, background: p.fill ?? defaultColors[i] ?? defaultColors[0], display: "inline-block", borderRadius: 2 }}
+                                    style={{ width: 8, height: 8, background: p.fill ?? defaultColors[i] ?? defaultColors[0], display: "inline-block", borderRadius: 2 }}
                                 />
-                                <span className="text-gray-600">{p.name}</span>
+                                <span className="text-slate-600 font-medium">{p.name}</span>
                             </div>
-                            <div className="font-medium">{formatNumber(p.value)}</div>
+                            <div className="font-medium text-slate-700">{formatNumber(p.value)}</div>
                         </div>
                     ))}
                 </div>
-                <div className="border-t mt-2 pt-2 text-right text-sm font-semibold">Tổng: {formatNumber(total)}</div>
+                <div className="border-t border-slate-100 mt-3 pt-2 text-right text-sm font-bold text-slate-900">Tổng: {formatNumber(total)}</div>
             </div>
         );
     }
@@ -193,28 +193,34 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
                                 layout="vertical"
                                 margin={{ right: 20, left: 15, bottom: 30 }}
                             >
-                                <CartesianGrid strokeDasharray="0" stroke="#f3f4f6" />
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                                 <XAxis
                                     dataKey="district"
                                     type="number"
-                                    stroke="#9ca3af"
+                                    stroke="#64748b"
                                     interval={0}
                                     textAnchor="middle"
-                                    style={{ fontSize: '12px' }}
-                                    label={{ value: 'Số xe', position: 'bottom' }}
-                                />
+                                    style={{ fontSize: '11px', fontWeight: 500 }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
+                                    label={{ value: 'Số xe', position: 'bottom', offset: 0, style: { fill: '#94a3b8', fontSize: '12px' } }}
+                                />s
                                 <YAxis
-                                    stroke="#9ca3af"
+                                    stroke="#64748b"
                                     type="category"
                                     dataKey="district"
-                                    style={{ fontSize: '12px' }}
+                                    style={{ fontSize: '11px', fontWeight: 500 }}
+                                    width={60}
+                                    axisLine={false}
+                                    tickLine={false}
                                 />
-                                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
-                                <Legend verticalAlign="top" height={24} wrapperStyle={{ paddingBottom: 8 }} />
-                                <Bar dataKey="xeMay" name="Xe máy" stackId="a" fill={CHART_COLORS.tertiary} />
-                                <Bar dataKey="xeOTo" name="Xe ô tô" stackId="a" fill={CHART_COLORS.quinary} />
-                                <Bar dataKey="xeTai" name="Xe tải" stackId="a" fill={CHART_COLORS.senary} />
-                                <Bar dataKey="xeKhac" name="Xe khác" stackId="a" fill={CHART_COLORS.septenary} />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f1f5f9', opacity: 0.5 }} />
+                                <Legend verticalAlign="top" height={36} iconType="circle" iconSize={8} wrapperStyle={{ paddingBottom: 10, fontSize: '12px', fontWeight: 500 }} />
+                                <Bar dataKey="xeMay" name="Xe máy" stackId="a" fill={CHART_COLORS.tertiary} radius={[0, 0, 0, 0]} />
+                                <Bar dataKey="xeOTo" name="Xe ô tô" stackId="a" fill={CHART_COLORS.quinary} radius={[0, 0, 0, 0]} />
+                                <Bar dataKey="xeTai" name="Xe tải" stackId="a" fill={CHART_COLORS.senary} radius={[0, 0, 0, 0]} />
+                                <Bar dataKey="xeKhac" name="Xe khác" stackId="a" fill={CHART_COLORS.septenary} radius={[0, 4, 4, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>

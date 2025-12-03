@@ -75,29 +75,32 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                     className={`pointer-events-auto m-4 pb-3 h-[calc(100vh-2rem)] w-160 bg-white rounded-xl shadow-lg border border-gray-200 transform transition-transform duration-100 flex flex-col overflow-hidden ${isOpen ? "translate-x-0" : "translate-x-[110%]"}`}
                     role="dialog" aria-modal="true"
                 >
-                    <div className="flex items-center justify-between py-2 px-4 border-b border-gray-200 relative flex-none bg-white">
-                        <div className="ml-2">
-                            <h1 className="text-black text-[26px] font-bold">Thống kê toàn thành phố</h1>
-                            <h2 className="text-gray-500 text-[14px]">
-                                Cập nhật lần cuối:
-                                <span className="text-gray-400 text-[13px] ml-1">
-                                    {isMounted ? (lastUpdate || 'Chưa có dữ liệu') : 'Đang tải...'}
-                                </span>
-                            </h2>
+                    <div className="flex items-center justify-between py-4 px-6 border-b border-slate-100 relative flex-none bg-white/50 backdrop-blur-sm">
+                        <div>
+                            <h1 className="text-slate-900 text-2xl font-bold tracking-tight">Thống kê toàn thành phố</h1>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <h2 className="text-slate-500 text-sm font-medium">
+                                    Cập nhật lần cuối:
+                                    <span className="text-slate-700 ml-1 font-semibold">
+                                        {isMounted ? (lastUpdate || 'Chưa có dữ liệu') : 'Đang tải...'}
+                                    </span>
+                                </h2>
+                            </div>
                         </div>
                         <div className="flex items-center gap-3">
                             <RefreshButton onClick={handleRefresh} isLoading={isRefreshing} />
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="text-gray-500 hover:text-black cursor-pointer p-1 rounded-md transition-colors"
+                                className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-all duration-200"
                                 aria-label="Đóng"
                             >
-                                <FiX size={25} />
+                                <FiX size={24} />
                             </button>
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 flex flex-col gap-3">
+                    <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 flex flex-col gap-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                         <TrafficAlertsPanel onAlertsUpdate={() => setLastUpdate(new Date().toLocaleString('vi-VN'))} />
                         <TrafficDensityStatisticsAreaChart
                             data={cityStatsData}
@@ -119,8 +122,11 @@ function RefreshButton({ onClick, isLoading }: { onClick: () => void; isLoading:
     return (
         <Button
             variant="outline"
-            className={`cursor-pointer px-3 py-1 rounded-md transition 
-                ${isLoading ? "bg-gray-50 border-gray-200 text-gray-700" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"}`}
+            size="sm"
+            className={`cursor-pointer gap-2 transition-all duration-200 font-medium border shadow-sm
+                ${isLoading
+                    ? "bg-slate-50 border-slate-200 text-slate-400"
+                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"}`}
             onClick={onClick}
             disabled={isLoading}
         >

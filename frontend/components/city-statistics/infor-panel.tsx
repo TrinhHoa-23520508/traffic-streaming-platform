@@ -94,7 +94,7 @@ export default function InforPanel({
     const renderActiveFilters = () => {
         return (
             <div className="flex flex-wrap gap-2 mt-1">
-                <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200 transition-colors hover:bg-slate-200">
                     {useDateRange ? (
                         dateRangeValue?.from ? (
                             <>
@@ -108,16 +108,16 @@ export default function InforPanel({
                 </div>
 
                 {showFilter && filterValue && (
-                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-100">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-100 transition-colors hover:bg-indigo-100">
                         {filterValue}
                     </div>
                 )}
 
                 {showCameraFilter && cameraFilterValue && (
-                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100 transition-colors hover:bg-emerald-100">
                         {cameraOptions.find(c => c.value === cameraFilterValue)?.label || cameraFilterValue}
                         {onCameraFilterChange && (
-                            <button onClick={() => onCameraFilterChange("")} className="hover:text-emerald-900 ml-1 cursor-pointer">
+                            <button onClick={() => onCameraFilterChange("")} className="hover:text-emerald-900 ml-1 cursor-pointer rounded-full p-0.5 hover:bg-emerald-200/50">
                                 <X className="h-3 w-3" />
                             </button>
                         )}
@@ -128,7 +128,7 @@ export default function InforPanel({
     }
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 px-6 py-5 w-full transition-all hover:shadow-[0_4px_20px_-4px_rgba(6,81,237,0.15)]">
+        <div className="bg-white rounded-2xl border border-slate-200/60 px-6 py-5 w-full transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50 hover:border-slate-300/80 group">
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-50 pb-4 mb-2">
                 <div className="flex flex-col gap-1">
                     <h2 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
@@ -140,9 +140,9 @@ export default function InforPanel({
 
                 <Popover open={open} onOpenChange={setOpen}>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-9 gap-2 text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-sm cursor-pointer">
+                        <Button variant="outline" size="sm" className="h-9 gap-2 text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-sm cursor-pointer rounded-lg transition-all duration-200">
                             <SlidersHorizontal className="h-4 w-4" />
-                            <span className="hidden sm:inline">Bộ lọc</span>
+                            <span className="hidden sm:inline font-medium">Bộ lọc</span>
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-80 p-4" align="end">

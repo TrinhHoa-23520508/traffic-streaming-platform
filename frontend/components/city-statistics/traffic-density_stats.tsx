@@ -123,26 +123,26 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
         return (
             <div
-                className="bg-white/95 text-gray-800 p-3 rounded-lg shadow-lg border border-gray-100"
+                className="bg-white/95 backdrop-blur-sm text-slate-800 p-3 rounded-xl shadow-lg border border-slate-100"
                 style={{ minWidth: 220 }}
             >
                 <div className="flex items-start justify-between">
                     <div>
-                        <div className="text-sm font-semibold">{label}</div>
+                        <div className="text-sm font-semibold text-slate-700">{label}</div>
                         <div
-                            className="text-xs mt-0.5 px-2 py-0.5 font-medium border rounded rounded-sm"
+                            className="text-xs mt-1 px-2 py-0.5 font-medium border rounded-md inline-block"
                             style={{
                                 backgroundColor: CHART_COLORS.octonary,
-                                color: CHART_COLORS.secondary,
-                                borderColor: CHART_COLORS.octonary
+                                color: CHART_COLORS.tertiary,
+                                borderColor: CHART_COLORS.septenary
                             }}
                         >
                             {areaDistrict}
                         </div>
                     </div>
                     <div className="text-right">
-                        <div className="text-lg font-bold">{formatNumber(value)}</div>
-                        <div className="text-xs text-gray-500">xe/giờ</div>
+                        <div className="text-xl font-bold text-slate-900">{formatNumber(value)}</div>
+                        <div className="text-xs text-slate-500 font-medium">xe/giờ</div>
                     </div>
                 </div>
             </div>
@@ -201,27 +201,32 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                     <ResponsiveContainer width="100%" height={300}><AreaChart data={chartData} margin={{ top: 20, right: 20, left: 15, bottom: 30 }}>
                         <defs>
                             <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={CHART_COLORS.senary} stopOpacity={0.45} />
-                                <stop offset="65%" stopColor={CHART_COLORS.quinary} stopOpacity={0.2} />
-                                <stop offset="85%" stopColor={CHART_COLORS.quinary} stopOpacity={0.1} />
-                                <stop offset="100%" stopColor={CHART_COLORS.quinary} stopOpacity={0} />
+                                <stop offset="5%" stopColor={CHART_COLORS.quinary} stopOpacity={0.3} />
+                                <stop offset="95%" stopColor={CHART_COLORS.quinary} stopOpacity={0} />
                             </linearGradient>
                         </defs>
 
                         <CartesianGrid
-                            strokeDasharray="0"
-                            stroke="#f3f4f6" />
+                            strokeDasharray="3 3"
+                            vertical={false}
+                            stroke="#e2e8f0" />
                         <XAxis
                             dataKey="time"
-                            stroke="#9ca3af"
-                            style={{ fontSize: '12px' }}
-                            tickMargin={8}
-                            label={{ value: 'Giờ', position: 'bottom', offset: 10 }}
+                            stroke="#64748b"
+                            style={{ fontSize: '11px', fontWeight: 500 }}
+                            tickMargin={10}
+                            axisLine={false}
+                            tickLine={false}
+                            label={{ value: 'Giờ', position: 'bottom', offset: 0, style: { fill: '#94a3b8', fontSize: '12px' } }}
                         />
                         <YAxis
-                            label={{ value: 'Lưu lượng (xe/giờ)', angle: -90, position: 'insideLeft' }}
-                            stroke="#9ca3af"
-                            style={{ fontSize: '12px' }} />
+                            label={{ value: 'Lưu lượng (xe/giờ)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: '12px' }, offset: 0 }}
+                            stroke="#64748b"
+                            style={{ fontSize: '11px', fontWeight: 500 }}
+                            axisLine={false}
+                            tickLine={false}
+                            tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
+                        />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                         <Area
                             type="monotone"

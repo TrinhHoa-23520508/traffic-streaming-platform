@@ -7,10 +7,10 @@ import { trafficApi } from "@/lib/api/trafficApi";
 import type { CityStatsHourlyWS } from "@/types/city-stats";
 import { CHART_COLORS } from "./color";
 import { DateRange } from "react-day-picker";
-import { subHours, addDays } from "date-fns";
+import { subHours, format, addHours, differenceInHours } from "date-fns";
 
 interface HourlyData {
-    time: string;
+    time: Date;
     traffic: number;
 }
 
@@ -20,23 +20,48 @@ interface TrafficDensityStatsProps {
     onLoadComplete?: () => void;
 }
 
-const generateRandomHourlyData = (): HourlyData[] => {
-    return Array.from({ length: 24 }, (_, hour) => ({
-        time: `${hour}:00`,
-        traffic: Math.floor(Math.random() * 2000) + 500
-    }));
+const generateRandomHourlyData = (range?: DateRange): HourlyData[] => {
+    const now = new Date();
+
+    const rawFrom = range?.from ? new Date(range!.from as Date) : subHours(now, 24);
+    const rawTo = range?.to ? new Date(range!.to as Date) : now;
+
+    const from = new Date(rawFrom);
+    from.setMinutes(0, 0, 0);
+    const to = new Date(rawTo);
+    to.setMinutes(0, 0, 0);
+
+    if (from > to) {
+        const tmp = from;
+        (from as any) = to;
+        (to as any) = tmp;
+    }
+
+    const hoursDiff = Math.max(0, differenceInHours(to, from));
+    const points: HourlyData[] = Array.from({ length: hoursDiff + 1 }, (_, i) => {
+        const d = addHours(from, i);
+        return {
+            time: new Date(d),
+            traffic: Math.floor(Math.random() * 2000) + 500
+        };
+    });
+
+    return points;
 };
 
 export default function TrafficDensityStatisticsAreaChart({ data: wsData, refreshTrigger, onLoadComplete }: TrafficDensityStatsProps) {
-    const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Bình Dương");
+    const [areaDistrict, setAreaDistrict] = useState<string>("Bình Dương");
 
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const [dateRange, setDateRange] = useState<DateRange>(() => {
         const now = new Date();
-        now.setMinutes(0, 0, 0);
-        return {
-            from: subHours(now, 24),
-            to: now,
-        };
+
+        const from = subHours(now, 24);
+        from.setMinutes(0, 0);
+
+        const to = new Date(now);
+        to.setMinutes(0, 0);
+
+        return { from, to };
     });
 
     const [selectedCamera, setSelectedCamera] = useState<string>("");
@@ -45,6 +70,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
     const [loading, setLoading] = useState(true);
 
     const cameraOptions = [
+        //mock
         { value: "CAM-01", label: "Camera Ngã 4 Hàng Xanh" },
         { value: "CAM-02", label: "Camera Cầu Sài Gòn" },
         { value: "CAM-03", label: "Camera Phạm Văn Đồng" },
@@ -53,60 +79,80 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
     useEffect(() => {
         const fetchHourlyData = async () => {
-            if (!areaDistrict) return;
-
             try {
                 setLoading(true);
-                const targetDate = dateRange?.from || new Date();
 
-                const dateStr = targetDate.toLocaleDateString('vi-VN', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit'
-                }).split('/').reverse().join('-');
+                const now = new Date();
 
-                const response = await trafficApi.getHourlySummary({
-                    date: dateStr,
-                    district: areaDistrict
+                const startDate = dateRange?.from ? new Date(dateRange.from as Date) : subHours(now, 24);
+                startDate.setMinutes(0, 0, 0);
+
+                const endDate = dateRange?.to ? new Date(dateRange.to as Date) : new Date(now);
+                endDate.setMinutes(0, 0, 0);
+
+                const startStr = format(startDate, "yyyy-MM-dd'T'HH:mm:ss");
+                const endStr = format(endDate, "yyyy-MM-dd'T'HH:mm:ss");
+
+                const response: Record<string, number> = await trafficApi.getHourlySummary({
+                    start: startStr,
+                    end: endStr,
+                    district: areaDistrict,
+                    cameraId: selectedCamera
                 });
 
                 console.log('📊 Hourly summary response:', response);
 
-                const chartData: HourlyData[] = Array.from({ length: 24 }, (_, hour) => ({
-                    time: `${hour}:00`,
-                    traffic: response[hour] || 0
-                }));
+                const valueMap = new Map<number, number>();
+                for (const [timestamp, count] of Object.entries(response || {})) {
+                    const parsed = new Date(timestamp);
+                    if (isNaN(parsed.getTime())) {
+                        console.warn('Invalid timestamp in hourly summary:', timestamp);
+                        continue;
+                    }
+                    const hourDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), parsed.getHours(), 0, 0, 0);
+                    valueMap.set(hourDate.getTime(), Number(count ?? 0));
+                }
 
-                setChartData(chartData);
+                const points: HourlyData[] = [];
+                for (let d = new Date(startDate); d.getTime() <= endDate.getTime(); d.setHours(d.getHours() + 1)) {
+                    const hourBoundary = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), 0, 0, 0);
+                    const val = valueMap.get(hourBoundary.getTime()) ?? 0;
+
+                    points.push({
+                        time: new Date(hourBoundary),
+                        traffic: val
+                    });
+                }
+
+                setChartData(points);
             } catch (error) {
                 console.error('Error fetching hourly data:', error);
-                console.log('Using random data as fallback');
-                setChartData(generateRandomHourlyData());
+                console.log('Using random data as fallback (based on selected date range)');
+                setChartData(generateRandomHourlyData(dateRange));
             } finally {
                 setLoading(false);
                 onLoadComplete?.();
             }
         };
-
+        console.log('Fetching hourly data with params:', { areaDistrict, dateRange, selectedCamera });
         fetchHourlyData();
     }, [areaDistrict, dateRange, refreshTrigger, selectedCamera]);
 
     useEffect(() => {
+        console.log('📨 WebSocket hourly data received:', wsData);
+
         if (wsData && wsData.district === areaDistrict) {
-            console.log('📨 WebSocket hourly data received:', wsData);
-
             setChartData(prevData => {
-                const newData = [...prevData];
-                const hourIndex = wsData.hour;
+                const nextTime = new Date(dateRange.to!.getTime() + 60 * 60 * 1000);
 
-                if (hourIndex >= 0 && hourIndex < 24) {
-                    newData[hourIndex] = {
-                        time: `${hourIndex}:00`,
+                if (wsData.hour.getTime() === nextTime.getTime()) {
+                    const newPoint: HourlyData = {
+                        time: wsData.hour,
                         traffic: wsData.totalCount
                     };
+                    return [...prevData, newPoint];
                 }
-
-                return newData;
+                return prevData;
             });
         }
     }, [wsData, areaDistrict]);
@@ -119,7 +165,9 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         if (!active || !payload || !payload.length) return null;
         const item = payload[0];
         const value = item?.value ?? 0;
-        const color = item?.fill ?? CHART_COLORS.quinary;
+
+        const dataPoint = payload[0].payload;
+        const fullDate = dataPoint.time ? format(new Date(dataPoint.time), 'dd/MM/yyyy HH:mm') : label;
 
         return (
             <div
@@ -128,7 +176,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
             >
                 <div className="flex items-start justify-between">
                     <div>
-                        <div className="text-sm font-semibold text-slate-700">{label}</div>
+                        <div className="text-sm font-semibold text-slate-700">{fullDate}</div>
                         <div
                             className="text-xs mt-1 px-2 py-0.5 font-medium border rounded-md inline-block"
                             style={{
@@ -137,12 +185,12 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                                 borderColor: CHART_COLORS.septenary
                             }}
                         >
-                            {areaDistrict}
+                            {selectedCamera ? 'Camera' : (areaDistrict || 'Tất cả')}
                         </div>
                     </div>
                     <div className="text-right">
                         <div className="text-xl font-bold text-slate-900">{formatNumber(value)}</div>
-                        <div className="text-xs text-slate-500 font-medium">xe/giờ</div>
+                        <div className="text-xs text-slate-500 font-medium">xe</div>
                     </div>
                 </div>
             </div>
@@ -162,7 +210,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 cameraOptions={cameraOptions}
                 cameraFilterValue={selectedCamera}
                 onCameraFilterChange={setSelectedCamera}
-                showCurrentTimeOptionInDatePicker={false}
+                showCurrentTimeOptionInDatePicker={true}
                 children={<div className="w-full h-[300px] flex items-center justify-center text-gray-500">Đang tải dữ liệu...</div>}
             />
         );
@@ -180,7 +228,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
             cameraOptions={cameraOptions}
             cameraFilterValue={selectedCamera}
             onCameraFilterChange={setSelectedCamera}
-            showCurrentTimeOptionInDatePicker={false}
+            showCurrentTimeOptionInDatePicker={true}
             children={
                 <div className="relative w-full h-[300px]">
                     {loading && (
@@ -217,15 +265,18 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                             tickMargin={10}
                             axisLine={false}
                             tickLine={false}
-                            label={{ value: 'Giờ', position: 'bottom', offset: 0, style: { fill: '#94a3b8', fontSize: '12px' } }}
+                            tickFormatter={(value) => {
+                                try { return format(new Date(value), 'HH:mm'); } catch { return String(value); }
+                            }}
+                            label={{ value: 'Thời gian', position: 'bottom', offset: 0, style: { fill: '#94a3b8', fontSize: '12px' } }}
                         />
                         <YAxis
-                            label={{ value: 'Lưu lượng (xe/giờ)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: '12px' }, offset: 0 }}
+                            label={{ value: 'Lưu lượng (xe)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: '12px' }, offset: 0 }}
                             stroke="#64748b"
                             style={{ fontSize: '11px', fontWeight: 500 }}
                             axisLine={false}
                             tickLine={false}
-                            tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
+                            tickFormatter={(value) => value >= 1000 ? `${value / 1000} k` : value}
                         />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                         <Area

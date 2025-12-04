@@ -31,7 +31,7 @@ interface InforPanelProps {
 
     useDateRange?: boolean;
     dateRangeValue?: DateRange;
-    onDateRangeChange?: (range: DateRange | undefined) => void;
+    onDateRangeChange?: (range: DateRange) => void;
     showCurrentTimeOptionInDatePicker?: boolean;
 }
 

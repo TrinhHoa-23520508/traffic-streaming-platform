@@ -22,9 +22,9 @@ type TrafficAlert = {
 }
 
 const SEVERITY_THRESHOLDS = {
-    HIGH: 35,
-    MEDIUM: 25,
-    LOW: 15
+    HIGH: 5,
+    MEDIUM: 3,
+    LOW: 1
 } as const;
 
 const ITEMS_PER_PAGE = 3;

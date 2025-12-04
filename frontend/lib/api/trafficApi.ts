@@ -18,7 +18,8 @@ export interface LatestParams {
  * Query parameters for /summary/by-district endpoint
  */
 export interface SummaryByDistrictParams {
-  date?: string; // format: YYYY-MM-DD
+  start?: string; // format: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+  end?: string;   // format: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
 }
 
 /**
@@ -33,22 +34,20 @@ export interface ByDateParams {
  * Query parameters for /hourly-summary endpoint
  */
 export interface HourlySummaryParams {
-  date?: string; // format: YYYY-MM-DD
+  start?: string;
+  end?: string;
   district?: string;
+  cameraId?: string;
+  date?: string; // Kept for backward compatibility if needed, though backend prefers start/end
 }
-
-/**
- * Response type for summary by district (simple count map for backward compatibility)
- */
-export type DistrictCountMap = Record<string, number>;
 
 /**
  * Response type for hourly summary
  */
-export type HourlySummary = Record<number, number>; // hour (0-23) -> count
+export type HourlySummary = Record<string, number>; // timestamp/label -> count
 
 /**
- * Backend response format (snake_case)
+ * Backend response format (camelCase)
  */
 interface BackendTrafficData {
   camera_id: string;
@@ -67,6 +66,8 @@ interface BackendTrafficData {
  * Transform backend data to frontend format
  */
 function transformTrafficData(backendData: BackendTrafficData): TrafficMetricsDTO {
+  // Since backend now returns camelCase, we can mostly pass through
+  // But we ensure timestamp is a string and id is present
   return {
     id: backendData.timestamp || Date.now(),
     cameraId: backendData.camera_id,
@@ -455,6 +456,7 @@ class TrafficApiService {
    */
   private async fetchWithErrorHandling<T>(url: string): Promise<T> {
     try {
+      console.log('🌐 Fetching API:', url);
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -502,13 +504,16 @@ class TrafficApiService {
    * 
    * @example
    * // Get today's summary
-   * const summary = await trafficApi.getSummaryByDistrict();
+   * const summary = await trafficApi.getDistrictSummary();
    * // Result: { "Quận 1": { totalCount: 150, detectionDetailsSummary: {...} }, ... }
    * 
-   * // Get summary for specific date
-   * const summary = await trafficApi.getSummaryByDistrict({ date: '2025-10-30' });
+   * // Get summary for specific date range
+   * const summary = await trafficApi.getDistrictSummary({ 
+   *   start: '2025-12-01',
+   *   end: '2025-12-01'
+   * });
    */
-  async getSummaryByDistrict(params?: SummaryByDistrictParams): Promise<CityStatsByDistrict> {
+  async getDistrictSummary(params?: SummaryByDistrictParams): Promise<CityStatsByDistrict> {
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.SUMMARY_BY_DISTRICT, params as any);
     return this.fetchWithErrorHandling<CityStatsByDistrict>(url);
   }
@@ -548,15 +553,18 @@ class TrafficApiService {
    * @example
    * // Get today's hourly summary
    * const summary = await trafficApi.getHourlySummary();
-   * // Result: { 0: 10, 1: 5, 2: 3, ..., 23: 45 }
+   * // Result: { "2025-12-02T07:00:00": 150, ... }
    * 
-   * // Get hourly summary for specific date and district
+   * // Get hourly summary for specific range
    * const summary = await trafficApi.getHourlySummary({ 
-   *   date: '2025-10-30', 
-   *   district: 'Quận 1' 
+   *   start: '2025-12-02T07:00:00', 
+   *   end: '2025-12-02T17:00:00' 
    * });
    */
   async getHourlySummary(params?: HourlySummaryParams): Promise<HourlySummary> {
+    if (params?.cameraId && params?.district) {
+      delete params.district;
+    }
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.HOURLY_SUMMARY, params as any);
     return this.fetchWithErrorHandling<HourlySummary>(url);
   }

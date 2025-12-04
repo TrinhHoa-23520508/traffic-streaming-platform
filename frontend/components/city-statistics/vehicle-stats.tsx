@@ -7,7 +7,7 @@ import { trafficApi } from "@/lib/api/trafficApi";
 import type { CityStatsByDistrict } from "@/types/city-stats";
 import { CHART_COLORS } from "./color";
 import { DateRange } from "react-day-picker";
-import { startOfDay } from "date-fns";
+import { startOfDay, format } from "date-fns";
 
 interface VehicleChartData {
     district: string;
@@ -52,7 +52,6 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
 
     const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
         const now = new Date();
-        now.setMinutes(0, 0, 0);
         return {
             from: startOfDay(now),
             to: now,
@@ -65,14 +64,14 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
         const fetchVehicleData = async () => {
             try {
                 setLoading(true);
-                const targetDate = dateRange?.from || new Date();
-                const dateStr = targetDate.toLocaleDateString('vi-VN', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit'
-                }).split('/').reverse().join('-');
+                const now = new Date();
+                const start = dateRange?.from || startOfDay(now);
+                const end = dateRange?.to || now;
 
-                const response = await trafficApi.getSummaryByDistrict({ date: dateStr });
+                const startStr = format(start, "yyyy-MM-dd'T'HH:mm:ss");
+                const endStr = format(end, "yyyy-MM-dd'T'HH:mm:ss");
+
+                const response = await trafficApi.getDistrictSummary({ start: startStr, end: endStr });
                 console.log('📊 Vehicle summary response:', response);
 
                 const chartData: VehicleChartData[] = Object.entries(response).map(([district, summary]) => ({
@@ -173,12 +172,10 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
                     {loading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10 backdrop-blur-[2px]">
                             <div className="flex items-center gap-4 bg-white/95 px-5 py-3 rounded-xl border border-white/95">
-
                                 <svg className="animate-spin h-8 w-8 text-indigo-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                                 </svg>
-
                                 <div className="flex flex-col">
                                     <span className="text-gray-900 dark:text-gray-100 font-semibold">Đang tải dữ liệu...</span>
                                 </div>

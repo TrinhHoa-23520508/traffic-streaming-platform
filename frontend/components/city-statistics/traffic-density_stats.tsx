@@ -2,7 +2,7 @@
 
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import InforPanel from "./infor-panel";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { trafficApi } from "@/lib/api/trafficApi";
 import type { CityStatsHourlyWS } from "@/types/city-stats";
 import { CHART_COLORS } from "./color";
@@ -68,6 +68,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
     const [chartData, setChartData] = useState<HourlyData[]>([]);
     const [loading, setLoading] = useState(true);
+    const wsUpdateRef = useRef(false);
 
     const cameraOptions = [
         //mock
@@ -79,6 +80,10 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
     useEffect(() => {
         const fetchHourlyData = async () => {
+            if (wsUpdateRef.current) {
+                wsUpdateRef.current = false;
+                return;
+            }
             try {
                 setLoading(true);
 
@@ -142,18 +147,21 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         console.log('📨 WebSocket hourly data received:', wsData);
 
         if (wsData && wsData.district === areaDistrict) {
-            setChartData(prevData => {
-                const nextTime = new Date(dateRange.to!.getTime() + 60 * 60 * 1000);
+            const nextTime = addHours(dateRange.to!, 1);
 
-                if (wsData.hour.getTime() === nextTime.getTime()) {
-                    const newPoint: HourlyData = {
-                        time: wsData.hour,
-                        traffic: wsData.totalCount
-                    };
-                    return [...prevData, newPoint];
-                }
-                return prevData;
-            });
+            if (wsData.hour.getTime() === nextTime.getTime()) {
+                const newPoint: HourlyData = {
+                    time: wsData.hour,
+                    traffic: wsData.totalCount
+                };
+
+                setChartData(prevData => [...prevData, newPoint]);
+                wsUpdateRef.current = true;
+                setDateRange(prevRange => ({
+                    from: prevRange.from,
+                    to: wsData!.hour
+                }));
+            }
         }
     }, [wsData, areaDistrict]);
 

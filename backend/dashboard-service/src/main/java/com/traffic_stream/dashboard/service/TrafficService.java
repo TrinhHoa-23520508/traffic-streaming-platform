@@ -213,22 +213,25 @@ public class TrafficService {
     }
 
     /**
-     * HÀM dùng cho Scheduled Task
+     * HÀM dùng cho Scheduled Task (WebSocket Push)
      * Tổng hợp chi tiết theo quận cho một khoảng thời gian (1 giờ)
      */
     public List<HourlyDistrictSummaryDTO> getDetailedHourlySummaryByDistrict(Instant startTime, Instant endTime) {
         List<TrafficMetric> metrics = repository.findByTimestampBetween(startTime, endTime);
         Map<String, HourlyDistrictSummaryDTO> summaryMap = new HashMap<>();
-        int hour = ZonedDateTime.ofInstant(startTime, VIETNAM_ZONE).getHour();
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:00:00");
+        String timeString = formatter.format(startTime.atZone(VIETNAM_ZONE));
 
         for (TrafficMetric metric : metrics) {
             String district = metric.getDistrict();
             if (district == null || district.isEmpty()) {
                 continue;
             }
+
             HourlyDistrictSummaryDTO summaryDTO = summaryMap.computeIfAbsent(
                     district,
-                    d -> new HourlyDistrictSummaryDTO(d, hour)
+                    d -> new HourlyDistrictSummaryDTO(d, timeString)
             );
             summaryDTO.addMetric(metric);
         }

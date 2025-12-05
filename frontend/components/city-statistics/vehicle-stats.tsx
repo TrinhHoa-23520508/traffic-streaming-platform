@@ -49,6 +49,7 @@ const generateRandomVehicleData = (): VehicleChartData[] => {
 
 export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLoadComplete }: VehicleStatsProps) {
     const [vehicleData, setVehicleData] = useState<VehicleChartData[]>([]);
+    const [lastUpdated, setLastUpdated] = useState<string>("");
 
     const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
         const now = new Date();
@@ -83,10 +84,12 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
                 }));
 
                 setVehicleData(chartData);
+                setLastUpdated(new Date().toLocaleString('vi-VN'));
             } catch (error) {
                 console.error('Error fetching vehicle data:', error);
                 console.log('Using random data as fallback');
                 setVehicleData(generateRandomVehicleData());
+                setLastUpdated(new Date().toLocaleString('vi-VN'));
             } finally {
                 setLoading(false);
                 onLoadComplete?.();
@@ -106,6 +109,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
                 xeKhac: summary.detectionDetailsSummary?.other || 0,
             }));
             setVehicleData(chartData);
+            setLastUpdated(new Date().toLocaleString('vi-VN'));
         }
     }, [data]);
 
@@ -147,6 +151,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
         return (
             <InforPanel
                 title="Thống kê phương tiện theo quận"
+                lastUpdated={lastUpdated}
                 showFilter={false}
                 useDateRange={true}
                 dateRangeValue={dateRange}
@@ -161,6 +166,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
     return (
         <InforPanel
             title="Thống kê phương tiện theo quận"
+            lastUpdated={lastUpdated}
             showFilter={false}
             useDateRange={true}
             dateRangeValue={dateRange}

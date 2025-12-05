@@ -16,7 +16,6 @@ type CityStatsDrawerProps = {
 export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerProps) {
     const [internalOpen, setInternalOpen] = useState(false)
     const [cityStatsData, setCityStatsData] = useState<any>(null)
-    const [lastUpdate, setLastUpdate] = useState<string>('')
     const [refreshKey, setRefreshKey] = useState(0)
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [completedCount, setCompletedCount] = useState(0)
@@ -34,7 +33,6 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
             const newCount = prev + 1;
             if (newCount >= 2) {
                 setIsRefreshing(false);
-                setLastUpdate(new Date().toLocaleString('vi-VN'));
                 return 0;
             }
             return newCount;
@@ -50,16 +48,11 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
     };
 
     useEffect(() => {
-        setLastUpdate(new Date().toLocaleString('vi-VN'));
-    }, []);
-
-    useEffect(() => {
         console.log('Setting up city stats WebSocket subscription...');
 
         const unsubscribe = trafficApi.subscribeCityStats((data) => {
             console.log('City stats data received in component:', data);
             setCityStatsData(data);
-            setLastUpdate(new Date().toLocaleString('vi-VN'));
         });
 
         return () => {
@@ -78,15 +71,6 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                     <div className="flex items-center justify-between py-4 px-6 border-b border-slate-100 relative flex-none bg-white/50 backdrop-blur-sm">
                         <div>
                             <h1 className="text-slate-900 text-2xl font-bold tracking-tight">Thống kê toàn thành phố</h1>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <h2 className="text-slate-500 text-sm font-medium">
-                                    Cập nhật lần cuối:
-                                    <span className="text-slate-700 ml-1 font-semibold">
-                                        {isMounted ? (lastUpdate || 'Chưa có dữ liệu') : 'Đang tải...'}
-                                    </span>
-                                </h2>
-                            </div>
                         </div>
                         <div className="flex items-center gap-3">
                             <RefreshButton onClick={handleRefresh} isLoading={isRefreshing} />
@@ -101,7 +85,7 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                     </div>
 
                     <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 flex flex-col gap-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                        <TrafficAlertsPanel onAlertsUpdate={() => setLastUpdate(new Date().toLocaleString('vi-VN'))} />
+                        <TrafficAlertsPanel refreshTrigger={refreshKey} />
                         <TrafficDensityStatisticsAreaChart
                             data={cityStatsData}
                             refreshTrigger={refreshKey}

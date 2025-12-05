@@ -13,6 +13,7 @@ import { format } from "date-fns";
 
 interface InforPanelProps {
     title: string;
+    lastUpdated?: string;
     children: React.ReactNode;
 
     filterLabel?: string;
@@ -37,6 +38,7 @@ interface InforPanelProps {
 
 export default function InforPanel({
     title,
+    lastUpdated,
     children,
 
     filterLabel = "Quận/Huyện",
@@ -93,7 +95,7 @@ export default function InforPanel({
 
     const renderActiveFilters = () => {
         return (
-            <div className="flex flex-wrap gap-2 mt-1">
+            <div className="flex flex-wrap gap-2">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200 transition-colors hover:bg-slate-200">
                     {useDateRange ? (
                         dateRangeValue?.from ? (
@@ -130,11 +132,22 @@ export default function InforPanel({
     return (
         <div className="bg-white rounded-2xl border border-slate-200/60 px-6 py-5 w-full transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50 hover:border-slate-300/80 group">
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-50 pb-4 mb-2">
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-3">
                     <h2 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
                         <span className="w-1 h-6 rounded-full inline-block" style={{ backgroundColor: CHART_COLORS.quaternary }}></span>
                         {title}
                     </h2>
+
+                    {lastUpdated && (
+                        <div className="flex items-center gap-2 text-xs text-slate-500 ml-1">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <span className="font-medium">Cập nhật lần cuối: <span className="text-slate-700 font-semibold">{lastUpdated}</span></span>
+                        </div>
+                    )}
+
                     {renderActiveFilters()}
                 </div>
 

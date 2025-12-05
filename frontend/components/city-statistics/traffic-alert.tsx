@@ -50,10 +50,12 @@ const isSameDay = (date1: Date, date2: Date): boolean => {
 
 type Props = {
     onAlertsUpdate?: () => void;
+    refreshTrigger?: number;
 }
 
-export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
+export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger }: Props) {
     const [alerts, setAlerts] = useState<TrafficAlert[]>([]);
+    const [lastUpdated, setLastUpdated] = useState<string>("");
     const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Tất cả");
     const [severityFilter, setSeverityFilter] = useState<AlertSeverity | "all">("all");
     const [currentPage, setCurrentPage] = useState(1);
@@ -107,6 +109,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                     .slice(0, maxAlerts);
 
                 setAlerts(initialAlerts);
+                setLastUpdated(new Date().toLocaleString('vi-VN'));
 
                 const unsubscribe = trafficApi.subscribe((data) => {
                     if (data.totalCount < SEVERITY_THRESHOLDS.LOW) return;
@@ -140,6 +143,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                         const updated = [newAlert, ...prev];
                         return updated.slice(0, maxAlerts);
                     });
+                    setLastUpdated(new Date().toLocaleString('vi-VN'));
                     // Call onAlertsUpdate after state update completes
                     setTimeout(() => onAlertsUpdate?.(), 0);
                 });
@@ -172,6 +176,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                         const updated = [newAlert, ...prev];
                         return updated.slice(0, maxAlerts);
                     });
+                    setLastUpdated(new Date().toLocaleString('vi-VN'));
                     // Call onAlertsUpdate after state update completes
                     setTimeout(() => onAlertsUpdate?.(), 0);
                 });
@@ -186,7 +191,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
             console.log('🧹 Cleaning up traffic alerts subscription');
             unsubscribePromise.then(unsubscribe => unsubscribe?.());
         };
-    }, [areaDistrict, selectedDate, onAlertsUpdate]);
+    }, [areaDistrict, selectedDate, onAlertsUpdate, refreshTrigger]);
 
     const labelBySeverity: Record<AlertSeverity, string> = {
         high: "Mức độ CAO",
@@ -223,6 +228,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
     return (
         <InforPanel
             title="Cảnh báo giao thông"
+            lastUpdated={lastUpdated}
             filterOptionHasAll={true}
             showFilter={true}
             useDateRange={false}

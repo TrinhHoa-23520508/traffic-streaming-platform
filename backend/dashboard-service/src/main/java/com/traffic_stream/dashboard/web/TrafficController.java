@@ -101,4 +101,28 @@ public class TrafficController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    /**
+     * API 6: Lấy danh sách tất cả các quận có dữ liệu
+     * Endpoint: GET /api/traffic/districts
+     */
+    @GetMapping("/districts")
+    public ResponseEntity<List<String>> getAllDistricts() {
+        List<String> districts = trafficService.getAllDistricts();
+        return ResponseEntity.ok(districts);
+    }
+
+    /**
+     * API 7: Lấy danh sách tất cả camera
+     * Lọc (optional): ?district=Tên Quận
+     * Endpoint: GET /api/traffic/cameras
+     * Endpoint: GET /api/traffic/cameras?district=Quận 1
+     */
+    @GetMapping("/cameras")
+    public ResponseEntity<List<Map<String, String>>> getAllCameras(
+            @RequestParam(required = false) String district) {
+        List<Map<String, String>> cameras = trafficService.getAllCameras(district);
+        return ResponseEntity.ok(cameras);
+    }
+
 }

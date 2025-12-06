@@ -237,4 +237,27 @@ public class TrafficService {
         }
         return new ArrayList<>(summaryMap.values());
     }
+
+    public List<String> getAllDistricts() {
+        return repository.findDistinctDistricts();
+    }
+
+    public List<Map<String, String>> getAllCameras(String district) {
+        List<TrafficMetric> metrics;
+        if (district != null && !district.trim().isEmpty()) {
+            metrics = repository.findDistinctCamerasByDistrict(district);
+        } else {
+            metrics = repository.findDistinctCameras();
+        }
+
+        return metrics.stream()
+                .map(m -> Map.of(
+                        "cameraId", m.getCameraId(),
+                        "cameraName", m.getCameraName(),
+                        "district", m.getDistrict()
+                ))
+                .distinct()
+                .toList();
+    }
+
 }

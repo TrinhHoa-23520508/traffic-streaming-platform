@@ -1,6 +1,7 @@
 package com.traffic_stream.dashboard.shared.utils.handler;
 
 import com.traffic_stream.dashboard.dto.ApiResponse;
+import com.traffic_stream.dashboard.shared.exception.ResourceNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ public class GlobalException {
             HttpMessageNotReadableException.class,
             IllegalArgumentException.class,
             IllegalStateException.class,
+            ResourceNotFoundException.class,
     })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<ApiResponse<Object>> handleBusinessExceptions(Exception ex) {

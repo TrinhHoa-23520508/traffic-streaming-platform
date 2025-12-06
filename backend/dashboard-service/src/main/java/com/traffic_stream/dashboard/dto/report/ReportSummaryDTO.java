@@ -1,4 +1,4 @@
-package com.traffic_stream.dashboard.dto;
+package com.traffic_stream.dashboard.dto.report;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

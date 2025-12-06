@@ -1,6 +1,7 @@
-package com.traffic_stream.dashboard.dto;
+package com.traffic_stream.dashboard.dto.report;
 
 
+import com.traffic_stream.dashboard.shared.constant.ReportJobStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -8,7 +9,7 @@ import lombok.Data;
 @AllArgsConstructor
 public class ReportNotifyDTO {
     private Long reportId;
-    private String status;
+    private ReportJobStatus status;
     private String fileUrl;
 }
 

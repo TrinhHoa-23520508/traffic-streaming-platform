@@ -1,8 +1,8 @@
 package com.traffic_stream.dashboard.service;
 
 import com.traffic_stream.dashboard.config.MinioBucketProperties;
-import com.traffic_stream.dashboard.dto.ReportNotifyDTO;
-import com.traffic_stream.dashboard.dto.ReportSummaryDTO;
+import com.traffic_stream.dashboard.dto.report.ReportNotifyDTO;
+import com.traffic_stream.dashboard.dto.report.ReportSummaryDTO;
 import com.traffic_stream.dashboard.entity.ReportJob;
 import com.traffic_stream.dashboard.repository.ReportJobRepository;
 import com.traffic_stream.dashboard.service.storage.MinioStorageService;
@@ -42,36 +42,21 @@ public class ReportOrchestratorService {
     public void process(ReportJob job) throws Exception {
         log.info("Starting orchestration for job {}", job.getId());
 
-        // 1. collect aggregated data
-        log.info("Step 1: Collecting aggregated data for job {}", job.getId());
+
         List<ReportSummaryDTO> summaries = aggregationService.aggregateData(job);
-        log.info("Collected {} district summaries for job {}", summaries.size(), job.getId());
 
-        // 2. generate PDF file locally
-        log.info("Step 2: Generating PDF report for job {}", job.getId());
         File pdf = pdfService.generatePdfReport(job, summaries);
-        log.info("Generated PDF file: {} (size: {} bytes)", pdf.getAbsolutePath(), pdf.length());
 
-        // 3. upload to minio
-        log.info("Step 3: Uploading PDF to MinIO for job {}", job.getId());
         String objectPath = minioService.uploadReportFile(pdf, job, minioBucketProperties.getDocuments());
-        log.info("Uploaded to MinIO: {}", objectPath);
 
-        // 4. update job
-        log.info("Step 4: Updating job status to COMPLETED");
         job.setFileUrl(objectPath);
         job.setStatus(ReportJobStatus.COMPLETED);
         repo.save(job);
-        log.info("Job {} updated successfully", job.getId());
 
-        // 5. notify via websocket
-        log.info("Step 5: Sending WebSocket notification for job {}", job.getId());
-        ReportNotifyDTO notify = new ReportNotifyDTO(job.getId(), "COMPLETED", "/api/reports/" + job.getId() + "/download");
+        ReportNotifyDTO notify = new ReportNotifyDTO(job.getId(), job.getStatus(), "/api/reports/download/" + job.getId() );
         ws.convertAndSend("/topic/report/" , notify);
         log.info("WebSocket notification sent for job {}", job.getId());
 
-        // 6. delete local temp file
-        log.info("Step 6: Cleaning up temp file");
         try {
             if (pdf.delete()) {
                 log.info("Temp file deleted successfully");

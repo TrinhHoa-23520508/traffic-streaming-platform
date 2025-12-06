@@ -1,16 +1,12 @@
 package com.traffic_stream.dashboard.service;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.traffic_stream.dashboard.dto.ReportSummaryDTO;
+import com.traffic_stream.dashboard.dto.report.ReportSummaryDTO;
 import com.traffic_stream.dashboard.entity.ReportJob;
 import com.traffic_stream.dashboard.entity.TrafficMetric;
 import com.traffic_stream.dashboard.repository.TrafficMetricRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;

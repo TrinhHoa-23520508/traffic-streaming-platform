@@ -1,14 +1,22 @@
 package com.traffic_stream.dashboard.service;
 
-import com.traffic_stream.dashboard.dto.CreateReportRequest;
-import com.traffic_stream.dashboard.dto.CreateReportResponse;
+import com.traffic_stream.dashboard.config.MinioBucketProperties;
+import com.traffic_stream.dashboard.dto.report.CreateReportRequest;
+import com.traffic_stream.dashboard.dto.report.CreateReportResponse;
 import com.traffic_stream.dashboard.entity.ReportJob;
 import com.traffic_stream.dashboard.repository.ReportJobRepository;
 import com.traffic_stream.dashboard.repository.TrafficMetricRepository;
+import com.traffic_stream.dashboard.service.storage.MinioStorageService;
+import com.traffic_stream.dashboard.shared.constant.ReportJobStatus;
+import com.traffic_stream.dashboard.shared.exception.ResourceNotFoundException;
 import com.traffic_stream.dashboard.shared.mapper.ReportJobMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.io.InputStream;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -18,7 +26,10 @@ public class ReportJobService {
 
     private final ReportJobRepository reportJobRepository;
     private final TrafficMetricRepository trafficMetricRepository;
+    private final MinioStorageService minioStorageService;
+    private final MinioBucketProperties minioBucketProperties;
 
+    @Transactional
     public CreateReportResponse createReportJob(CreateReportRequest request) {
         ReportJob newJob = ReportJobMapper.toEntity(request);
 
@@ -29,6 +40,7 @@ public class ReportJobService {
 
         // Validate districts and cameras
         validateDistrictsAndCameras(newJob.getDistricts(), newJob.getCameras());
+        newJob.setStatus(ReportJobStatus.PENDING);
 
         return ReportJobMapper.toCreateReportResponse(
                 reportJobRepository.save(newJob)
@@ -119,5 +131,57 @@ public class ReportJobService {
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
+    }
+
+    public List<ReportJob> getAllReportJobs() {
+        return reportJobRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    public List<ReportJob> getReportJobsByStatus(ReportJobStatus status) {
+        return reportJobRepository.findByStatusOrderByCreatedAtDesc(status);
+    }
+
+    public ReportJob getReportJobById(Long id) {
+        return reportJobRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Report job not found with id: " + id));
+    }
+
+    public void deleteReportJobById(Long id) {
+        if (!reportJobRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Report job not found with id: " + id);
+        }
+        reportJobRepository.deleteById(id);
+    }
+
+    /**
+     * Get PDF report file from MinIO storage
+     * @param reportId the report job ID
+     * @return Resource containing the PDF file stream
+     */
+    public Resource getReportPdf(Long reportId) {
+        // Get report job
+        ReportJob job = reportJobRepository.findById(reportId)
+                .orElseThrow(() -> new ResourceNotFoundException("Report job not found with id: " + reportId));
+
+        // Check if report is completed
+        if (job.getStatus() != ReportJobStatus.COMPLETED) {
+            throw new IllegalStateException("Report is not completed yet. Current status: " + job.getStatus());
+        }
+
+        // Check if file path exists
+        if (job.getFileUrl() == null || job.getFileUrl().isEmpty()) {
+            throw new ResourceNotFoundException("PDF file path not found for report job: " + reportId);
+        }
+
+        try {
+            // Get file stream from MinIO
+            InputStream inputStream = minioStorageService.getObjectStream(
+                    job.getFileUrl(),
+                    minioBucketProperties.getDocuments()
+            );
+            return new InputStreamResource(inputStream);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to download PDF from MinIO: " + e.getMessage(), e);
+        }
     }
 }

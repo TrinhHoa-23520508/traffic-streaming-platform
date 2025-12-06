@@ -3,6 +3,7 @@ package com.traffic_stream.dashboard.shared.utils;
 import com.traffic_stream.dashboard.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.core.MethodParameter;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.ServerHttpRequest;
@@ -68,6 +69,11 @@ public class FormatRestResponse implements ResponseBodyAdvice<Object> {
         if (path.startsWith("/v3/api-docs")
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/swagger-ui.html")) {
+            return body;
+        }
+
+        // Skip wrapping for binary resources (e.g., PDF downloads, images)
+        if (body instanceof Resource) {
             return body;
         }
 

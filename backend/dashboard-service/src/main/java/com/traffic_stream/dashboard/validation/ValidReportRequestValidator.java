@@ -1,6 +1,6 @@
 package com.traffic_stream.dashboard.validation;
 
-import com.traffic_stream.dashboard.dto.CreateReportRequest;
+import com.traffic_stream.dashboard.dto.report.CreateReportRequest;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 

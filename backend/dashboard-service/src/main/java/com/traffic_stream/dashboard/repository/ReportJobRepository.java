@@ -1,6 +1,7 @@
 package com.traffic_stream.dashboard.repository;
 
 import com.traffic_stream.dashboard.entity.ReportJob;
+import com.traffic_stream.dashboard.shared.constant.ReportJobStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,4 +15,7 @@ public interface ReportJobRepository extends JpaRepository<ReportJob, Long> {
 
     @Query("SELECT r FROM ReportJob r WHERE r.status = 'PENDING' AND r.executeAt <= :now")
     List<ReportJob> findExecutableJobs(@Param("now") Instant now);
+
+    List<ReportJob> findAllByOrderByCreatedAtDesc();
+    List<ReportJob> findByStatusOrderByCreatedAtDesc(ReportJobStatus status);
 }

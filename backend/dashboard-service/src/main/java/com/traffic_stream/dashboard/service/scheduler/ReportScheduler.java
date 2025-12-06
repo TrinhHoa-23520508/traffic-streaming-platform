@@ -31,10 +31,8 @@ public class ReportScheduler {
     @Transactional
     public void processReportJobs() {
         Instant now = Instant.now();
-        log.info("Starting report job scheduler at {}", now);
 
         List<ReportJob> jobs = repo.findExecutableJobs(now);
-        log.info("Found {} executable jobs", jobs.size());
 
         for (ReportJob job : jobs) {
             log.info("Processing job ID: {}, Name: {}, Status: {}", job.getId(), job.getName(), job.getStatus());

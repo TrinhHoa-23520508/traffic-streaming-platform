@@ -4,6 +4,7 @@ import com.traffic_stream.dashboard.dto.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -15,6 +16,24 @@ import java.util.stream.Collectors;
 
 @ControllerAdvice
 public class GlobalException {
+
+    @ExceptionHandler(value = {
+            HttpMessageNotReadableException.class,
+            IllegalArgumentException.class,
+            IllegalStateException.class,
+    })
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ApiResponse<Object>> handleBusinessExceptions(Exception ex) {
+
+        ApiResponse<Object> res = new ApiResponse<>();
+        res.setStatus(HttpStatus.BAD_REQUEST.value());
+        res.setSuccess(false);
+        res.setCode("BAD_REQUEST");
+        res.setMessage("Exception occurred: " + ex.getMessage());
+        res.setTimestamp(Instant.now());
+
+        return ResponseEntity.badRequest().body(res);
+    }
 
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

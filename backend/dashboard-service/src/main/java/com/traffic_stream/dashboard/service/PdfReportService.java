@@ -1,6 +1,6 @@
 package com.traffic_stream.dashboard.service;
 
-import com.traffic_stream.dashboard.dto.ReportSummaryDTO;
+import com.traffic_stream.dashboard.dto.report.ReportSummaryDTO;
 import com.traffic_stream.dashboard.entity.ReportJob;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;

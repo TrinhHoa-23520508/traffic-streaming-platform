@@ -1,4 +1,4 @@
-package com.traffic_stream.dashboard.dto;
+package com.traffic_stream.dashboard.dto.report;
 
 import com.traffic_stream.dashboard.validation.ValidReportRequest;
 import io.swagger.v3.oas.annotations.media.Schema;

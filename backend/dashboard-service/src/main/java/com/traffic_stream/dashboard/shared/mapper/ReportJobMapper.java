@@ -1,7 +1,7 @@
 package com.traffic_stream.dashboard.shared.mapper;
 
-import com.traffic_stream.dashboard.dto.CreateReportRequest;
-import com.traffic_stream.dashboard.dto.CreateReportResponse;
+import com.traffic_stream.dashboard.dto.report.CreateReportRequest;
+import com.traffic_stream.dashboard.dto.report.CreateReportResponse;
 import com.traffic_stream.dashboard.entity.ReportJob;
 import com.traffic_stream.dashboard.shared.constant.ReportJobStatus;
 
@@ -19,7 +19,6 @@ public class ReportJobMapper {
                 .cameras(createReportRequest.getCameras() == null ? null : createReportRequest.getCameras())
                 .executeAt(createReportRequest.getExecuteAt() == null ? Instant.now() : createReportRequest.getExecuteAt())
                 .fileUrl(null)
-                .status(ReportJobStatus.PENDING)
                 .build();
     }
 

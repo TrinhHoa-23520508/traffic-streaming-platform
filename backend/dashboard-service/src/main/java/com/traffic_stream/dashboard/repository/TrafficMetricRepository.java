@@ -76,6 +76,10 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
      * @return một Optional chứa TrafficMetric mới nhất, hoặc rỗng nếu không có
      */
     Optional<TrafficMetric> findFirstByCameraIdOrderByTimestampDesc(String cameraId);
+      //Tìm theo khoảng thời gian và camera (cho API Hourly Summary có filter camera)
+    List<TrafficMetric> findByTimestampBetweenAndCameraId(Instant start, Instant end, String cameraId);
+    //Tìm theo khoảng thời gian và quận (cho API Hourly Summary có filter quận)
+    List<TrafficMetric> findByTimestampBetweenAndDistrict(Instant start, Instant end, String district);
 
     @Query("SELECT DISTINCT t.district FROM TrafficMetric t ORDER BY t.district")
     List<String> findDistinctDistricts();

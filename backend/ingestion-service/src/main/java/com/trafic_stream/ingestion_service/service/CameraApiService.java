@@ -37,7 +37,7 @@ public class CameraApiService {
         }
     }
 
-    @Scheduled(fixedRate = 12000)
+    @Scheduled(fixedRate = 20000)
     public void scheduleFetchAndSend() {
         fetchAndSend();
     }

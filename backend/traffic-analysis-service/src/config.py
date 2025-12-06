@@ -21,7 +21,7 @@ MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
 MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
 MINIO_BUCKET_NAME = os.getenv('MINIO_BUCKET_NAME', 'traffic-analyzed-images')
 
-BATCH_SIZE = int(os.getenv('BATCH_SIZE', '32'))  
+BATCH_SIZE = int(os.getenv('BATCH_SIZE', '8'))  
 BATCH_TIMEOUT = 0.1  
 DOWNLOAD_WORKERS = int(os.getenv('DOWNLOAD_WORKERS', '4')) 
 UPLOAD_WORKERS = int(os.getenv('UPLOAD_WORKERS', '4')) 

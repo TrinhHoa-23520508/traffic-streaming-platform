@@ -91,6 +91,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger }: P
                     district: areaDistrict !== "Tất cả" ? areaDistrict : undefined,
                     date: selectedDate ? dateStr : undefined,
                 });
+                console.log('Initial traffic alerts data fetched:', latestData);
 
                 const initialAlerts: TrafficAlert[] = latestData
                     .filter(data => data.totalCount >= SEVERITY_THRESHOLDS.LOW)

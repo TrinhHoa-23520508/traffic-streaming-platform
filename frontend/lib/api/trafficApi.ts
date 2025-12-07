@@ -386,8 +386,6 @@ class TrafficApiService {
 
       const apiResponse: ApiResponse<T> = await response.json();
 
-      console.log('✅ API Response:', apiResponse);
-
       if (!apiResponse.success) {
         throw new Error(apiResponse.message || 'Unknown API Error');
       }
@@ -406,7 +404,6 @@ class TrafficApiService {
   async getLatest(params?: LatestParams): Promise<TrafficMetricsDTO[]> {
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.LATEST, params as any);
     const rawData = await this.fetchWithErrorHandling<BackendTrafficDataRaw[]>(url);
-    console.log('Latest traffic data fetched:', rawData);
     return rawData.map(transformTrafficData);
   }
 

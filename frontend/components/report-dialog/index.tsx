@@ -33,6 +33,7 @@ interface ReportDialogProps {
 
 export default function ReportDialog({ open, onOpenChange, onCameraSelect }: ReportDialogProps) {
   const [activeTab, setActiveTab] = React.useState("export")
+  const [isCalendarOpen, setIsCalendarOpen] = React.useState(false)
   
   // Export Tab State
   const [date, setDate] = React.useState<{ from: Date; to: Date } | undefined>()
@@ -177,8 +178,9 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                         {/* Date Range Picker */}
                         <div className="grid gap-2">
                             <Label>Khoảng thời gian</Label>
+
                             <div className="flex gap-2">
-                                <Popover>
+                                <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                                     <PopoverTrigger asChild>
                                     <Button
                                         variant={"outline"}
@@ -203,14 +205,19 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                     </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        initialFocus
-                                        mode="range"
-                                        defaultMonth={date?.from}
-                                        selected={date}
-                                        onSelect={(range: any) => setDate(range)}
-                                        numberOfMonths={2}
-                                    />
+                                        <div className="p-3 border-b border-border">
+                                            <Calendar
+                                                initialFocus
+                                                mode="range"
+                                                defaultMonth={date?.from}
+                                                selected={date}
+                                                onSelect={(range: any) => setDate(range)}
+                                                numberOfMonths={2}
+                                            />
+                                        </div>
+                                        <div className="p-3 flex justify-end">
+                                            <Button size="sm" className="h-8" onClick={() => setIsCalendarOpen(false)}>Xong</Button>
+                                        </div>
                                     </PopoverContent>
                                 </Popover>
                             </div>

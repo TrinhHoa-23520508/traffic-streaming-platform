@@ -39,6 +39,21 @@ const reportApi = {
     // Use existing traffic API to get list of districts
     // We fetch summary for last 3 days to get active districts
     try {
+        // 1. Try to get from getAllDistricts if available (best source)
+        try {
+            const districtNames = await trafficApi.getAllDistricts();
+            if (districtNames && districtNames.length > 0) {
+                 return districtNames.map(name => ({
+                    id: name,
+                    name: name,
+                    code: name.toLowerCase().replace(/\s+/g, '-')
+                }));
+            }
+        } catch (e) {
+            // Fallback if endpoint not implemented
+        }
+
+        // 2. Fallback: Scan recent traffic data
         const dates = [0, 1, 2].map(days => format(subDays(new Date(), days), 'yyyy-MM-dd'));
         
         const summaries = await Promise.all(dates.map(date => 
@@ -46,6 +61,16 @@ const reportApi = {
         ));
         
         const allDistricts = new Set<string>();
+        
+        // Add hardcoded districts for HCMC as a baseline (in case no data yet)
+        const commonDistricts = [
+            "Quận 1", "Quận 3", "Quận 4", "Quận 5", "Quận 6", "Quận 7", "Quận 8", "Quận 10", "Quận 11", "Quận 12",
+            "Quận Bình Thạnh", "Quận Bình Tân", "Quận Gò Vấp", "Quận Phú Nhuận", "Quận Tân Bình", "Quận Tân Phú",
+            "Thành phố Thủ Đức", "Huyện Bình Chánh", "Huyện Củ Chi", "Huyện Hóc Môn", "Huyện Nhà Bè", "Huyện Cần Giờ"
+        ];
+        commonDistricts.forEach(d => allDistricts.add(d));
+
+        // Add any dynamic ones found
         summaries.forEach(summary => {
             if (summary) {
                 Object.keys(summary).forEach(d => allDistricts.add(d));
@@ -57,7 +82,7 @@ const reportApi = {
             name: name,
             code: name.toLowerCase().replace(/\s+/g, '-')
         }));
-        return districts;
+        return districts.sort((a, b) => a.name.localeCompare(b.name));
     } catch (error) {
         console.error("Error fetching districts from traffic API:", error);
         return [];
@@ -73,8 +98,9 @@ const reportApi = {
         const uniqueCameras = new Map<string, Camera>();
         
         metrics.forEach(m => {
-            const id = m.cameraId || m.camera_id;
-            const name = m.cameraName || m.camera_name || id;
+            // TrafficMetricsDTO uses camelCase, but we check for snake_case just in case raw data leaks through
+            const id = m.cameraId || (m as any).camera_id;
+            const name = m.cameraName || (m as any).camera_name || id;
             if (id && !uniqueCameras.has(id)) {
                 uniqueCameras.set(id, {
                     id,

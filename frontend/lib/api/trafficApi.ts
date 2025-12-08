@@ -1,10 +1,19 @@
 // lib/api/trafficApi.ts
 
 import type { TrafficMetricsDTO } from '@/types/traffic';
-import type { CityStatsByDistrict } from '@/types/city-stats';
 import { API_CONFIG, getBaseUrl, getWsUrl } from './config';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { CityStatsByDistrict } from '@/types/city-stats';
+
+export interface ApiResponse<T> {
+  success: boolean;
+  status: number;
+  message: string;
+  code: string;
+  data: T;
+  timestamp: string;
+}
 
 /**
  * Query parameters for /latest endpoint
@@ -18,7 +27,8 @@ export interface LatestParams {
  * Query parameters for /summary/by-district endpoint
  */
 export interface SummaryByDistrictParams {
-  date?: string; // format: YYYY-MM-DD
+  start?: string; // format: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+  end?: string;   // format: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
 }
 
 /**
@@ -33,50 +43,92 @@ export interface ByDateParams {
  * Query parameters for /hourly-summary endpoint
  */
 export interface HourlySummaryParams {
-  date?: string; // format: YYYY-MM-DD
+  start?: string;
+  end?: string;
   district?: string;
+  cameraId?: string;
 }
 
-/**
- * Response type for summary by district (simple count map for backward compatibility)
- */
-export type DistrictCountMap = Record<string, number>;
+export interface DistrictDailySummary {
+  totalCount: number;
+  detectionDetailsSummary: Record<string, number>;
+}
 
 /**
  * Response type for hourly summary
  */
-export type HourlySummary = Record<number, number>; // hour (0-23) -> count
+export type HourlySummary = Record<string, number>; // timestamp/label -> count
 
 /**
- * Backend response format (snake_case)
+ * Backend response format (camelCase)
+
+ * Response type for summary by district (simple count map for backward compatibility)
  */
-interface BackendTrafficData {
-  camera_id: string;
-  camera_name: string;
-  district: string;
-  liveview_url?: string;
-  coordinates: [number, number];
-  total_count: number;
-  detection_details: Record<string, number>;
-  timestamp: number;
-  timestamp_vn?: string;
-  annotated_image_url: string;
+export type DistrictSummaryMap = Record<string, DistrictDailySummary>;
+
+/**
+ * Params for /api/traffic/cameras
+ */
+export interface CameraListParams {
+  district?: string;
 }
 
 /**
- * Transform backend data to frontend format
+ * Response type for /api/traffic/cameras
  */
-function transformTrafficData(backendData: BackendTrafficData): TrafficMetricsDTO {
+export interface CameraList {
+  cameraId: string;
+  district: string;
+  cameraName: string;
+}
+
+interface BackendTrafficDataRaw {
+  id?: number;
+  cameraId?: string;
+  cameraName?: string;
+  totalCount?: number;
+  annotatedImageUrl?: string;
+  detectionDetails?: Record<string, number>;
+
+  camera_id?: string;
+  camera_name?: string;
+  total_count?: number;
+  annotated_image_url?: string;
+  detection_details?: Record<string, number>;
+  timestamp_vn?: string;
+
+  district: string;
+  coordinates: [number, number];
+  timestamp: string | number;
+}
+
+
+function transformTrafficData(data: BackendTrafficDataRaw): TrafficMetricsDTO {
+  const cid = data.cameraId || data.camera_id || 'unknown';
+  const cname = data.cameraName || data.camera_name || 'Unknown Camera';
+  const total = data.totalCount ?? data.total_count ?? 0;
+  const details = data.detectionDetails || data.detection_details || {};
+  const imgUrl = data.annotatedImageUrl || data.annotated_image_url || '';
+
+  let timeStr: string;
+  if (typeof data.timestamp === 'string') {
+    timeStr = data.timestamp;
+  } else if (data.timestamp_vn) {
+    timeStr = data.timestamp_vn;
+  } else {
+    timeStr = new Date(data.timestamp).toISOString();
+  }
+
   return {
-    id: backendData.timestamp || Date.now(),
-    cameraId: backendData.camera_id,
-    cameraName: backendData.camera_name,
-    district: backendData.district,
-    annotatedImageUrl: backendData.annotated_image_url,
-    coordinates: backendData.coordinates,
-    detectionDetails: backendData.detection_details,
-    totalCount: backendData.total_count,
-    timestamp: backendData.timestamp_vn || new Date(backendData.timestamp).toISOString()
+    id: data.id || Date.now(),
+    cameraId: cid,
+    cameraName: cname,
+    district: data.district,
+    annotatedImageUrl: imgUrl,
+    coordinates: data.coordinates,
+    detectionDetails: details,
+    totalCount: total,
+    timestamp: timeStr
   };
 }
 
@@ -90,10 +142,6 @@ export type TrafficUpdateCallback = (data: TrafficMetricsDTO) => void;
  */
 export type CityStatsUpdateCallback = (data: any) => void;
 
-/**
- * Traffic API Service
- * Centralized service for all traffic-related API calls and WebSocket management
- */
 class TrafficApiService {
   private baseUrl: string;
   private stompClient: Client | null = null;
@@ -110,10 +158,6 @@ class TrafficApiService {
     this.baseUrl = getBaseUrl();
   }
 
-  /**
-   * Initialize WebSocket connection
-   * Called automatically when first subscriber is added
-   */
   private initWebSocket() {
     if (this.isConnecting || this.isConnected) {
       return;
@@ -122,7 +166,6 @@ class TrafficApiService {
     this.isConnecting = true;
     const wsUrl = getWsUrl();
 
-    // Set timeout to switch to fallback mode
     const connectionTimeout = setTimeout(() => {
       if (!this.isConnected) {
         console.warn('⚠️ WebSocket connection timeout. Using fallback mode.');
@@ -153,21 +196,12 @@ class TrafficApiService {
         // Subscribe to traffic topic
         client.subscribe(API_CONFIG.WS_TOPIC, (message) => {
           try {
-            const backendData: BackendTrafficData = JSON.parse(message.body);
-            const trafficData = transformTrafficData(backendData);
-
-            console.log('📨 WebSocket data received:', {
-              cameraId: trafficData.cameraId,
-              totalCount: trafficData.totalCount,
-              subscribers: this.subscribers.size,
-              timestamp: trafficData.timestamp
-            });
+            const rawData: BackendTrafficDataRaw = JSON.parse(message.body);
+            const trafficData = transformTrafficData(rawData);
 
             // Update cache
             this.trafficDataCache.set(trafficData.cameraId, trafficData);
 
-            // Notify all subscribers
-            console.log(`📢 Notifying ${this.subscribers.size} subscribers...`);
             this.subscribers.forEach(callback => callback(trafficData));
           } catch (error) {
             console.error('Error parsing traffic data:', error);
@@ -177,8 +211,6 @@ class TrafficApiService {
         client.subscribe(API_CONFIG.WS_CITY_STATS_TOPIC, (message) => {
           try {
             const cityStatsData = JSON.parse(message.body);
-            console.log('City stats WebSocket data received:', cityStatsData);
-
             this.cityStatsSubscribers.forEach(callback => callback(cityStatsData));
           } catch (error) {
             console.error('Error parsing city stats data:', error);
@@ -211,80 +243,45 @@ class TrafficApiService {
     }
   }
 
-  /**
-   * Handle disconnection and attempt reconnection or fallback
-   */
   private handleDisconnection() {
     this.isConnected = false;
     this.isConnecting = false;
     this.reconnectAttempts++;
 
     if (this.reconnectAttempts >= API_CONFIG.MAX_RECONNECT_ATTEMPTS) {
-      console.warn('⚠️ Max reconnection attempts reached. Switching to fallback mode.');
       this.startFallbackMode();
     }
   }
 
-  /**
-   * Start fallback mode - generate random data since backend is unavailable
-   */
   private startFallbackMode() {
-    if (this.fallbackInterval || this.useFallback) {
-      return;
-    }
-
+    if (this.fallbackInterval || this.useFallback) return;
     this.useFallback = true;
     console.log('📡 Backend unavailable, generating random traffic data...');
 
     const generateData = () => {
       const cameraIds = Array.from(this.trafficDataCache.keys());
-
-      if (cameraIds.length === 0) {
-        console.log('⚠️ No cameras in cache, skipping random data generation');
-        return;
-      }
-
-      console.log('🎲 Generating random traffic data for', cameraIds.length, 'cameras');
+      if (cameraIds.length === 0) return;
       this.generateRandomTrafficData();
     };
 
-    // Initial generation
     generateData();
-
-    // Generate new random data every 5 seconds
     this.fallbackInterval = setInterval(generateData, 5000);
   }
 
-  /**
-   * Generate random traffic data for all cached cameras
-   */
   private generateRandomTrafficData() {
-    // Generate random data for all cameras in cache or create dummy data
     const cameraIds = Array.from(this.trafficDataCache.keys());
-
-    if (cameraIds.length === 0) {
-      // No cameras in cache, notify subscribers with random camera IDs
-      console.log('⚠️ No cameras in cache, skipping random data generation');
-      return;
-    }
+    if (cameraIds.length === 0) return;
 
     cameraIds.forEach(cameraId => {
       const carCount = Math.floor(Math.random() * 30);
       const motorcycleCount = Math.floor(Math.random() * 20);
-      const busCount = Math.floor(Math.random() * 5);
-      const truckCount = Math.floor(Math.random() * 5);
 
       const randomTraffic: TrafficMetricsDTO = {
         id: Date.now(),
         cameraId,
         cameraName: cameraId,
-        totalCount: carCount + motorcycleCount + busCount + truckCount,
-        detectionDetails: {
-          car: carCount,
-          motorcycle: motorcycleCount,
-          bus: busCount,
-          truck: truckCount,
-        },
+        totalCount: carCount + motorcycleCount,
+        detectionDetails: { car: carCount, motorcycle: motorcycleCount },
         timestamp: new Date().toISOString(),
         district: 'Unknown',
         annotatedImageUrl: '',
@@ -294,13 +291,8 @@ class TrafficApiService {
       this.trafficDataCache.set(cameraId, randomTraffic);
       this.subscribers.forEach(callback => callback(randomTraffic));
     });
-
-    console.log(`✅ Random data generated and sent to ${this.subscribers.size} subscribers`);
   }
 
-  /**
-   * Stop fallback mode
-   */
   private stopFallbackMode() {
     if (this.fallbackInterval) {
       clearInterval(this.fallbackInterval);
@@ -309,93 +301,39 @@ class TrafficApiService {
     this.useFallback = false;
   }
 
-  /**
-   * Subscribe to real-time traffic updates
-   * @param callback - Function to call when new traffic data arrives
-   * @returns Unsubscribe function
-   */
   subscribe(callback: TrafficUpdateCallback): () => void {
-    console.log('📝 New subscriber added');
     this.subscribers.add(callback);
-    console.log('📊 Total subscribers:', this.subscribers.size);
-
-    // Initialize WebSocket if this is the first subscriber
     if (this.subscribers.size === 1 && this.cityStatsSubscribers.size === 0 && !this.isConnected && !this.isConnecting) {
-      console.log('🚀 First subscriber! Initializing connection...');
       this.initWebSocket();
-    } else if (this.isConnected) {
-      console.log('✅ Already connected, subscriber added to existing connection');
-    } else if (this.isConnecting) {
-      console.log('⏳ Connection in progress, subscriber will receive updates when connected');
     }
-
-    // Return unsubscribe function
     return () => {
-      console.log('🚪 Subscriber removed');
       this.subscribers.delete(callback);
-      console.log('📊 Remaining subscribers:', this.subscribers.size);
-
-      // Cleanup if no more subscribers
-      if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 0) {
-        console.log('😴 No more subscribers, cleaning up...');
-        this.cleanup();
-      }
+      if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 0) this.cleanup();
     };
   }
 
-  /**
-   * Subscribe to real-time city stats updates
-   * @param callback - Function to call when new city stats data arrives
-   * @returns Unsubscribe function
-   */
   subscribeCityStats(callback: CityStatsUpdateCallback): () => void {
-    console.log('📝 New city stats subscriber added');
     this.cityStatsSubscribers.add(callback);
-    console.log('📊 Total city stats subscribers:', this.cityStatsSubscribers.size);
-
     if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 1 && !this.isConnected && !this.isConnecting) {
-      console.log('🚀 First city stats subscriber! Initializing connection...');
       this.initWebSocket();
-    } else if (this.isConnected) {
-      console.log('✅ Already connected, city stats subscriber added to existing connection');
-    } else if (this.isConnecting) {
-      console.log('⏳ Connection in progress, city stats subscriber will receive updates when connected');
     }
-
     return () => {
-      console.log('🚪 City stats subscriber removed');
       this.cityStatsSubscribers.delete(callback);
-      console.log('📊 Remaining city stats subscribers:', this.cityStatsSubscribers.size);
-
-      if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 0) {
-        console.log('😴 No more subscribers, cleaning up...');
-        this.cleanup();
-      }
+      if (this.subscribers.size === 0 && this.cityStatsSubscribers.size === 0) this.cleanup();
     };
   }
 
-  /**
-   * Get cached traffic data for a specific camera
-   */
   getCachedData(cameraId: string): TrafficMetricsDTO | undefined {
     return this.trafficDataCache.get(cameraId);
   }
 
-  /**
-   * Get all cached traffic data
-   */
   getAllCachedData(): TrafficMetricsDTO[] {
     return Array.from(this.trafficDataCache.values());
   }
 
-  /**
-   * Pre-populate cache with camera IDs
-   * This allows random data generation to work even when real API is unavailable
-   */
   initializeCameraIds(cameraIds: string[]): void {
     cameraIds.forEach(id => {
       if (!this.trafficDataCache.has(id)) {
-        // Create minimal entry so random data generation knows about this camera
         this.trafficDataCache.set(id, {
           id: Date.now(),
           cameraId: id,
@@ -409,35 +347,22 @@ class TrafficApiService {
         });
       }
     });
-    console.log('✅ Cache pre-initialized with', cameraIds.length, 'camera IDs');
   }
 
-  /**
-   * Check if WebSocket is connected
-   */
   isWebSocketConnected(): boolean {
     return this.isConnected;
   }
 
-  /**
-   * Cleanup connections
-   */
   private cleanup() {
     this.stopFallbackMode();
-
     if (this.stompClient) {
       this.stompClient.deactivate();
       this.stompClient = null;
     }
-
     this.isConnected = false;
     this.isConnecting = false;
-    this.reconnectAttempts = 0;
   }
 
-  /**
-   * Build URL with query parameters
-   */
   private buildUrl(endpoint: string, params?: Record<string, string>): string {
     const url = new URL(endpoint, this.baseUrl);
     if (params) {
@@ -451,10 +376,11 @@ class TrafficApiService {
   }
 
   /**
-   * Generic fetch wrapper with error handling
+   * Generic fetch wrapper with Error Handling and ApiResponse Unwrapping
    */
   private async fetchWithErrorHandling<T>(url: string): Promise<T> {
     try {
+      console.log('🌐 Fetching API:', url);
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -467,30 +393,27 @@ class TrafficApiService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      const apiResponse: ApiResponse<T> = await response.json();
+
+      if (!apiResponse.success) {
+        throw new Error(apiResponse.message || 'Unknown API Error');
+      }
+
+      return apiResponse.data;
     } catch (error) {
       console.error(`⚠️ API Error (${url}):`, error);
       throw error;
     }
   }
 
+
   /**
    * GET /api/traffic/latest
-   * Get 100 latest traffic records
-   * 
-   * @param params - Optional query parameters
-   * @returns Promise<TrafficMetricsDTO[]>
-   * 
-   * @example
-   * // Get all latest records
-   * const data = await trafficApi.getLatest();
-   * 
-   * // Get latest records for specific district
-   * const data = await trafficApi.getLatest({ district: 'Quận 1' });
    */
   async getLatest(params?: LatestParams): Promise<TrafficMetricsDTO[]> {
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.LATEST, params as any);
-    return this.fetchWithErrorHandling<TrafficMetricsDTO[]>(url);
+    const rawData = await this.fetchWithErrorHandling<BackendTrafficDataRaw[]>(url);
+    return rawData.map(transformTrafficData);
   }
 
   /**
@@ -502,40 +425,27 @@ class TrafficApiService {
    * 
    * @example
    * // Get today's summary
-   * const summary = await trafficApi.getSummaryByDistrict();
+   * const summary = await trafficApi.getDistrictSummary();
    * // Result: { "Quận 1": { totalCount: 150, detectionDetailsSummary: {...} }, ... }
    * 
-   * // Get summary for specific date
-   * const summary = await trafficApi.getSummaryByDistrict({ date: '2025-10-30' });
+   * // Get summary for specific date range
+   * const summary = await trafficApi.getDistrictSummary({ 
+   *   start: '2025-12-01',
+   *   end: '2025-12-01'
+   * });
    */
-  async getSummaryByDistrict(params?: SummaryByDistrictParams): Promise<CityStatsByDistrict> {
+  async getDistrictSummary(params?: SummaryByDistrictParams): Promise<CityStatsByDistrict> {
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.SUMMARY_BY_DISTRICT, params as any);
-    return this.fetchWithErrorHandling<CityStatsByDistrict>(url);
+    return this.fetchWithErrorHandling<DistrictSummaryMap>(url);
   }
 
   /**
    * GET /api/traffic/by-date
-   * Get all records for a specific date
-   * 
-   * @param params - Optional query parameters
-   * @returns Promise<TrafficMetricsDTO[]>
-   * 
-   * @example
-   * // Get all records for today
-   * const data = await trafficApi.getByDate();
-   * 
-   * // Get records for specific date
-   * const data = await trafficApi.getByDate({ date: '2025-11-06' });
-   * 
-   * // Get records for specific date and camera
-   * const data = await trafficApi.getByDate({ 
-   *   date: '2025-11-06', 
-   *   cameraId: 'CAM001' 
-   * });
    */
   async getByDate(params?: ByDateParams): Promise<TrafficMetricsDTO[]> {
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.BY_DATE, params as any);
-    return this.fetchWithErrorHandling<TrafficMetricsDTO[]>(url);
+    const rawData = await this.fetchWithErrorHandling<BackendTrafficDataRaw[]>(url);
+    return rawData.map(transformTrafficData);
   }
 
   /**
@@ -548,38 +458,48 @@ class TrafficApiService {
    * @example
    * // Get today's hourly summary
    * const summary = await trafficApi.getHourlySummary();
-   * // Result: { 0: 10, 1: 5, 2: 3, ..., 23: 45 }
+   * // Result: { "2025-12-02T07:00:00": 150, ... }
    * 
-   * // Get hourly summary for specific date and district
+   * // Get hourly summary for specific range
    * const summary = await trafficApi.getHourlySummary({ 
-   *   date: '2025-10-30', 
-   *   district: 'Quận 1' 
+   *   start: '2025-12-02T07:00:00', 
+   *   end: '2025-12-02T17:00:00' 
    * });
+
    */
   async getHourlySummary(params?: HourlySummaryParams): Promise<HourlySummary> {
+    if (params?.cameraId && params?.district) {
+      delete params.district;
+    }
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.HOURLY_SUMMARY, params as any);
     return this.fetchWithErrorHandling<HourlySummary>(url);
   }
 
   /**
    * GET /api/traffic/camera/{cameraId}/latest
-   * Get latest traffic metric for a specific camera
-   * 
-   * @param cameraId - Camera ID
-   * @returns Promise<TrafficMetricsDTO>
-   * 
-   * @example
-   * const latest = await trafficApi.getCameraLatest('TTH-29.4');
    */
   async getCameraLatest(cameraId: string): Promise<TrafficMetricsDTO> {
     const url = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERA_LATEST}/${cameraId}/latest`;
-    return this.fetchWithErrorHandling<TrafficMetricsDTO>(url);
+    const rawData = await this.fetchWithErrorHandling<BackendTrafficDataRaw>(url);
+    return transformTrafficData(rawData);
   }
 
   /**
-   * Check if API is available
-   * Useful for health checks
+   * GET /api/traffic/districts
    */
+  async getAllDistricts(): Promise<string[]> {
+    const url = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.DISTRICTS}`;
+    return this.fetchWithErrorHandling<string[]>(url);
+  }
+
+  /**
+   * GET /api/traffic/cameras
+   */
+  async getAllCameras(params?: CameraListParams): Promise<CameraList[]> {
+    const url = this.buildUrl(`${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERAS}`, params as any);
+    return this.fetchWithErrorHandling<CameraList[]>(url);
+  }
+
   async healthCheck(): Promise<boolean> {
     try {
       await this.getLatest();
@@ -590,8 +510,5 @@ class TrafficApiService {
   }
 }
 
-// Export singleton instance
 export const trafficApi = new TrafficApiService();
-
-// Also export class for testing or custom instances
 export default TrafficApiService;

@@ -12,12 +12,6 @@ type DatePickerProps = {
 
 export default function DatePicker({ value, onChange }: DatePickerProps) {
     const [open, setOpen] = React.useState(false)
-    const [date, setDate] = React.useState<Date | undefined>(value)
-
-    // sync when value prop changes
-    React.useEffect(() => {
-        setDate(value)
-    }, [value])
 
     return (
         <div className="flex flex-col gap-3">
@@ -28,18 +22,17 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
                         id="date"
                         className="w-30 justify-between font-normal cursor-pointer"
                     >
-                        {date ? format(date, "dd/MM/yyyy") : "Chọn ngày"}
+                        {value ? format(value, "dd/MM/yyyy") : "Chọn ngày"}
                         <ChevronDownIcon className="ml-2 h-4 w-4 opacity-50" />
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto overflow-hidden p-0" align="start">
                     <Calendar
                         mode="single"
-                        selected={date}
+                        selected={value}
                         onSelect={(d) => {
-                            setDate(d)
+                            onChange?.(d)
                             setOpen(false)
-                            onChange && onChange(d)
                         }}
                         disabled={(date) => date > new Date()}
                         captionLayout="dropdown"

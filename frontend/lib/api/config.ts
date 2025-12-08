@@ -16,6 +16,8 @@ export const API_CONFIG = {
       BY_DATE: '/api/traffic/by-date',
       HOURLY_SUMMARY: '/api/traffic/hourly-summary',
       CAMERA_LATEST: '/api/traffic/camera',
+      CAMERAS: '/api/traffic/cameras',
+      DISTRICTS: '/api/traffic/districts',
     },
   },
 

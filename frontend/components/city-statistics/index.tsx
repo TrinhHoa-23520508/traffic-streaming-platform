@@ -16,6 +16,7 @@ type CityStatsDrawerProps = {
 export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerProps) {
     const [internalOpen, setInternalOpen] = useState(false)
     const [cityStatsData, setCityStatsData] = useState<any>(null)
+    const [districts, setDistricts] = useState<string[]>([])
     const [refreshKey, setRefreshKey] = useState(0)
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [completedCount, setCompletedCount] = useState(0)
@@ -26,6 +27,16 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
     // Ensure client-side only rendering for timestamp
     useEffect(() => {
         setIsMounted(true)
+
+        const fetchDistricts = async () => {
+            try {
+                const data = await trafficApi.getAllDistricts();
+                setDistricts(data);
+            } catch (error) {
+                console.error("Failed to fetch districts", error);
+            }
+        };
+        fetchDistricts();
     }, [])
 
     const handleApiComplete = () => {
@@ -85,15 +96,17 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
                     </div>
 
                     <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 flex flex-col gap-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                        <TrafficAlertsPanel refreshTrigger={refreshKey} />
+                        <TrafficAlertsPanel refreshTrigger={refreshKey} districts={districts} />
                         <TrafficDensityStatisticsAreaChart
                             data={cityStatsData}
                             refreshTrigger={refreshKey}
                             onLoadComplete={handleApiComplete}
+                            districts={districts}
                         />
                         <VehicleStatisticsStackChart
                             refreshTrigger={refreshKey}
                             onLoadComplete={handleApiComplete}
+                            districts={districts}
                         />
                     </div>
                 </div>

@@ -73,6 +73,15 @@ export interface CameraListParams {
   district?: string;
 }
 
+/**
+ * Response type for /api/traffic/cameras
+ */
+export interface CameraList {
+  cameraId: string;
+  district: string;
+  cameraName: string;
+}
+
 interface BackendTrafficDataRaw {
   id?: number;
   cameraId?: string;
@@ -486,9 +495,9 @@ class TrafficApiService {
   /**
    * GET /api/traffic/cameras
    */
-  async getAllCameras(params?: CameraListParams): Promise<Array<{ cameraId: string, cameraName: string }>> {
+  async getAllCameras(params?: CameraListParams): Promise<CameraList[]> {
     const url = this.buildUrl(`${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERAS}`, params as any);
-    return this.fetchWithErrorHandling<Array<{ cameraId: string, cameraName: string }>>(url);
+    return this.fetchWithErrorHandling<CameraList[]>(url);
   }
 
   async healthCheck(): Promise<boolean> {

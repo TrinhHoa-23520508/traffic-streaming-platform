@@ -3,7 +3,7 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import InforPanel from "./infor-panel";
 import { useState, useEffect, useRef } from "react";
-import { trafficApi } from "@/lib/api/trafficApi";
+import { CameraList, HourlySummary, trafficApi } from "@/lib/api/trafficApi";
 import type { CityStatsHourlyWS } from "@/types/city-stats";
 import { CHART_COLORS } from "./color";
 import { DateRange } from "react-day-picker";
@@ -18,6 +18,7 @@ interface TrafficDensityStatsProps {
     data?: CityStatsHourlyWS;
     refreshTrigger?: number;
     onLoadComplete?: () => void;
+    districts?: string[];
 }
 
 const generateRandomHourlyData = (range?: DateRange): HourlyData[] => {
@@ -49,8 +50,14 @@ const generateRandomHourlyData = (range?: DateRange): HourlyData[] => {
     return points;
 };
 
-export default function TrafficDensityStatisticsAreaChart({ data: wsData, refreshTrigger, onLoadComplete }: TrafficDensityStatsProps) {
+export default function TrafficDensityStatisticsAreaChart({ data: wsData, refreshTrigger, onLoadComplete, districts = [] }: TrafficDensityStatsProps) {
     const [areaDistrict, setAreaDistrict] = useState<string>("Bình Dương");
+
+    useEffect(() => {
+        if (districts.length > 0 && !districts.includes(areaDistrict) && areaDistrict === "Bình Dương") {
+            setAreaDistrict(districts[0]);
+        }
+    }, [districts]);
 
     const [dateRange, setDateRange] = useState<DateRange>(() => {
         const now = new Date();
@@ -70,13 +77,21 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
     const [loading, setLoading] = useState(true);
     const wsUpdateRef = useRef(false);
 
-    const cameraOptions = [
-        //mock
-        { value: "CAM-01", label: "Camera Ngã 4 Hàng Xanh" },
-        { value: "CAM-02", label: "Camera Cầu Sài Gòn" },
-        { value: "CAM-03", label: "Camera Phạm Văn Đồng" },
-        { value: "CAM-04", label: "Camera Mai Chí Thọ" },
-    ];
+    const [cameraOptions, setCameraOptions] = useState<CameraList[]>([]);
+
+    useEffect(() => {
+        const fetchCameras = async () => {
+            try {
+                const cameras = await trafficApi.getAllCameras({ district: areaDistrict });
+                setCameraOptions(cameras);
+                setSelectedCamera("");
+            } catch (error) {
+                console.error("Failed to fetch cameras:", error);
+                setCameraOptions([]);
+            }
+        };
+        fetchCameras();
+    }, [areaDistrict]);
 
     useEffect(() => {
         const fetchHourlyData = async () => {
@@ -98,7 +113,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 const startStr = format(startDate, "yyyy-MM-dd'T'HH:mm:ss");
                 const endStr = format(endDate, "yyyy-MM-dd'T'HH:mm:ss");
 
-                const response: Record<string, number> = await trafficApi.getHourlySummary({
+                const response: HourlySummary = await trafficApi.getHourlySummary({
                     start: startStr,
                     end: endStr,
                     district: areaDistrict,
@@ -211,6 +226,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 title="Thống kê lưu lượng xe theo giờ"
                 filterValue={areaDistrict}
                 onFilterChange={setAreaDistrict}
+                districts={districts}
                 useDateRange={true}
                 dateRangeValue={dateRange}
                 onDateRangeChange={setDateRange}
@@ -229,6 +245,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
             title="Thống kê lưu lượng xe theo giờ"
             filterValue={areaDistrict}
             onFilterChange={setAreaDistrict}
+            districts={districts}
             useDateRange={true}
             dateRangeValue={dateRange}
             onDateRangeChange={setDateRange}

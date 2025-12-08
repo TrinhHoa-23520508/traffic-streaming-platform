@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { SlidersHorizontal, X } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
+import { CameraList } from "@/lib/api/trafficApi";
 
 interface InforPanelProps {
     title: string;
@@ -22,10 +23,12 @@ interface InforPanelProps {
     onFilterChange?: (value: string) => void;
     showFilter?: boolean;
 
+    districts?: string[];
+
     showCameraFilter?: boolean;
     cameraFilterValue?: string;
     onCameraFilterChange?: (value: string) => void;
-    cameraOptions?: { value: string; label: string }[];
+    cameraOptions?: CameraList[];
 
     dateValue?: Date;
     onDateChange?: (date: Date | undefined) => void;
@@ -52,6 +55,8 @@ export default function InforPanel({
     onCameraFilterChange,
     cameraOptions = [],
 
+    districts,
+
     dateValue,
     onDateChange,
 
@@ -60,15 +65,7 @@ export default function InforPanel({
     onDateRangeChange,
     showCurrentTimeOptionInDatePicker
 }: InforPanelProps) {
-
-    const districtData = [
-        'Bình Dương', 'Huyện Bình Chánh', 'Huyện Củ Chi', 'Huyện Hóc Môn', 'Huyện Nhà Bè',
-        'Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 6', 'Quận 7', 'Quận 8',
-        'Quận 9', 'Quận 10', 'Quận 11', 'Quận 12', 'Quận Bình Tân', 'Quận Bình Thạnh',
-        'Quận Gò Vấp', 'Quận Phú Nhuận', 'Quận Tân Bình', 'Quận Tân Phú', 'Quận Thủ Đức',
-    ]
-
-    const options = filterOptionHasAll ? ['Tất cả', ...districtData] : districtData
+    const options = filterOptionHasAll ? ['Tất cả', ...(districts || [])] : (districts || []);
     const [open, setOpen] = React.useState(false);
 
     const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
@@ -117,7 +114,7 @@ export default function InforPanel({
 
                 {showCameraFilter && cameraFilterValue && (
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100 transition-colors hover:bg-emerald-100">
-                        {cameraOptions.find(c => c.value === cameraFilterValue)?.label || cameraFilterValue}
+                        {cameraOptions.find(c => c.cameraName === cameraFilterValue)?.cameraName || cameraFilterValue}
                         {onCameraFilterChange && (
                             <button onClick={() => onCameraFilterChange("")} className="hover:text-emerald-900 ml-1 cursor-pointer rounded-full p-0.5 hover:bg-emerald-200/50">
                                 <X className="h-3 w-3" />
@@ -158,7 +155,7 @@ export default function InforPanel({
                             <span className="hidden sm:inline font-medium">Bộ lọc</span>
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-80 p-4" align="end">
+                    <PopoverContent className="w-96 p-4" align="end">
                         <div className="space-y-4">
                             <div className="font-semibold text-sm text-slate-900 border-b pb-2">Tùy chỉnh hiển thị</div>
 
@@ -185,7 +182,7 @@ export default function InforPanel({
                                         value={tempFilterValue}
                                         onChange={(v) => setTempFilterValue(v ?? "")}
                                         buttonClassName="w-full justify-between"
-                                        popoverClassName="w-[280px]"
+                                        popoverClassName="w-[340px]"
                                         defaultValue={tempFilterValue}
                                     />
                                 </div>
@@ -195,11 +192,11 @@ export default function InforPanel({
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium text-slate-500">Camera</label>
                                     <Combobox
-                                        options={cameraOptions}
+                                        options={cameraOptions.map((c) => ({ value: c.cameraId, label: c.cameraName }))}
                                         value={tempCameraValue}
                                         onChange={(v) => setTempCameraValue(v ?? "")}
                                         buttonClassName="w-full justify-between"
-                                        popoverClassName="w-[280px]"
+                                        popoverClassName="w-[340px]"
                                         placeholder="Chọn camera..."
                                         searchPlaceholder="Tìm camera..."
                                     />

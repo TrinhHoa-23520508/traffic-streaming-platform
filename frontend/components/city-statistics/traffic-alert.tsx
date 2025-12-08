@@ -51,9 +51,10 @@ const isSameDay = (date1: Date, date2: Date): boolean => {
 type Props = {
     onAlertsUpdate?: () => void;
     refreshTrigger?: number;
+    districts?: string[];
 }
 
-export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger }: Props) {
+export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, districts = [] }: Props) {
     const [alerts, setAlerts] = useState<TrafficAlert[]>([]);
     const [lastUpdated, setLastUpdated] = useState<string>("");
     const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Tất cả");
@@ -231,6 +232,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger }: P
             lastUpdated={lastUpdated}
             filterOptionHasAll={true}
             showFilter={true}
+            districts={districts}
             useDateRange={false}
             dateValue={selectedDate}
             onDateChange={setSelectedDate}

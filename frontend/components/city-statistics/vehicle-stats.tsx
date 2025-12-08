@@ -21,17 +21,19 @@ interface VehicleStatsProps {
     data?: CityStatsByDistrict;
     refreshTrigger?: number;
     onLoadComplete?: () => void;
+    districts?: string[];
 }
 
-const districts = [
+const defaultDistricts = [
     "Bình Dương", "Huyện Bình Chánh", "Huyện Củ Chi", "Huyện Hóc Môn", "Huyện Nhà Bè",
     "Quận 1", "Quận 2", "Quận 3", "Quận 4", "Quận 5", "Quận 6", "Quận 7", "Quận 8",
     "Quận 9", "Quận 10", "Quận 11", "Quận 12", "Quận Bình Tân", "Quận Bình Thạnh",
     "Quận Gò Vấp", "Quận Phú Nhuận", "Quận Tân Bình", "Quận Tân Phú", "Quận Thủ Đức"
 ];
 
-const generateRandomVehicleData = (): VehicleChartData[] => {
-    const res = districts.map(district => ({
+const generateRandomVehicleData = (availableDistricts: string[] = []): VehicleChartData[] => {
+    const targetDistricts = availableDistricts.length > 0 ? availableDistricts : defaultDistricts;
+    const res = targetDistricts.map(district => ({
         district,
         xeMay: Math.floor(Math.random() * 4000) + 1000,
         xeOTo: Math.floor(Math.random() * 3500) + 800,
@@ -47,7 +49,7 @@ const generateRandomVehicleData = (): VehicleChartData[] => {
     });
 };
 
-export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLoadComplete }: VehicleStatsProps) {
+export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLoadComplete, districts = [] }: VehicleStatsProps) {
     const [vehicleData, setVehicleData] = useState<VehicleChartData[]>([]);
     const [lastUpdated, setLastUpdated] = useState<string>("");
 
@@ -88,7 +90,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
             } catch (error) {
                 console.error('Error fetching vehicle data:', error);
                 console.log('Using random data as fallback');
-                setVehicleData(generateRandomVehicleData());
+                setVehicleData(generateRandomVehicleData(districts));
                 setLastUpdated(new Date().toLocaleString('vi-VN'));
             } finally {
                 setLoading(false);

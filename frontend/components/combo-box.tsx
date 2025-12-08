@@ -77,8 +77,8 @@ export default function Combobox({
           disabled={disabled}
           className={cn("justify-between font-normal cursor-pointer", buttonClassName)}
         >
-          {selectedLabel ?? "Chọn..."}
-          <ChevronsUpDown className="opacity-50" />
+          <span className="truncate">{selectedLabel ?? "Chọn..."}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className={cn("p-0", popoverClassName)}>

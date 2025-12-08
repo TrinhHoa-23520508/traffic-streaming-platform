@@ -8,7 +8,7 @@ export interface DetectionDetailsSummary {
 
 export interface CityStatsHourlyWS {
     district: string;
-    hour: number;
+    hour: Date;
     totalCount: number;
     detectionDetailsSummary: DetectionDetailsSummary;
 }

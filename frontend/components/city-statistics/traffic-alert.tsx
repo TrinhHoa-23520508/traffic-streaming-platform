@@ -97,7 +97,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                     .filter(data => data.totalCount >= SEVERITY_THRESHOLDS.LOW)
                     .map(data => ({
                         id: `${data.cameraId}-${data.id}`,
-                        title: `${data.cameraName} - ${data.district}`,
+                        title: `${data.cameraName}`,
                         description: `${getSeverityLabel(data.totalCount)}, được phát hiện tại camera ${data.cameraId}`,
                         cameraId: data.cameraId,
                         cameraName: data.cameraName,

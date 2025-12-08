@@ -4,8 +4,8 @@ import Combobox from "@/components/combo-box"
 import DatePicker from "../date-picker"
 import { DatePickerWithRange } from "../date-range-picker"
 import React from "react";
+import { createPortal } from "react-dom";
 import { CHART_COLORS } from "./color";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { SlidersHorizontal, X } from "lucide-react";
 import { DateRange } from "react-day-picker";
@@ -114,7 +114,7 @@ export default function InforPanel({
 
                 {showCameraFilter && cameraFilterValue && (
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100 transition-colors hover:bg-emerald-100">
-                        {cameraOptions.find(c => c.cameraName === cameraFilterValue)?.cameraName || cameraFilterValue}
+                        {cameraOptions.find(c => c.cameraId === cameraFilterValue)?.cameraName || cameraFilterValue}
                         {onCameraFilterChange && (
                             <button onClick={() => onCameraFilterChange("")} className="hover:text-emerald-900 ml-1 cursor-pointer rounded-full p-0.5 hover:bg-emerald-200/50">
                                 <X className="h-3 w-3" />
@@ -125,6 +125,17 @@ export default function InforPanel({
             </div>
         )
     }
+
+    const handleOverlayClick = (e: React.MouseEvent) => {
+        if (e.target === e.currentTarget) setOpen(false);
+    };
+
+    React.useEffect(() => {
+        if (!open) return;
+        const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") setOpen(false); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [open]);
 
     return (
         <div className="bg-white rounded-2xl border border-slate-200/60 px-6 py-5 w-full transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50 hover:border-slate-300/80 group">
@@ -148,68 +159,88 @@ export default function InforPanel({
                     {renderActiveFilters()}
                 </div>
 
-                <Popover open={open} onOpenChange={setOpen}>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-9 gap-2 text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-sm cursor-pointer rounded-lg transition-all duration-200">
-                            <SlidersHorizontal className="h-4 w-4" />
-                            <span className="hidden sm:inline font-medium">Bộ lọc</span>
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-96 p-4" align="end">
-                        <div className="space-y-4">
-                            <div className="font-semibold text-sm text-slate-900 border-b pb-2">Tùy chỉnh hiển thị</div>
+                <>
+                    <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="h-9 gap-2 text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-sm cursor-pointer rounded-lg transition-all duration-200">
+                        <SlidersHorizontal className="h-4 w-4" />
+                        <span className="hidden sm:inline font-medium">Bộ lọc</span>
+                    </Button>
 
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-slate-500">Thời gian</label>
-                                {useDateRange ? (
-                                    <DatePickerWithRange
-                                        date={tempDateRangeValue}
-                                        onDateChange={setTempDateRangeValue}
-                                        showCurrentTimeOption={showCurrentTimeOptionInDatePicker}
-                                    />
-                                ) : (
-                                    <div className="w-full [&>div]:w-full [&>div>button]:w-full">
-                                        <DatePicker value={tempDateValue} onChange={setTempDateValue} />
+                    {open && typeof document !== "undefined" && createPortal(
+                        (
+                            <div
+                                className="fixed inset-0 z-40 flex items-start justify-center bg-black/40 p-4 pt-12 overflow-auto"
+                                onClick={handleOverlayClick}
+                                aria-modal="true"
+                                role="dialog"
+                            >
+                                <div
+                                    className="bg-white rounded-lg w-full max-w-md p-4 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200 max-h-[calc(100vh-6rem)] overflow-auto z-50"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="flex items-start justify-between">
+                                        <div className="font-semibold text-sm text-slate-900 border-b pb-2 w-full">Tùy chỉnh hiển thị</div>
+                                        <button onClick={() => setOpen(false)} className="ml-2 text-slate-500 hover:text-slate-700">
+                                            <X className="h-4 w-4" />
+                                        </button>
                                     </div>
-                                )}
-                            </div>
 
-                            {showFilter && (
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-500">{filterLabel}</label>
-                                    <Combobox
-                                        options={options.map((d) => ({ value: d, label: d }))}
-                                        value={tempFilterValue}
-                                        onChange={(v) => setTempFilterValue(v ?? "")}
-                                        buttonClassName="w-full justify-between"
-                                        popoverClassName="w-[340px]"
-                                        defaultValue={tempFilterValue}
-                                    />
+                                    <div className="space-y-4 pt-3">
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-medium text-slate-500">Thời gian</label>
+                                            {useDateRange ? (
+                                                <DatePickerWithRange
+                                                    date={tempDateRangeValue}
+                                                    onDateChange={setTempDateRangeValue}
+                                                    showCurrentTimeOption={showCurrentTimeOptionInDatePicker}
+                                                />
+                                            ) : (
+                                                <div className="w-full [&>div]:w-full [&>div>button]:w-full">
+                                                    <DatePicker value={tempDateValue} onChange={setTempDateValue} />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {showFilter && (
+                                            <div className="space-y-1.5">
+                                                <label className="text-xs font-medium text-slate-500">{filterLabel}</label>
+                                                <Combobox
+                                                    options={options.map((d) => ({ value: d, label: d }))}
+                                                    value={tempFilterValue}
+                                                    onChange={(v) => setTempFilterValue(v ?? "")}
+                                                    buttonClassName="w-full justify-between"
+                                                    popoverClassName="w-[340px] z-50"
+                                                    defaultValue={tempFilterValue}
+                                                />
+                                            </div>
+                                        )}
+
+                                        {showCameraFilter && (
+                                            <div className="space-y-1.5">
+                                                <label className="text-xs font-medium text-slate-500">Camera</label>
+                                                <Combobox
+                                                    options={cameraOptions.map((c) => ({ value: c.cameraId, label: c.cameraName }))}
+                                                    value={tempCameraValue}
+                                                    onChange={(v) => setTempCameraValue(v ?? "")}
+                                                    buttonClassName="w-full justify-between"
+                                                    popoverClassName="w-[340px] z-50"
+                                                    placeholder="Chọn camera..."
+                                                    searchPlaceholder="Tìm camera..."
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div className="pt-2 flex justify-end">
+                                            <Button size="sm" onClick={() => { handleApply(); }} className="cursor-pointer">Áp dụng</Button>
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
-
-                            {showCameraFilter && (
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-500">Camera</label>
-                                    <Combobox
-                                        options={cameraOptions.map((c) => ({ value: c.cameraId, label: c.cameraName }))}
-                                        value={tempCameraValue}
-                                        onChange={(v) => setTempCameraValue(v ?? "")}
-                                        buttonClassName="w-full justify-between"
-                                        popoverClassName="w-[340px]"
-                                        placeholder="Chọn camera..."
-                                        searchPlaceholder="Tìm camera..."
-                                    />
-                                </div>
-                            )}
-
-                            <div className="pt-2 flex justify-end">
-                                <Button size="sm" onClick={handleApply} className="cursor-pointer">Áp dụng</Button>
                             </div>
-                        </div>
-                    </PopoverContent>
-                </Popover>
+                        ),
+                        document.body
+                    )}
+                </>
             </div>
+
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                 {children}
             </div>

@@ -1,8 +1,8 @@
 package com.traffic_stream.dashboard.service;
 
 import com.traffic_stream.dashboard.config.MinioBucketProperties;
+import com.traffic_stream.dashboard.dto.report.ReportAnalysisDTO;
 import com.traffic_stream.dashboard.dto.report.ReportNotifyDTO;
-import com.traffic_stream.dashboard.dto.report.ReportSummaryDTO;
 import com.traffic_stream.dashboard.entity.ReportJob;
 import com.traffic_stream.dashboard.repository.ReportJobRepository;
 import com.traffic_stream.dashboard.service.storage.MinioStorageService;
@@ -12,26 +12,25 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.util.List;
 
 @Service
 @Slf4j
 public class ReportOrchestratorService {
 
-    private final TrafficMetricAggregationService aggregationService;
+    private final ReportAnalysisService analysisService;
     private final PdfReportService pdfService;
     private final MinioStorageService minioService;
     private final ReportJobRepository repo;
     private final SimpMessagingTemplate ws;
     private final MinioBucketProperties minioBucketProperties;
 
-    public ReportOrchestratorService(TrafficMetricAggregationService aggregationService,
+    public ReportOrchestratorService(ReportAnalysisService analysisService,
                                      PdfReportService pdfService,
                                      MinioStorageService minioService,
                                      ReportJobRepository repo,
                                      SimpMessagingTemplate ws,
                                      MinioBucketProperties minioBucketProperties) {
-        this.aggregationService = aggregationService;
+        this.analysisService = analysisService;
         this.pdfService = pdfService;
         this.minioService = minioService;
         this.repo = repo;
@@ -40,23 +39,31 @@ public class ReportOrchestratorService {
     }
 
     public void process(ReportJob job) throws Exception {
-        log.info("Starting orchestration for job {}", job.getId());
+        log.info("Starting comprehensive report orchestration for job {}", job.getId());
 
+        log.info("Analyzing traffic data...");
+        ReportAnalysisDTO analysis = analysisService.analyzeData(job);
 
-        List<ReportSummaryDTO> summaries = aggregationService.aggregateData(job);
+        log.info("Generating PDF report...");
+        File pdf = pdfService.generatePdfReport(job, analysis);
+        log.info("PDF generated: {} bytes", pdf.length());
 
-        File pdf = pdfService.generatePdfReport(job, summaries);
-
+        log.info("Uploading to MinIO...");
         String objectPath = minioService.uploadReportFile(pdf, job, minioBucketProperties.getDocuments());
 
         job.setFileUrl(objectPath);
         job.setStatus(ReportJobStatus.COMPLETED);
         repo.save(job);
 
-        ReportNotifyDTO notify = new ReportNotifyDTO(job.getId(), job.getStatus(), "/api/reports/download/" + job.getId() );
-        ws.convertAndSend("/topic/report/" , notify);
+        ReportNotifyDTO notify = new ReportNotifyDTO(
+                job.getId(),
+                job.getStatus(),
+                "/api/reports/download/" + job.getId()
+        );
+        ws.convertAndSend("/topic/report/", notify);
         log.info("WebSocket notification sent for job {}", job.getId());
 
+        // Step 6: Cleanup temp file
         try {
             if (pdf.delete()) {
                 log.info("Temp file deleted successfully");

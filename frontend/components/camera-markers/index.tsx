@@ -34,9 +34,9 @@ const createCameraIcon = (isSelected: boolean) => divIcon({
             </svg>
         </div>
     `,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -32]
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -24]
 });
 
 export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate, routingMode, onRoutingCameraClick, heatEnabled }: CameraMarkersProps) {

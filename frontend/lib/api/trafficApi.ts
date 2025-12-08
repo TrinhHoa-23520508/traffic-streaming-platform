@@ -5,15 +5,7 @@ import { API_CONFIG, getBaseUrl, getWsUrl } from './config';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { CityStatsByDistrict } from '@/types/city-stats';
-
-export interface ApiResponse<T> {
-  success: boolean;
-  status: number;
-  message: string;
-  code: string;
-  data: T;
-  timestamp: string;
-}
+import { ApiResponse } from '@/types/api';
 
 /**
  * Query parameters for /latest endpoint

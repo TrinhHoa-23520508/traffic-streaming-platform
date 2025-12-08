@@ -43,11 +43,15 @@ const reportApi = {
         try {
             const districtNames = await trafficApi.getAllDistricts();
             if (districtNames && districtNames.length > 0) {
-                 return districtNames.map(name => ({
-                    id: name,
-                    name: name,
-                    code: name.toLowerCase().replace(/\s+/g, '-')
-                }));
+                 return districtNames.map((item: any) => {
+                    // Handle case where backend returns object { districtName: "..." } instead of string
+                    const name = typeof item === 'object' && item.districtName ? item.districtName : String(item);
+                    return {
+                        id: name,
+                        name: name,
+                        code: name.toLowerCase().replace(/\s+/g, '-')
+                    };
+                });
             }
         } catch (e) {
             // Fallback if endpoint not implemented
@@ -121,7 +125,22 @@ const reportApi = {
     // Client-side PDF generation using real data from Traffic API
     // Note: Backend currently supports single-day queries. We use startDate.
     try {
+        // Send request to backend to track status (especially for future dates)
+        try {
+             await fetch(`${getBaseUrl()}/api/reports`, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify(request)
+             });
+        } catch (e) {
+            console.warn("Backend report request failed, falling back to local only");
+        }
+
         const reportDate = request.startDate ? format(new Date(request.startDate), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        // If report date is in the future (tomorrow or later), status is PENDING
+        const isFutureReport = reportDate > todayStr;
+
         const reportId = `report-${Date.now()}`;
         const fileName = `traffic-report-${reportDate}.pdf`;
         
@@ -132,7 +151,7 @@ const reportApi = {
             fileUrl: '', // Not used for client-side generation
             createdAt: new Date().toISOString(),
             type: 'PDF',
-            status: 'COMPLETED'
+            status: isFutureReport ? 'PENDING' : 'COMPLETED'
         };
 
         // Save report metadata to localStorage
@@ -151,17 +170,19 @@ const reportApi = {
 
   getReports: async (): Promise<Report[]> => {
     try {
-        // Try fetching from backend first (if available in future)
-        // const response = await fetch(`${getBaseUrl()}/api/reports`);
-        // if (response.ok) { ... }
-
-        // Fallback to localStorage
-        const reportsStr = localStorage.getItem('traffic_reports');
-        return reportsStr ? JSON.parse(reportsStr) : [];
+        // Try fetching from backend first
+        const response = await fetch(`${getBaseUrl()}/api/reports`);
+        if (response.ok) {
+            const backendReports = await response.json();
+            return Array.isArray(backendReports) ? backendReports : [];
+        }
     } catch (error) {
-        console.warn("Error fetching reports:", error);
-        return [];
+        console.warn("Error fetching reports from backend:", error);
     }
+
+    // Fallback to localStorage
+    const reportsStr = localStorage.getItem('traffic_reports');
+    return reportsStr ? JSON.parse(reportsStr) : [];
   },
   
   downloadReport: async (reportId: string, fileName: string): Promise<void> => {
@@ -236,6 +257,34 @@ const reportApi = {
           console.error("Download failed:", error);
           throw new Error('Download failed');
       }
+  },
+
+  deleteReport: async (reportId: string): Promise<void> => {
+    try {
+        // Try deleting from backend first
+        try {
+             await fetch(`${getBaseUrl()}/api/reports/${reportId}`, {
+                 method: 'DELETE',
+             });
+        } catch (e) {
+            console.warn("Backend report deletion failed, falling back to local only");
+        }
+
+        // Delete from localStorage
+        const reportsStr = localStorage.getItem('traffic_reports');
+        if (reportsStr) {
+            const reports: Report[] = JSON.parse(reportsStr);
+            const updatedReports = reports.filter(r => r.id !== reportId);
+            localStorage.setItem('traffic_reports', JSON.stringify(updatedReports));
+        }
+        
+        // Clean up params
+        localStorage.removeItem(`report_params_${reportId}`);
+
+    } catch (error) {
+        console.error("Delete failed:", error);
+        throw new Error('Delete failed');
+    }
   }
 };
 

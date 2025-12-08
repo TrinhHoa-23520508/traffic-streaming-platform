@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { format } from "date-fns"
-import { Calendar as CalendarIcon, FileText, Download, Loader2, RefreshCw } from "lucide-react"
+import { Calendar as CalendarIcon, FileText, Download, Loader2, RefreshCw, Trash2 } from "lucide-react"
 import { FiX } from "react-icons/fi"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -109,6 +109,17 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
     }
   }
 
+  const handleDelete = async (reportId: string) => {
+    if (confirm("Bạn có chắc chắn muốn xóa báo cáo này không?")) {
+        try {
+            await reportApi.deleteReport(reportId);
+            fetchReports(); // Refresh list
+        } catch (error) {
+            console.error("Failed to delete report:", error);
+        }
+    }
+  }
+
   const handleGenerate = async () => {
     if (!date?.from || !date?.to) {
         alert("Vui lòng chọn khoảng thời gian")
@@ -144,6 +155,24 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
           alert("Không thể tải xuống báo cáo.")
       }
   }
+
+  const safeReports = Array.isArray(reports) ? reports : [];
+  const pendingReports = safeReports.filter(r => r.status === 'PENDING');
+  const completedReports = safeReports.filter(r => r.status === 'COMPLETED');
+  const failedReports = safeReports.filter(r => r.status === 'FAILED');
+
+  const getStatusInfo = (status: string) => {
+      switch (status) {
+          case 'COMPLETED':
+              return { label: 'Đã có', color: 'text-green-600 bg-green-50 border-green-100' };
+          case 'PENDING':
+              return { label: 'Đang tiến hành', color: 'text-yellow-600 bg-yellow-50 border-yellow-100' };
+          case 'FAILED':
+              return { label: 'Thất bại', color: 'text-red-600 bg-red-50 border-red-100' };
+          default:
+              return { label: status, color: 'text-gray-600 bg-gray-50 border-gray-100' };
+      }
+  };
 
   return (
     <div className="fixed inset-0 flex justify-end z-40 pointer-events-none">
@@ -355,8 +384,8 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="list" className="flex-1 overflow-y-auto p-6 space-y-4 data-[state=inactive]:hidden">
-                        <div className="flex justify-between items-center mb-4">
+                    <TabsContent value="list" className="flex-1 overflow-y-auto p-6 space-y-6 data-[state=inactive]:hidden">
+                        <div className="flex justify-between items-center mb-2">
                             <h3 className="text-sm font-semibold text-gray-700">Danh sách báo cáo đã tạo</h3>
                             <Button variant="ghost" size="sm" onClick={fetchReports} disabled={isLoadingReports}>
                                 <RefreshCw className={`h-4 w-4 ${isLoadingReports ? 'animate-spin' : ''}`} />
@@ -367,28 +396,76 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                             <div className="flex justify-center py-8">
                                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                             </div>
-                        ) : reports.length > 0 ? (
-                            <div className="space-y-3">
-                                {reports.map((report) => (
-                                    <div key={report.id} className="flex items-center justify-between p-3 border rounded-lg bg-white hover:shadow-sm transition-shadow">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className="h-10 w-10 rounded bg-blue-50 flex items-center justify-center flex-none">
-                                                <FileText className="h-5 w-5 text-blue-600" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-medium truncate">{report.fileName}</p>
-                                                <p className="text-xs text-gray-500">{format(new Date(report.createdAt), "dd/MM/yyyy HH:mm")}</p>
-                                            </div>
-                                        </div>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDownload(report)}>
-                                            <Download className="h-4 w-4 text-gray-600" />
-                                        </Button>
-                                    </div>
-                                ))}
-                            </div>
                         ) : (
-                            <div className="text-center py-10 text-gray-500 text-sm">
-                                Chưa có báo cáo nào được tạo.
+                            <div className="space-y-6">
+                                {/* Pending Section */}
+                                <div className="space-y-2">
+                                    <h4 className="text-xs font-semibold text-yellow-600 uppercase tracking-wider flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                                        Đang tiến hành ({pendingReports.length})
+                                    </h4>
+                                    {pendingReports.length > 0 ? (
+                                        <div className="space-y-2 pl-2 border-l-2 border-yellow-100">
+                                            {pendingReports.map(report => (
+                                                <ReportItem 
+                                                    key={report.id} 
+                                                    report={report} 
+                                                    statusInfo={getStatusInfo(report.status)}
+                                                    onDownload={handleDownload}
+                                                    onDelete={handleDelete}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-gray-400 italic pl-4">Không có báo cáo nào đang xử lý.</p>
+                                    )}
+                                </div>
+
+                                {/* Completed Section */}
+                                <div className="space-y-2">
+                                    <h4 className="text-xs font-semibold text-green-600 uppercase tracking-wider flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                        Đã có ({completedReports.length})
+                                    </h4>
+                                    {completedReports.length > 0 ? (
+                                        <div className="space-y-2 pl-2 border-l-2 border-green-100">
+                                            {completedReports.map(report => (
+                                                <ReportItem 
+                                                    key={report.id} 
+                                                    report={report} 
+                                                    statusInfo={getStatusInfo(report.status)}
+                                                    onDownload={handleDownload}
+                                                    onDelete={handleDelete}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-gray-400 italic pl-4">Chưa có báo cáo nào hoàn thành.</p>
+                                    )}
+                                </div>
+
+                                {/* Failed Section */}
+                                <div className="space-y-2">
+                                    <h4 className="text-xs font-semibold text-red-600 uppercase tracking-wider flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                        Thất bại ({failedReports.length})
+                                    </h4>
+                                    {failedReports.length > 0 ? (
+                                        <div className="space-y-2 pl-2 border-l-2 border-red-100">
+                                            {failedReports.map(report => (
+                                                <ReportItem 
+                                                    key={report.id} 
+                                                    report={report} 
+                                                    statusInfo={getStatusInfo(report.status)}
+                                                    onDownload={handleDownload}
+                                                    onDelete={handleDelete}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-gray-400 italic pl-4">Không có báo cáo lỗi.</p>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </TabsContent>
@@ -397,4 +474,62 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
         </div>
     </div>
   )
+}
+
+function ReportItem({ 
+    report, 
+    statusInfo, 
+    onDownload, 
+    onDelete 
+}: { 
+    report: Report, 
+    statusInfo: { label: string, color: string }, 
+    onDownload: (r: Report) => void, 
+    onDelete: (id: string) => void 
+}) {
+    return (
+        <div className="flex items-center justify-between p-3 border rounded-lg bg-white hover:shadow-sm transition-shadow">
+            <div className="flex items-center gap-3 overflow-hidden">
+                <div className={`h-10 w-10 rounded flex items-center justify-center flex-none ${
+                    report.status === 'FAILED' ? 'bg-red-50' : 
+                    report.status === 'PENDING' ? 'bg-yellow-50' : 'bg-blue-50'
+                }`}>
+                    <FileText className={`h-5 w-5 ${
+                        report.status === 'FAILED' ? 'text-red-600' : 
+                        report.status === 'PENDING' ? 'text-yellow-600' : 'text-blue-600'
+                    }`} />
+                </div>
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{report.fileName}</p>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${statusInfo.color}`}>
+                            {statusInfo.label}
+                        </span>
+                    </div>
+                    <p className="text-xs text-gray-500">{format(new Date(report.createdAt), "dd/MM/yyyy HH:mm")}</p>
+                </div>
+            </div>
+            <div className="flex items-center gap-1">
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => onDownload(report)}
+                    disabled={report.status !== 'COMPLETED'}
+                    title={report.status === 'COMPLETED' ? "Tải xuống" : "Chưa sẵn sàng"}
+                    className="h-8 w-8"
+                >
+                    <Download className={`h-4 w-4 ${report.status !== 'COMPLETED' ? 'text-gray-300' : 'text-gray-600'}`} />
+                </Button>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => onDelete(report.id)}
+                    title="Xóa báo cáo"
+                    className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            </div>
+        </div>
+    )
 }

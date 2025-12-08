@@ -1,19 +1,19 @@
 package com.traffic_stream.dashboard.service;
 
+import com.traffic_stream.dashboard.dto.CameraDTO;
+import com.traffic_stream.dashboard.dto.DistrictDTO;
 import com.traffic_stream.dashboard.entity.TrafficMetric;
 import com.traffic_stream.dashboard.repository.TrafficMetricRepository;
 import org.springframework.stereotype.Service;
 import com.traffic_stream.dashboard.dto.HourlyDistrictSummaryDTO;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
+import java.util.*;
+
 import com.traffic_stream.dashboard.dto.DistrictDailySummaryDTO;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -176,4 +176,34 @@ public class TrafficService {
         }
         return new ArrayList<>(summaryMap.values());
     }
+
+    public List<DistrictDTO> getAllDistricts() {
+        return repository.findDistinctDistricts()
+                .stream()
+                .map(DistrictDTO::new)
+                .toList();
+    }
+
+    public List<CameraDTO> getAllCameras(String district) {
+        List<String> cameraIds;
+        if (district != null && !district.trim().isEmpty()) {
+            cameraIds = repository.findDistinctCameraIdsByDistrict(district);
+        } else {
+            cameraIds = repository.findDistinctCameraIds();
+        }
+
+        // Get only ONE (latest) metric per camera to avoid duplicates
+        return cameraIds.stream()
+                .map(repository::findFirstByCameraIdOrderByTimestampDesc)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(metric -> CameraDTO.builder()
+                        .cameraName(metric.getCameraName())
+                        .cameraId(metric.getCameraId())
+                        .district(metric.getDistrict())
+                        .build()
+                )
+                .toList();
+    }
+
 }

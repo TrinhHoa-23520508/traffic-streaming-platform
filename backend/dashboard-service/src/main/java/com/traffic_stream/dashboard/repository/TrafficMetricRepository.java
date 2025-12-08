@@ -82,11 +82,13 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
     @Query("SELECT DISTINCT t.district FROM TrafficMetric t ORDER BY t.district")
     List<String> findDistinctDistricts();
 
-    @Query("SELECT DISTINCT t FROM TrafficMetric t ORDER BY t.district, t.cameraId")
-    List<TrafficMetric> findDistinctCameras();
+    @Query("SELECT DISTINCT t.cameraId FROM TrafficMetric t ORDER BY t.cameraId")
+    List<String> findDistinctCameraIds();
 
-    @Query("SELECT DISTINCT t FROM TrafficMetric t WHERE t.district = :district ORDER BY t.cameraId")
-    List<TrafficMetric> findDistinctCamerasByDistrict(@Param("district") String district);
+    @Query("SELECT DISTINCT t.cameraId FROM TrafficMetric t WHERE t.district = :district ORDER BY t.cameraId")
+    List<String> findDistinctCameraIdsByDistrict(@Param("district") String district);
+
+    List<TrafficMetric> findByCameraIdIn(List<String> cameraIds);
 
     List<TrafficMetric> findByCameraIdInAndTimestampBetween(List<String> cameraIds, Instant start, Instant end);
     List<TrafficMetric> findByDistrictInAndTimestampBetween(List<String> districts, Instant start, Instant end);

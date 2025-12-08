@@ -13,6 +13,7 @@ interface CameraMarkersProps {
     onCamerasUpdate?: (cameras: any[]) => void;
     routingMode?: boolean;
     onRoutingCameraClick?: ((camera: any) => void) | null;
+    heatEnabled?: boolean;
 }
 
 // Custom camera icon using DivIcon for CSS styling
@@ -38,7 +39,7 @@ const createCameraIcon = (isSelected: boolean) => divIcon({
     popupAnchor: [0, -32]
 });
 
-export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate, routingMode, onRoutingCameraClick }: CameraMarkersProps) {
+export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate, routingMode, onRoutingCameraClick, heatEnabled }: CameraMarkersProps) {
     const [visibleCameras, setVisibleCameras] = useState<Camera[]>([]);
     const [loading, setLoading] = useState(true);
     const map = useMap();
@@ -236,7 +237,7 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
     const defaultIcon = useMemo(() => createCameraIcon(false), []);
     const selectedIcon = useMemo(() => createCameraIcon(true), []);
 
-    if (loading) {
+    if (loading || heatEnabled) {
         return null;
     }
 

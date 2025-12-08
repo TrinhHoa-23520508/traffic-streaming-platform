@@ -8,7 +8,8 @@ import { LatLngExpression, LatLngTuple } from 'leaflet';
 import L from 'leaflet';
 import CameraMarkers from "@/components/camera-markers";
 import type { Camera } from "@/types/camera";
-import { FiMenu, FiNavigation, FiX } from "react-icons/fi";
+import { FiMenu, FiNavigation, FiX, FiFileText } from "react-icons/fi";
+import ReportDialog from "@/components/report-dialog";
 
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
@@ -23,6 +24,8 @@ interface MapProps {
     imageRefreshKey?: number;
     isDrawerOpen?: boolean;
     onOpenDrawer?: () => void;
+    isReportOpen?: boolean;
+    onOpenReport?: () => void;
     isModalOpen?: boolean;
 }
 
@@ -88,7 +91,7 @@ function ZoomLogger() {
 }
 
 const Map = (props: MapProps) => {
-    const { zoom = defaults.zoom, posix, locationName, onCameraClick, selectedCamera, selectedLocation, isDrawerOpen, onOpenDrawer, isModalOpen } = props
+    const { zoom = defaults.zoom, posix, locationName, onCameraClick, selectedCamera, selectedLocation, isDrawerOpen, onOpenDrawer, isReportOpen, onOpenReport, isModalOpen } = props
     const [heatEnabled, setHeatEnabled] = useState<boolean>(false);
     const [routingEnabled, setRoutingEnabled] = useState<boolean>(false);
     const [cameras, setCameras] = useState<any[]>([]);
@@ -99,6 +102,11 @@ const Map = (props: MapProps) => {
             require('leaflet-defaulticon-compatibility');
         }
     }, []);
+
+    // Calculate right offset based on open drawers
+    // CityStatsDrawer is w-160 (640px) + 16px margin = 656px
+    // ReportDialog is w-[500px] + 16px margin = 516px
+    const rightOffset = isDrawerOpen ? 656 : (isReportOpen ? 516 : 16);
 
     return (
         <MapContainer
@@ -132,8 +140,8 @@ const Map = (props: MapProps) => {
             />
 
             <div
-                className="absolute top-4 z-[1000] pointer-events-auto"
-                style={{ right: isDrawerOpen ? 656 : 16 }}
+                className="absolute top-4 z-[1000] pointer-events-auto transition-all duration-300 ease-in-out"
+                style={{ right: rightOffset }}
             >
                 <div className="flex items-center gap-2">
                     <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2">
@@ -151,13 +159,23 @@ const Map = (props: MapProps) => {
                         <FiNavigation size={18} />
                     </button>
 
-                    {!isDrawerOpen && !isModalOpen && (
-                        <button
-                            onClick={() => onOpenDrawer && onOpenDrawer()}
-                            className="bg-white text-black p-2 rounded-full shadow hover:bg-gray-50 cursor-pointer"
-                        >
-                            <FiMenu size={18} />
-                        </button>
+                    {!isModalOpen && (
+                        <>
+                            <button
+                                onClick={() => onOpenReport && onOpenReport()}
+                                className={`p-2 rounded-full shadow transition-colors ${isReportOpen ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                                title="Báo cáo giao thông"
+                            >
+                                <FiFileText size={18} />
+                            </button>
+                            <button
+                                onClick={() => onOpenDrawer && onOpenDrawer()}
+                                className={`p-2 rounded-full shadow transition-colors ${isDrawerOpen ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                                title="Thống kê thành phố"
+                            >
+                                <FiMenu size={18} />
+                            </button>
+                        </>
                     )}
                 </div>
             </div>

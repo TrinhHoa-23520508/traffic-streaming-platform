@@ -1,5 +1,5 @@
 import { ApiResponse } from '@/types/api';
-import { getBaseUrl } from './config';
+import { getBaseUrl, API_CONFIG } from './config';
 import { trafficApi } from './trafficApi';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -32,6 +32,16 @@ export interface GenerateReportRequest {
   interval: string;
   districtId?: string;
   cameraIds?: string[];
+}
+
+interface BackendReportRequest {
+  name: string;
+  startTime: string;
+  endTime: string;
+  intervalMinutes: number;
+  districts: string[];
+  cameras: string[];
+  executeAt: string;
 }
 
 const reportApi = {
@@ -122,20 +132,44 @@ const reportApi = {
   },
 
   generateReport: async (request: GenerateReportRequest): Promise<void> => {
-    // Client-side PDF generation using real data from Traffic API
-    // Note: Backend currently supports single-day queries. We use startDate.
     try {
-        // Send request to backend to track status (especially for future dates)
-        try {
-             await fetch(`${getBaseUrl()}/api/reports`, {
-                 method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify(request)
-             });
-        } catch (e) {
-            console.warn("Backend report request failed, falling back to local only");
-        }
+        // 1. Try creating report via Backend API
+        // Transform to backend payload format
+        const backendPayload: BackendReportRequest = {
+            name: `Báo cáo giao thông ${format(new Date(request.startDate), 'dd/MM/yyyy')}`,
+            startTime: format(new Date(request.startDate), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+            endTime: format(new Date(request.endDate), "yyyy-MM-dd'T'HH:mm:ssXXX"),
+            intervalMinutes: parseInt(request.interval),
+            districts: request.districtId ? [request.districtId] : [],
+            cameras: request.cameraIds || [],
+            executeAt: format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX") // Execute now
+        };
 
+        console.log("Sending report request payload:", backendPayload);
+
+        const response = await fetch(`${getBaseUrl()}${API_CONFIG.ENDPOINTS.REPORTS.BASE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(backendPayload)
+        });
+
+        const result = await response.json();
+        console.log("Backend report response:", result);
+
+        if (response.ok) {
+            // Check for success flag or successful status code
+            if (result.success || result.status === 201 || result.code === 'CREATED') {
+                return;
+            }
+        }
+        
+        console.warn("Backend returned error, falling back to local generation", result);
+    } catch (e) {
+        console.warn("Backend report request failed, falling back to local only", e);
+    }
+
+    // 2. Fallback: Client-side generation (Only if backend fails)
+    try {
         const reportDate = request.startDate ? format(new Date(request.startDate), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
         const todayStr = format(new Date(), 'yyyy-MM-dd');
         // If report date is in the future (tomorrow or later), status is PENDING
@@ -171,10 +205,32 @@ const reportApi = {
   getReports: async (): Promise<Report[]> => {
     try {
         // Try fetching from backend first
-        const response = await fetch(`${getBaseUrl()}/api/reports`);
+        const response = await fetch(`${getBaseUrl()}${API_CONFIG.ENDPOINTS.REPORTS.BASE}`, {
+            cache: 'no-store',
+            headers: {
+                'Pragma': 'no-cache',
+                'Cache-Control': 'no-cache'
+            }
+        });
         if (response.ok) {
-            const backendReports = await response.json();
-            return Array.isArray(backendReports) ? backendReports : [];
+            const jsonResponse = await response.json();
+            console.log("Fetched reports from backend:", jsonResponse);
+            
+            // Handle wrapped response format { data: [...] }
+            if (jsonResponse.data && Array.isArray(jsonResponse.data)) {
+                return jsonResponse.data.map((item: any) => ({
+                    id: item.id.toString(),
+                    fileName: item.name,
+                    fileUrl: item.fileUrl || '',
+                    createdAt: item.createdAt,
+                    type: 'PDF',
+                    status: item.status
+                }));
+            }
+            // Handle direct array format (fallback)
+            if (Array.isArray(jsonResponse)) {
+                return jsonResponse;
+            }
         }
     } catch (error) {
         console.warn("Error fetching reports from backend:", error);
@@ -187,6 +243,27 @@ const reportApi = {
   
   downloadReport: async (reportId: string, fileName: string): Promise<void> => {
       try {
+          // 1. Try downloading from backend first
+          try {
+              // Correct endpoint based on Swagger: /api/reports/download/{reportId}
+              const response = await fetch(`${getBaseUrl()}${API_CONFIG.ENDPOINTS.REPORTS.DOWNLOAD}/${reportId}`);
+              if (response.ok) {
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = fileName;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                  return; // Success, exit
+              }
+          } catch (e) {
+              console.warn("Backend download failed, falling back to local generation");
+          }
+
+          // 2. Fallback: Client-side generation
           // Retrieve params
           const paramsStr = localStorage.getItem(`report_params_${reportId}`);
           if (!paramsStr) {
@@ -263,7 +340,7 @@ const reportApi = {
     try {
         // Try deleting from backend first
         try {
-             await fetch(`${getBaseUrl()}/api/reports/${reportId}`, {
+             await fetch(`${getBaseUrl()}${API_CONFIG.ENDPOINTS.REPORTS.BASE}/${reportId}`, {
                  method: 'DELETE',
              });
         } catch (e) {

@@ -62,13 +62,17 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                 return;
             }
 
-            const bounds = map.getBounds();
-
-            const inBounds = camerasRef.current.filter((camera) =>
-                bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
-            );
-
-            setVisibleCameras(inBounds);
+            // Check if map is ready
+            try {
+                const bounds = map.getBounds();
+                const inBounds = camerasRef.current.filter((camera) =>
+                    bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
+                );
+                setVisibleCameras(inBounds);
+            } catch (e) {
+                // Map might not be ready yet
+                console.warn("Map bounds not ready yet");
+            }
         }, 150); // 150ms debounce
     }, [map]);
 

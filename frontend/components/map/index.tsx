@@ -97,6 +97,15 @@ const Map = (props: MapProps) => {
     const [cameras, setCameras] = useState<any[]>([]);
     const [routingCameraClickHandler, setRoutingCameraClickHandler] = useState<((camera: any) => void) | null>(null);
 
+    // Handle camera selection from Report Dialog
+    const handleReportCameraSelect = (cameraId: string) => {
+        // Check both id and _id to match camera data structure
+        const camera = cameras.find(c => c.id === cameraId || c._id === cameraId);
+        if (camera && onCameraClick) {
+            onCameraClick(camera);
+        }
+    };
+
     useEffect(() => {
         if (typeof window !== 'undefined') {
             require('leaflet-defaulticon-compatibility');
@@ -193,6 +202,14 @@ const Map = (props: MapProps) => {
                     onSetCameraClickHandler={setRoutingCameraClickHandler}
                 />
             )}
+
+            <ReportDialog 
+                open={!!isReportOpen} 
+                onOpenChange={(open) => {
+                    if (!open && onOpenReport) onOpenReport();
+                }}
+                onCameraSelect={handleReportCameraSelect}
+            />
         </MapContainer>
     )
 }

@@ -146,12 +146,15 @@ const reportApi = {
             }
         }
 
-        // Calculate executeAt: Must be in the future, and preferably after the report end time
+        // Calculate executeAt:
+        // If report end time is in the past -> Execute immediately (now + small buffer)
+        // If report end time is in the future -> Execute at end time + small buffer
         const now = new Date();
         const endTime = new Date(request.endDate);
-        // If endTime is in the future, schedule execution after it. Otherwise, schedule for "now + buffer".
-        // Buffer of 2 minutes to be safe.
-        const executeTime = new Date(Math.max(now.getTime(), endTime.getTime()) + 2 * 60 * 1000);
+        
+        // Buffer of 2 seconds as requested (to ensure backend receives a future timestamp)
+        const bufferMs = 2000; 
+        const executeTime = new Date(Math.max(now.getTime(), endTime.getTime()) + bufferMs);
 
         // Transform to backend payload format
         const backendPayload: BackendReportRequest = {

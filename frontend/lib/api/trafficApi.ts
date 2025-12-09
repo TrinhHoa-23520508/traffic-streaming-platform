@@ -471,7 +471,7 @@ class TrafficApiService {
    * GET /api/traffic/camera/{cameraId}/latest
    */
   async getCameraLatest(cameraId: string): Promise<TrafficMetricsDTO> {
-    const url = this.buildUrl(`${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERA_LATEST}/${cameraId}/latest`);
+    const url = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERA_LATEST}/${cameraId}/latest`;
     const rawData = await this.fetchWithErrorHandling<BackendTrafficDataRaw>(url);
     return transformTrafficData(rawData);
   }
@@ -480,7 +480,7 @@ class TrafficApiService {
    * GET /api/traffic/districts
    */
   async getAllDistricts(): Promise<string[]> {
-    const url = this.buildUrl(`${API_CONFIG.ENDPOINTS.TRAFFIC.DISTRICTS}`);
+    const url = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.DISTRICTS}`;
     return this.fetchWithErrorHandling<string[]>(url);
   }
 
@@ -488,7 +488,7 @@ class TrafficApiService {
    * GET /api/traffic/cameras
    */
   async getAllCameras(params?: CameraListParams): Promise<CameraList[]> {
-    const url = this.buildUrl(`${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERAS}`, params as any);
+    const url = this.buildUrl(`${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERAS}`, params as any);
     return this.fetchWithErrorHandling<CameraList[]>(url);
   }
 

@@ -90,20 +90,22 @@ export default function Page() {
 
     return (
         <div className="fixed inset-0 h-screen w-screen overflow-visible">
-            <div className={`fixed top-6 left-6 z-[1000] flex flex-col gap-2 w-[600px] max-w-full pointer-events-auto ${modalImageUrl ? 'hidden' : ''}`}>
-                <div className="w-full">
+            <div className={`fixed top-6 left-6 z-[1000] flex flex-col gap-2 pointer-events-none ${modalImageUrl ? 'hidden' : ''}`}>
+                <div className="w-[600px] max-w-full pointer-events-auto">
                     <SearchBox onSelectLocation={handleLocationSelect} />
                 </div>
                 {selectedCamera && (
-                    <CameraInfoCard
-                        camera={selectedCamera}
-                        onClose={() => setSelectedCamera(null)}
-                        imageRefreshKey={imageRefreshKey}
-                        onImageClick={handleImageClick}
-                    />
+                    <div className="w-[420px] pointer-events-auto">
+                        <CameraInfoCard
+                            camera={selectedCamera}
+                            onClose={() => setSelectedCamera(null)}
+                            imageRefreshKey={imageRefreshKey}
+                            onImageClick={handleImageClick}
+                        />
+                    </div>
                 )}
                 {selectedLocation && !selectedCamera && (
-                    <div className="bg-white rounded-lg shadow-lg p-4 mt-2">
+                    <div className="w-[600px] pointer-events-auto bg-white rounded-lg shadow-lg p-4 mt-2">
                         <div className="flex justify-between items-start mb-2">
                             <h3 className="text-base font-semibold text-gray-700">Địa điểm</h3>
                             <button onClick={() => setSelectedLocation(null)} className="text-gray-400 hover:text-gray-600">

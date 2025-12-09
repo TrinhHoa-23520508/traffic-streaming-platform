@@ -6,8 +6,8 @@
  */
 
 export const API_CONFIG = {
-  BASE_URL: 'http://103.20.97.112:6677',
-  WS_URL: 'http://103.20.97.112/ws',
+  BASE_URL: 'http://localhost:6677',
+  WS_URL: 'http://localhost:6677/ws',
 
   ENDPOINTS: {
     TRAFFIC: {

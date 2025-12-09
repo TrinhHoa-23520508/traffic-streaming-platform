@@ -37,6 +37,8 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
   
   // Export Tab State
   const [date, setDate] = React.useState<{ from: Date; to: Date } | undefined>()
+  const [startTime, setStartTime] = React.useState("00:00")
+  const [endTime, setEndTime] = React.useState("23:59")
   const [interval, setInterval] = React.useState("15")
   const [districts, setDistricts] = React.useState<District[]>([])
   const [selectedDistrict, setSelectedDistrict] = React.useState<string>("")
@@ -126,11 +128,25 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
         return
     }
 
+    if (!selectedDistrict) {
+        alert("Vui lòng chọn Quận/Huyện")
+        return
+    }
+
+    // Combine date and time
+    const startDateTime = new Date(date.from)
+    const [startHours, startMinutes] = startTime.split(':').map(Number)
+    startDateTime.setHours(startHours, startMinutes, 0)
+
+    const endDateTime = new Date(date.to)
+    const [endHours, endMinutes] = endTime.split(':').map(Number)
+    endDateTime.setHours(endHours, endMinutes, 0)
+
     setIsGenerating(true)
     try {
         await reportApi.generateReport({
-            startDate: date.from.toISOString(),
-            endDate: date.to.toISOString(),
+            startDate: startDateTime.toISOString(),
+            endDate: endDateTime.toISOString(),
             interval,
             districtId: selectedDistrict,
             cameraIds: selectedCameras
@@ -249,6 +265,28 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                         </div>
                                     </PopoverContent>
                                 </Popover>
+                            </div>
+                        </div>
+
+                        {/* Time Selection */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label>Giờ bắt đầu</Label>
+                                <input 
+                                    type="time" 
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={startTime}
+                                    onChange={(e) => setStartTime(e.target.value)}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Giờ kết thúc</Label>
+                                <input 
+                                    type="time" 
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={endTime}
+                                    onChange={(e) => setEndTime(e.target.value)}
+                                />
                             </div>
                         </div>
 
@@ -488,24 +526,19 @@ function ReportItem({
     onDelete: (id: string) => void 
 }) {
     return (
-        <div className="flex items-center justify-between p-3 border rounded-lg bg-white hover:shadow-sm transition-shadow">
+        <div className="flex items-center justify-between p-2 border rounded-lg bg-white hover:shadow-sm transition-shadow">
             <div className="flex items-center gap-3 overflow-hidden">
-                <div className={`h-10 w-10 rounded flex items-center justify-center flex-none ${
+                <div className={`h-8 w-8 rounded flex items-center justify-center flex-none ${
                     report.status === 'FAILED' ? 'bg-red-50' : 
                     report.status === 'PENDING' ? 'bg-yellow-50' : 'bg-blue-50'
                 }`}>
-                    <FileText className={`h-5 w-5 ${
+                    <FileText className={`h-4 w-4 ${
                         report.status === 'FAILED' ? 'text-red-600' : 
                         report.status === 'PENDING' ? 'text-yellow-600' : 'text-blue-600'
                     }`} />
                 </div>
                 <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">{report.fileName}</p>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${statusInfo.color}`}>
-                            {statusInfo.label}
-                        </span>
-                    </div>
+                    <p className="text-sm font-medium truncate">{report.fileName}</p>
                     <p className="text-xs text-gray-500">{format(new Date(report.createdAt), "dd/MM/yyyy HH:mm")}</p>
                 </div>
             </div>

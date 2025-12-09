@@ -134,6 +134,25 @@ const reportApi = {
   generateReport: async (request: GenerateReportRequest): Promise<void> => {
     try {
         // 1. Try creating report via Backend API
+        
+        // Ensure we have cameras. If none selected, fetch all for the district.
+        let targetCameras = request.cameraIds || [];
+        if (targetCameras.length === 0 && request.districtId) {
+            try {
+                const districtCameras = await reportApi.getCamerasByDistrict(request.districtId);
+                targetCameras = districtCameras.map(c => c.id);
+            } catch (e) {
+                console.warn("Failed to auto-fetch cameras for district", e);
+            }
+        }
+
+        // Calculate executeAt: Must be in the future, and preferably after the report end time
+        const now = new Date();
+        const endTime = new Date(request.endDate);
+        // If endTime is in the future, schedule execution after it. Otherwise, schedule for "now + buffer".
+        // Buffer of 2 minutes to be safe.
+        const executeTime = new Date(Math.max(now.getTime(), endTime.getTime()) + 2 * 60 * 1000);
+
         // Transform to backend payload format
         const backendPayload: BackendReportRequest = {
             name: `Báo cáo giao thông ${format(new Date(request.startDate), 'dd/MM/yyyy')}`,
@@ -141,11 +160,9 @@ const reportApi = {
             endTime: format(new Date(request.endDate), "yyyy-MM-dd'T'HH:mm:ssXXX"),
             intervalMinutes: parseInt(request.interval),
             districts: request.districtId ? [request.districtId] : [],
-            cameras: request.cameraIds || [],
-            executeAt: format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX") // Execute now
+            cameras: targetCameras,
+            executeAt: format(executeTime, "yyyy-MM-dd'T'HH:mm:ssXXX")
         };
-
-        console.log("Sending report request payload:", backendPayload);
 
         const response = await fetch(`${getBaseUrl()}${API_CONFIG.ENDPOINTS.REPORTS.BASE}`, {
             method: 'POST',
@@ -153,19 +170,21 @@ const reportApi = {
             body: JSON.stringify(backendPayload)
         });
 
-        const result = await response.json();
-        console.log("Backend report response:", result);
-
         if (response.ok) {
-            // Check for success flag or successful status code
-            if (result.success || result.status === 201 || result.code === 'CREATED') {
-                return;
-            }
+            return;
         }
         
-        console.warn("Backend returned error, falling back to local generation", result);
-    } catch (e) {
-        console.warn("Backend report request failed, falling back to local only", e);
+        // If 400, throw error to stop fallback
+        if (response.status === 400) {
+             const result = await response.json().catch(() => ({}));
+             throw new Error(result?.message || "Invalid report request data");
+        }
+    } catch (e: any) {
+        // If it was a validation error, re-throw so UI shows it
+        if (e.message && (e.message.includes("Invalid") || e.message.includes("400"))) {
+            throw e;
+        }
+        // Otherwise fall back
     }
 
     // 2. Fallback: Client-side generation (Only if backend fails)
@@ -205,16 +224,9 @@ const reportApi = {
   getReports: async (): Promise<Report[]> => {
     try {
         // Try fetching from backend first
-        const response = await fetch(`${getBaseUrl()}${API_CONFIG.ENDPOINTS.REPORTS.BASE}`, {
-            cache: 'no-store',
-            headers: {
-                'Pragma': 'no-cache',
-                'Cache-Control': 'no-cache'
-            }
-        });
+        const response = await fetch(`${getBaseUrl()}${API_CONFIG.ENDPOINTS.REPORTS.BASE}`);
         if (response.ok) {
             const jsonResponse = await response.json();
-            console.log("Fetched reports from backend:", jsonResponse);
             
             // Handle wrapped response format { data: [...] }
             if (jsonResponse.data && Array.isArray(jsonResponse.data)) {

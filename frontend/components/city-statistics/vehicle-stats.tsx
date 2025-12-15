@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import InforPanel from "./infor-panel";
 import { BarChart, Bar, CartesianGrid, Legend, Tooltip, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { trafficApi } from "@/lib/api/trafficApi";
@@ -62,11 +62,12 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
     });
 
     const [loading, setLoading] = useState(true);
+    const isAutoUpdating = useRef(false);
 
     useEffect(() => {
-        const fetchVehicleData = async () => {
+        const fetchVehicleData = async (showLoading = true) => {
             try {
-                setLoading(true);
+                if (showLoading) setLoading(true);
                 const now = new Date();
                 const start = dateRange?.from || startOfDay(now);
                 const end = dateRange?.to || now;
@@ -98,8 +99,27 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
             }
         };
 
-        fetchVehicleData();
+        const showLoading = !isAutoUpdating.current;
+        fetchVehicleData(showLoading);
+        isAutoUpdating.current = false;
     }, [dateRange, refreshTrigger]);
+
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            setDateRange(prev => {
+                if (!prev?.to) return prev;
+
+                const now = new Date();
+                if (now.getTime() - prev.to.getTime() < 120000) {
+                    isAutoUpdating.current = true;
+                    return { ...prev, to: now };
+                }
+                return prev;
+            });
+        }, 60_000);
+
+        return () => clearInterval(intervalId);
+    }, []);
 
     useEffect(() => {
         if (data) {

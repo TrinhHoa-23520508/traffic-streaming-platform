@@ -39,6 +39,12 @@ import java.util.Map;
 @Service
 public class PdfBuilderService {
 
+    private final ImageUrlResolverService urlResolver;
+
+    public PdfBuilderService(ImageUrlResolverService urlResolver) {
+        this.urlResolver = urlResolver;
+    }
+
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
 
@@ -464,35 +470,176 @@ public class PdfBuilderService {
     }
 
     /**
-     * Vẽ ảnh từ URL
+     * Vẽ ảnh từ URL với xử lý lỗi an toàn
      */
-    public void drawImageFromUrl(PDPageContentStream content, PDDocument document,
+    public boolean drawImageFromUrl(PDPageContentStream content, PDDocument document,
                                  String imageUrl, float x, float y, float width, float height) {
         try {
-            URL url = new URL(imageUrl);
-            BufferedImage bufferedImage = ImageIO.read(url);
+            // Validate URL
+            if (imageUrl == null || imageUrl.trim().isEmpty()) {
+                log.warn("Empty image URL provided");
+                drawImagePlaceholder(content, x, y, width, height, "No URL");
+                return false;
+            }
 
+            // Resolve URL from frontend format to backend-accessible format
+            String originalUrl = imageUrl;
+            imageUrl = urlResolver.resolveImageUrl(imageUrl);
+            if (!originalUrl.equals(imageUrl)) {
+                log.info("URL resolved: {} -> {}", originalUrl, imageUrl);
+            }
+
+            log.info("Attempting to load image from URL: {}", imageUrl);
+
+            // Try loading image
+            BufferedImage bufferedImage = loadImageWithRetry(imageUrl, 2);
+
+            if (bufferedImage == null) {
+                log.warn("Failed to load image after retries: {}", imageUrl);
+                drawImagePlaceholder(content, x, y, width, height, "Load failed");
+                return false;
+            }
+
+            log.info("Image loaded successfully, size: {}x{}", bufferedImage.getWidth(), bufferedImage.getHeight());
+
+            // Convert to JPEG (better PDF compatibility)
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ImageIO.write(bufferedImage, "jpg", baos);
+            boolean writeSuccess = ImageIO.write(bufferedImage, "JPEG", baos);
 
-            PDImageXObject image = PDImageXObject.createFromByteArray(document, baos.toByteArray(), "image");
+            if (!writeSuccess || baos.size() == 0) {
+                log.warn("Failed to convert image to JPEG: {}", imageUrl);
+                drawImagePlaceholder(content, x, y, width, height, "Convert failed");
+                return false;
+            }
+
+            log.info("Image converted to JPEG, size: {} bytes", baos.size());
+
+            // Create and draw image
+            PDImageXObject image = PDImageXObject.createFromByteArray(
+                document,
+                baos.toByteArray(),
+                "image"
+            );
             content.drawImage(image, x, y, width, height);
-        } catch (Exception e) {
-            log.warn("Failed to load image from URL: {}", imageUrl, e);
-            // Draw placeholder
-            try {
-                content.setStrokingColor(GRID_COLOR);
-                content.addRect(x, y, width, height);
-                content.stroke();
 
+            log.info("Successfully drew image from URL: {}", imageUrl);
+            return true;
+
+        } catch (Exception e) {
+            log.error("Unexpected error loading image from URL: {} - {}", imageUrl, e.getMessage(), e);
+            drawImagePlaceholder(content, x, y, width, height, "Error");
+            return false;
+        }
+    }
+
+    /**
+     * Load image with retry logic
+     */
+    private BufferedImage loadImageWithRetry(String imageUrl, int maxRetries) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                log.debug("Loading image attempt {}/{}: {}", attempt, maxRetries, imageUrl);
+
+                URL url = new URL(imageUrl);
+
+                // Check if it's a file URL or HTTP URL
+                if (imageUrl.startsWith("file:")) {
+                    // Local file
+                    return ImageIO.read(url);
+                } else {
+                    // HTTP/HTTPS URL
+                    java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+                    connection.setConnectTimeout(15000); // 15 seconds
+                    connection.setReadTimeout(15000);
+                    connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                    connection.setRequestProperty("Accept", "image/*");
+                    connection.setInstanceFollowRedirects(true);
+                    connection.setDoInput(true);
+
+                    int responseCode = connection.getResponseCode();
+                    log.debug("HTTP response code: {}", responseCode);
+
+                    if (responseCode == 200) {
+                        BufferedImage image = ImageIO.read(connection.getInputStream());
+                        if (image != null) {
+                            log.debug("Successfully loaded image on attempt {}", attempt);
+                            return image;
+                        } else {
+                            log.warn("ImageIO.read returned null for URL: {}", imageUrl);
+                        }
+                    } else {
+                        log.warn("HTTP error {} for URL: {}", responseCode, imageUrl);
+                    }
+
+                    connection.disconnect();
+                }
+            } catch (java.net.SocketTimeoutException e) {
+                log.warn("Timeout on attempt {}/{}: {}", attempt, maxRetries, imageUrl);
+            } catch (java.net.UnknownHostException e) {
+                log.warn("Unknown host: {} - {}", imageUrl, e.getMessage());
+                break; // No point retrying DNS errors
+            } catch (java.net.MalformedURLException e) {
+                log.error("Malformed URL: {} - {}", imageUrl, e.getMessage());
+                break; // No point retrying bad URLs
+            } catch (Exception e) {
+                log.warn("Error on attempt {}/{}: {} - {}", attempt, maxRetries, imageUrl, e.getMessage());
+            }
+
+            // Wait before retry (except on last attempt)
+            if (attempt < maxRetries) {
+                try {
+                    Thread.sleep(1000); // Wait 1 second before retry
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+
+        log.error("Failed to load image after {} attempts: {}", maxRetries, imageUrl);
+        return null;
+    }
+
+    /**
+     * Vẽ placeholder khi ảnh không tải được
+     */
+    private void drawImagePlaceholder(PDPageContentStream content, float x, float y,
+                                     float width, float height, String reason) {
+        try {
+            // Draw border
+            content.setStrokingColor(GRID_COLOR);
+            content.setLineWidth(1);
+            content.addRect(x, y, width, height);
+            content.stroke();
+
+            // Draw X
+            content.moveTo(x, y);
+            content.lineTo(x + width, y + height);
+            content.moveTo(x + width, y);
+            content.lineTo(x, y + height);
+            content.stroke();
+
+            // Draw text
+            content.setNonStrokingColor(GRID_COLOR);
+            content.beginText();
+            content.setFont(fontRegular, 10);
+            float textWidth = fontRegular.getStringWidth("Image not available") / 1000 * 10;
+            content.newLineAtOffset(x + (width - textWidth) / 2, y + height / 2 + 5);
+            content.showText("Image not available");
+            content.endText();
+
+            if (reason != null) {
                 content.beginText();
                 content.setFont(fontRegular, 8);
-                content.newLineAtOffset(x + 5, y + height / 2);
-                content.showText("Image not available");
+                textWidth = fontRegular.getStringWidth(reason) / 1000 * 8;
+                content.newLineAtOffset(x + (width - textWidth) / 2, y + height / 2 - 10);
+                content.showText(reason);
                 content.endText();
-            } catch (IOException ex) {
-                log.error("Failed to draw placeholder", ex);
             }
+
+            content.setNonStrokingColor(TEXT_COLOR);
+        } catch (IOException ex) {
+            log.error("Failed to draw placeholder", ex);
         }
     }
 

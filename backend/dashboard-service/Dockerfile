@@ -19,10 +19,14 @@ RUN mvn clean package -DskipTests
 # ====== STAGE 2: Image chạy thực tế ======
 FROM eclipse-temurin:17-jre
 
-# Install Liberation fonts for Vietnamese support
+# Install Liberation fonts for Vietnamese support + additional fonts
 RUN apt-get update && \
-    apt-get install -y fonts-liberation fontconfig && \
-    rm -rf /var/lib/apt/lists/* && \
+    apt-get install -y \
+    fonts-liberation \
+    fonts-liberation2 \
+    fonts-dejavu \
+    fontconfig \
+    && rm -rf /var/lib/apt/lists/* && \
     fc-cache -f -v
 
 # Tạo thư mục ứng dụng

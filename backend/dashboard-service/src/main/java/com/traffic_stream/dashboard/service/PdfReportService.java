@@ -192,7 +192,8 @@ public class PdfReportService {
 
             // Table
             String[] headers = {"Quan", "Tong PT", "Ty le %", "Camera", "TB/Camera"};
-            float[] widths = {120, 80, 80, 70, 90};
+            // Better distributed widths for readability
+            float[] widths = {110, 85, 80, 70, 95};
 
             List<String[]> rows = analysis.getDistrictAnalyses().stream()
                     .limit(15)
@@ -244,7 +245,8 @@ public class PdfReportService {
             float y = pdfBuilder.drawSectionHeader(content1, "Bang tong hop camera", 720);
 
             String[] headers = {"Camera ID", "Ten", "Quan", "Tong PT", "TB", "Trang thai"};
-            float[] widths = {80, 100, 80, 70, 60, 70};
+            // Adjusted widths: reduced Camera ID, increased name column, optimized others
+            float[] widths = {65, 150, 70, 65, 45, 65};
 
             List<String[]> rows = cameras.stream()
                     .limit(20)
@@ -456,7 +458,13 @@ public class PdfReportService {
             try {
                 pdfBuilder.drawHeader(content, "VIII. MINH HOA - ANH ANNOTATED", currentPageNumber++);
 
-                float y = 680;
+                // Add note about timestamp accuracy
+                float noteY = 695;
+                pdfBuilder.drawText(content,
+                    "* Thoi gian hien thi la approximate, co the chenh lech 1-2 phut voi thoi gian tren anh",
+                    60, noteY, 7);
+
+                float y = 670; // Adjusted starting Y to accommodate note
                 float imgWidth = 240;
                 float imgHeight = 180;
                 float spacingX = 20;
@@ -483,15 +491,25 @@ public class PdfReportService {
                     // Draw caption below image
                     float captionY = imgY - imgHeight - 15;
 
-                    // Camera info
-                    pdfBuilder.drawText(content,
-                        String.format("%s (%s)",
-                            img.getCameraName() != null ? img.getCameraName() : img.getCameraId(),
-                            img.getCameraId()),
-                        x, captionY, 9);
+                    // Camera info - truncate if too long
+                    String cameraName = img.getCameraName() != null ? img.getCameraName() : img.getCameraId();
+                    String cameraInfo = String.format("%s (%s)", cameraName, img.getCameraId());
+
+                    // Truncate camera info if longer than image width
+                    if (pdfBuilder.getTextWidth(cameraInfo, 9) > imgWidth) {
+                        // Try shorter version without ID in parentheses
+                        cameraInfo = cameraName;
+                        if (pdfBuilder.getTextWidth(cameraInfo, 9) > imgWidth) {
+                            // Still too long, truncate with ellipsis
+                            cameraInfo = pdfBuilder.truncateText(cameraInfo, imgWidth - 10, 9) + "...";
+                        }
+                    }
+
+                    pdfBuilder.drawText(content, cameraInfo, x, captionY, 9);
 
                     // Vehicle count and timestamp
-                    String details = String.format("%d phuong tien - %s",
+                    // Note: Timestamp is from traffic metric record, may differ from actual image capture time
+                    String details = String.format("%d phuong tien - ~%s",
                         img.getVehicleCount() != null ? img.getVehicleCount() : 0,
                         img.getTimestamp() != null ? pdfBuilder.formatTime(img.getTimestamp()) : "N/A"
                     );

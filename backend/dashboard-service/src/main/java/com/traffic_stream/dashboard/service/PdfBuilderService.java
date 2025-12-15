@@ -29,6 +29,7 @@ import java.net.URL;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -250,6 +251,53 @@ public class PdfBuilderService {
     }
 
     /**
+     * Truncate text with ellipsis to fit within maxWidth
+     */
+    private String truncateText(String text, PDFont font, int fontSize, float maxWidth) throws IOException {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+
+        float textWidth = font.getStringWidth(text) / 1000 * fontSize;
+        if (textWidth <= maxWidth) {
+            return text;
+        }
+
+        // Calculate width with ellipsis
+        String ellipsis = "...";
+        float ellipsisWidth = font.getStringWidth(ellipsis) / 1000 * fontSize;
+        float availableWidth = maxWidth - ellipsisWidth;
+
+        if (availableWidth <= 0) {
+            return ellipsis;
+        }
+
+        // Binary search for the longest substring that fits
+        int left = 0;
+        int right = text.length();
+        int bestFit = 0;
+
+        while (left <= right) {
+            int mid = (left + right) / 2;
+            String substring = text.substring(0, mid);
+            float subWidth = font.getStringWidth(substring) / 1000 * fontSize;
+
+            if (subWidth <= availableWidth) {
+                bestFit = mid;
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        if (bestFit == 0) {
+            return ellipsis;
+        }
+
+        return text.substring(0, bestFit).trim() + ellipsis;
+    }
+
+    /**
      * Vẽ bảng
      */
     public float drawTable(PDPageContentStream content, float yPosition,
@@ -272,10 +320,11 @@ public class PdfBuilderService {
 
         float cellX = startX;
         for (int i = 0; i < headers.length; i++) {
+            String headerText = truncateText(headers[i], fontBold, 10, columnWidths[i] - 10);
             content.beginText();
             content.setFont(fontBold, 10);
             content.newLineAtOffset(cellX + 5, currentY - 15);
-            content.showText(headers[i]);
+            content.showText(headerText);
             content.endText();
             cellX += columnWidths[i];
         }
@@ -288,10 +337,14 @@ public class PdfBuilderService {
             currentY -= 18;
 
             for (int i = 0; i < row.length; i++) {
+                String cellText = row[i] != null ? row[i] : "";
+                // Truncate cell text to fit within column width (minus padding)
+                String truncatedText = truncateText(cellText, fontRegular, 9, columnWidths[i] - 10);
+
                 content.beginText();
                 content.setFont(fontRegular, 9);
                 content.newLineAtOffset(cellX + 5, currentY);
-                content.showText(row[i] != null ? row[i] : "");
+                content.showText(truncatedText);
                 content.endText();
                 cellX += columnWidths[i];
             }
@@ -314,9 +367,10 @@ public class PdfBuilderService {
     }
 
     /**
-     * Vẽ key-value pair
+     * Vẽ key-value pair with text wrapping for long values
      */
     public float drawKeyValue(PDPageContentStream content, String key, String value, float x, float yPosition) throws IOException {
+        // Draw key
         content.beginText();
         content.setFont(fontBold, 10);
         content.newLineAtOffset(x, yPosition);
@@ -324,14 +378,38 @@ public class PdfBuilderService {
         content.endText();
 
         float keyWidth = fontBold.getStringWidth(key + ": ") / 1000 * 10;
+        float valueX = x + keyWidth;
+        float maxWidth = 520 - keyWidth; // Max width for value (page width - margins - key width)
 
-        content.beginText();
-        content.setFont(fontRegular, 10);
-        content.newLineAtOffset(x + keyWidth, yPosition);
-        content.showText(value);
-        content.endText();
+        // Check if value needs wrapping
+        float valueWidth = fontRegular.getStringWidth(value) / 1000 * 10;
 
-        return yPosition - 15;
+        if (valueWidth <= maxWidth) {
+            // Single line - no wrapping needed
+            content.beginText();
+            content.setFont(fontRegular, 10);
+            content.newLineAtOffset(valueX, yPosition);
+            content.showText(value);
+            content.endText();
+            return yPosition - 15;
+        } else {
+            // Multi-line - wrap text
+            List<String> lines = wrapText(value, fontRegular, 10, maxWidth);
+            float currentY = yPosition;
+
+            for (int i = 0; i < lines.size(); i++) {
+                content.beginText();
+                content.setFont(fontRegular, 10);
+                // First line aligned with key, subsequent lines indented
+                float lineX = (i == 0) ? valueX : x + 20;
+                content.newLineAtOffset(lineX, currentY);
+                content.showText(lines.get(i));
+                content.endText();
+                currentY -= 12; // Line spacing
+            }
+
+            return currentY - 3; // Extra spacing after multi-line value
+        }
     }
 
     /**
@@ -350,6 +428,33 @@ public class PdfBuilderService {
             yPosition -= 5;
         }
         return yPosition;
+    }
+
+    /**
+     * Helper method to split text into lines that fit within maxWidth
+     */
+    private List<String> wrapText(String text, PDFont font, int fontSize, float maxWidth) throws IOException {
+        List<String> lines = new ArrayList<>();
+        String[] words = text.split(" ");
+        StringBuilder line = new StringBuilder();
+
+        for (String word : words) {
+            String testLine = line.length() == 0 ? word : line + " " + word;
+            float textWidth = font.getStringWidth(testLine) / 1000 * fontSize;
+
+            if (textWidth > maxWidth && line.length() > 0) {
+                lines.add(line.toString());
+                line = new StringBuilder(word);
+            } else {
+                line = new StringBuilder(testLine);
+            }
+        }
+
+        if (line.length() > 0) {
+            lines.add(line.toString());
+        }
+
+        return lines;
     }
 
     /**
@@ -395,12 +500,12 @@ public class PdfBuilderService {
      */
     public PDImageXObject createBarChart(PDDocument document, String title, Map<String, Long> data) throws IOException {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
-        data.forEach((key, value) -> dataset.addValue(value, "Số lượng", key));
+        data.forEach((key, value) -> dataset.addValue(value, "So luong", key));
 
         JFreeChart chart = ChartFactory.createBarChart(
                 title,
-                "Danh mục",
-                "Số phương tiện",
+                "Danh muc",
+                "So phuong tien",
                 dataset,
                 PlotOrientation.VERTICAL,
                 false,
@@ -409,7 +514,25 @@ public class PdfBuilderService {
         );
 
         chart.setBackgroundPaint(Color.WHITE);
-        chart.getPlot().setBackgroundPaint(new Color(245, 245, 245));
+
+        // Configure plot
+        org.jfree.chart.plot.CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(new Color(245, 245, 245));
+
+        // Set font for labels without special characters
+        Font labelFont = new Font("SansSerif", Font.PLAIN, 10);
+        plot.getDomainAxis().setTickLabelFont(labelFont);
+        plot.getDomainAxis().setLabelFont(labelFont);
+        plot.getRangeAxis().setTickLabelFont(labelFont);
+        plot.getRangeAxis().setLabelFont(labelFont);
+
+        // Rotate category labels to prevent overlap
+        plot.getDomainAxis().setCategoryLabelPositions(
+            org.jfree.chart.axis.CategoryLabelPositions.UP_45
+        );
+
+        // Add padding to prevent label cutoff
+        plot.setAxisOffset(new org.jfree.chart.ui.RectangleInsets(5, 5, 5, 5));
 
         return chartToImage(document, chart, 500, 300);
     }
@@ -425,12 +548,28 @@ public class PdfBuilderService {
         JFreeChart chart = ChartFactory.createPieChart(
                 title,
                 dataset,
-                true,
-                true,
-                false
+                true,  // legend
+                true,  // tooltips
+                false  // urls
         );
 
         chart.setBackgroundPaint(Color.WHITE);
+
+        // Configure plot
+        org.jfree.chart.plot.PiePlot plot = (org.jfree.chart.plot.PiePlot) chart.getPlot();
+        plot.setBackgroundPaint(Color.WHITE);
+
+        // Set font for labels
+        Font labelFont = new Font("SansSerif", Font.PLAIN, 10);
+        plot.setLabelFont(labelFont);
+
+        // Add padding to prevent label cutoff
+        plot.setInsets(new org.jfree.chart.ui.RectangleInsets(5, 5, 5, 5));
+
+        // Configure legend
+        if (chart.getLegend() != null) {
+            chart.getLegend().setItemFont(labelFont);
+        }
 
         return chartToImage(document, chart, 400, 300);
     }
@@ -440,12 +579,12 @@ public class PdfBuilderService {
      */
     public PDImageXObject createLineChart(PDDocument document, String title, Map<String, Long> data) throws IOException {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
-        data.forEach((key, value) -> dataset.addValue(value, "Lưu lượng", key));
+        data.forEach((key, value) -> dataset.addValue(value, "Luu luong", key));
 
         JFreeChart chart = ChartFactory.createLineChart(
                 title,
-                "Thời gian",
-                "Số phương tiện",
+                "Thoi gian",
+                "So phuong tien",
                 dataset,
                 PlotOrientation.VERTICAL,
                 false,
@@ -454,7 +593,27 @@ public class PdfBuilderService {
         );
 
         chart.setBackgroundPaint(Color.WHITE);
-        chart.getPlot().setBackgroundPaint(new Color(245, 245, 245));
+
+        // Configure plot
+        org.jfree.chart.plot.CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(new Color(245, 245, 245));
+
+        // Set font for labels
+        Font labelFont = new Font("SansSerif", Font.PLAIN, 10);
+        plot.getDomainAxis().setTickLabelFont(labelFont);
+        plot.getDomainAxis().setLabelFont(labelFont);
+        plot.getRangeAxis().setTickLabelFont(labelFont);
+        plot.getRangeAxis().setLabelFont(labelFont);
+
+        // Rotate labels if too many data points
+        if (data.size() > 10) {
+            plot.getDomainAxis().setCategoryLabelPositions(
+                org.jfree.chart.axis.CategoryLabelPositions.UP_45
+            );
+        }
+
+        // Add padding
+        plot.setAxisOffset(new org.jfree.chart.ui.RectangleInsets(5, 5, 5, 5));
 
         return chartToImage(document, chart, 500, 250);
     }
@@ -665,11 +824,48 @@ public class PdfBuilderService {
     }
 
     /**
-     * Format số thực
+     * Format số thực với số chữ số thập phân
      */
     public String formatDouble(double number, int decimals) {
-        String format = "%." + decimals + "f";
+        String format = "%,." + decimals + "f";
         return String.format(format, number);
     }
-}
 
+    /**
+     * Calculate text width in points
+     */
+    public float getTextWidth(String text, int fontSize) throws IOException {
+        return fontRegular.getStringWidth(text) / 1000 * fontSize;
+    }
+
+    /**
+     * Truncate text to fit within maxWidth
+     */
+    public String truncateText(String text, float maxWidth, int fontSize) throws IOException {
+        float textWidth = getTextWidth(text, fontSize);
+
+        if (textWidth <= maxWidth) {
+            return text;
+        }
+
+        // Binary search for the right length
+        int left = 0;
+        int right = text.length();
+        String result = text;
+
+        while (left < right) {
+            int mid = (left + right + 1) / 2;
+            String testText = text.substring(0, mid);
+            float testWidth = getTextWidth(testText, fontSize);
+
+            if (testWidth <= maxWidth) {
+                result = testText;
+                left = mid;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        return result;
+    }
+}

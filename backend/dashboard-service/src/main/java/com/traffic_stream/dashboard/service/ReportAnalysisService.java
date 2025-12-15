@@ -507,6 +507,9 @@ public class ReportAnalysisService {
         // Get top 12 images from different cameras with highest vehicle counts
         Map<String, TrafficMetric> topMetricsByCamera = new HashMap<>();
 
+        log.info("Collecting annotated images from {} traffic metrics", data.size());
+
+        int metricsWithImages = 0;
         data.forEach(metric -> {
             if (metric.getAnnotatedImageUrl() != null && !metric.getAnnotatedImageUrl().isEmpty()) {
                 topMetricsByCamera.merge(metric.getCameraId(), metric,
@@ -516,17 +519,27 @@ public class ReportAnalysisService {
             }
         });
 
-        return topMetricsByCamera.values().stream()
+        metricsWithImages = topMetricsByCamera.size();
+        log.info("Found {} cameras with annotated images", metricsWithImages);
+
+        List<AnnotatedImageInfo> result = topMetricsByCamera.values().stream()
                 .sorted(Comparator.comparing(TrafficMetric::getTotalCount).reversed())
                 .limit(12)
-                .map(m -> AnnotatedImageInfo.builder()
-                        .cameraId(m.getCameraId())
-                        .cameraName(m.getCameraName())
-                        .imageUrl(m.getAnnotatedImageUrl())
-                        .timestamp(m.getTimestamp())
-                        .vehicleCount(m.getTotalCount())
-                        .build())
+                .map(m -> {
+                    log.debug("Adding annotated image - Camera: {}, URL: {}, Vehicles: {}",
+                        m.getCameraId(), m.getAnnotatedImageUrl(), m.getTotalCount());
+                    return AnnotatedImageInfo.builder()
+                            .cameraId(m.getCameraId())
+                            .cameraName(m.getCameraName())
+                            .imageUrl(m.getAnnotatedImageUrl())
+                            .timestamp(m.getTimestamp())
+                            .vehicleCount(m.getTotalCount())
+                            .build();
+                })
                 .collect(Collectors.toList());
+
+        log.info("Collected {} annotated images for report", result.size());
+        return result;
     }
 
     // ========== IX. KẾT LUẬN & KIẾN NGHỊ ==========

@@ -439,11 +439,14 @@ public class PdfReportService {
 
     private void addAnnotatedImagesSection(PDDocument document, ReportAnalysisDTO analysis) throws IOException {
         if (analysis.getAnnotatedImages() == null || analysis.getAnnotatedImages().isEmpty()) {
+            log.info("No annotated images to add to report");
             return;
         }
 
         List<AnnotatedImageInfo> images = analysis.getAnnotatedImages();
-        int imagesPerPage = 6; // 3x2 grid
+        log.info("Adding {} annotated images to report", images.size());
+
+        int imagesPerPage = 4; // 2x2 grid (reduced for better quality)
         int totalPages = (int) Math.ceil((double) images.size() / imagesPerPage);
 
         for (int pageIdx = 0; pageIdx < totalPages; pageIdx++) {
@@ -453,10 +456,11 @@ public class PdfReportService {
             try {
                 pdfBuilder.drawHeader(content, "VIII. MINH HOA - ANH ANNOTATED", currentPageNumber++);
 
-                float y = 700;
-                float imgWidth = 230;
-                float imgHeight = 170;
-                float spacing = 20;
+                float y = 680;
+                float imgWidth = 240;
+                float imgHeight = 180;
+                float spacingX = 20;
+                float spacingY = 40;
 
                 int startIdx = pageIdx * imagesPerPage;
                 int endIdx = Math.min(startIdx + imagesPerPage, images.size());
@@ -467,24 +471,46 @@ public class PdfReportService {
                     int row = (i - startIdx) / 2;
                     int col = (i - startIdx) % 2;
 
-                    float x = 60 + col * (imgWidth + spacing);
-                    float imgY = y - row * (imgHeight + 60);
+                    float x = 60 + col * (imgWidth + spacingX);
+                    float imgY = y - row * (imgHeight + spacingY + 30);
 
-                    // Draw image
-                    pdfBuilder.drawImageFromUrl(content, document, img.getImageUrl(), x, imgY - imgHeight, imgWidth, imgHeight);
+                    // Draw image (with error handling)
+                    boolean imageLoaded = pdfBuilder.drawImageFromUrl(
+                        content, document, img.getImageUrl(),
+                        x, imgY - imgHeight, imgWidth, imgHeight
+                    );
 
-                    // Draw caption
-                    content.beginText();
-                    content.newLineAtOffset(x, imgY - imgHeight - 15);
-                    content.setFont(new org.apache.pdfbox.pdmodel.font.PDType1Font(org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA), 8);
-                    content.showText(img.getCameraId() + " - " + img.getVehicleCount() + " xe");
-                    content.endText();
+                    // Draw caption below image
+                    float captionY = imgY - imgHeight - 15;
+
+                    // Camera info
+                    pdfBuilder.drawText(content,
+                        String.format("%s (%s)",
+                            img.getCameraName() != null ? img.getCameraName() : img.getCameraId(),
+                            img.getCameraId()),
+                        x, captionY, 9);
+
+                    // Vehicle count and timestamp
+                    String details = String.format("%d phuong tien - %s",
+                        img.getVehicleCount() != null ? img.getVehicleCount() : 0,
+                        img.getTimestamp() != null ? pdfBuilder.formatTime(img.getTimestamp()) : "N/A"
+                    );
+                    pdfBuilder.drawText(content, details, x, captionY - 12, 8);
+
+                    if (!imageLoaded) {
+                        log.warn("Image not loaded for camera: {}", img.getCameraId());
+                    }
                 }
 
+            } catch (Exception e) {
+                log.error("Error adding annotated images page {}", pageIdx, e);
+                // Continue with next page even if this one fails
             } finally {
                 content.close();
             }
         }
+
+        log.info("Completed adding annotated images section");
     }
 
     // ========== IX. KẾT LUẬN & KIẾN NGHỊ ==========

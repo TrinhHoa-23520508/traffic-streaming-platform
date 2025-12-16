@@ -29,6 +29,7 @@ import java.net.URL;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +39,12 @@ import java.util.Map;
 @Slf4j
 @Service
 public class PdfBuilderService {
+
+    private final ImageUrlResolverService urlResolver;
+
+    public PdfBuilderService(ImageUrlResolverService urlResolver) {
+        this.urlResolver = urlResolver;
+    }
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
@@ -244,6 +251,53 @@ public class PdfBuilderService {
     }
 
     /**
+     * Truncate text with ellipsis to fit within maxWidth
+     */
+    private String truncateText(String text, PDFont font, int fontSize, float maxWidth) throws IOException {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+
+        float textWidth = font.getStringWidth(text) / 1000 * fontSize;
+        if (textWidth <= maxWidth) {
+            return text;
+        }
+
+        // Calculate width with ellipsis
+        String ellipsis = "...";
+        float ellipsisWidth = font.getStringWidth(ellipsis) / 1000 * fontSize;
+        float availableWidth = maxWidth - ellipsisWidth;
+
+        if (availableWidth <= 0) {
+            return ellipsis;
+        }
+
+        // Binary search for the longest substring that fits
+        int left = 0;
+        int right = text.length();
+        int bestFit = 0;
+
+        while (left <= right) {
+            int mid = (left + right) / 2;
+            String substring = text.substring(0, mid);
+            float subWidth = font.getStringWidth(substring) / 1000 * fontSize;
+
+            if (subWidth <= availableWidth) {
+                bestFit = mid;
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        if (bestFit == 0) {
+            return ellipsis;
+        }
+
+        return text.substring(0, bestFit).trim() + ellipsis;
+    }
+
+    /**
      * Vẽ bảng
      */
     public float drawTable(PDPageContentStream content, float yPosition,
@@ -266,10 +320,11 @@ public class PdfBuilderService {
 
         float cellX = startX;
         for (int i = 0; i < headers.length; i++) {
+            String headerText = truncateText(headers[i], fontBold, 10, columnWidths[i] - 10);
             content.beginText();
             content.setFont(fontBold, 10);
             content.newLineAtOffset(cellX + 5, currentY - 15);
-            content.showText(headers[i]);
+            content.showText(headerText);
             content.endText();
             cellX += columnWidths[i];
         }
@@ -282,10 +337,14 @@ public class PdfBuilderService {
             currentY -= 18;
 
             for (int i = 0; i < row.length; i++) {
+                String cellText = row[i] != null ? row[i] : "";
+                // Truncate cell text to fit within column width (minus padding)
+                String truncatedText = truncateText(cellText, fontRegular, 9, columnWidths[i] - 10);
+
                 content.beginText();
                 content.setFont(fontRegular, 9);
                 content.newLineAtOffset(cellX + 5, currentY);
-                content.showText(row[i] != null ? row[i] : "");
+                content.showText(truncatedText);
                 content.endText();
                 cellX += columnWidths[i];
             }
@@ -308,9 +367,10 @@ public class PdfBuilderService {
     }
 
     /**
-     * Vẽ key-value pair
+     * Vẽ key-value pair with text wrapping for long values
      */
     public float drawKeyValue(PDPageContentStream content, String key, String value, float x, float yPosition) throws IOException {
+        // Draw key
         content.beginText();
         content.setFont(fontBold, 10);
         content.newLineAtOffset(x, yPosition);
@@ -318,14 +378,38 @@ public class PdfBuilderService {
         content.endText();
 
         float keyWidth = fontBold.getStringWidth(key + ": ") / 1000 * 10;
+        float valueX = x + keyWidth;
+        float maxWidth = 520 - keyWidth; // Max width for value (page width - margins - key width)
 
-        content.beginText();
-        content.setFont(fontRegular, 10);
-        content.newLineAtOffset(x + keyWidth, yPosition);
-        content.showText(value);
-        content.endText();
+        // Check if value needs wrapping
+        float valueWidth = fontRegular.getStringWidth(value) / 1000 * 10;
 
-        return yPosition - 15;
+        if (valueWidth <= maxWidth) {
+            // Single line - no wrapping needed
+            content.beginText();
+            content.setFont(fontRegular, 10);
+            content.newLineAtOffset(valueX, yPosition);
+            content.showText(value);
+            content.endText();
+            return yPosition - 15;
+        } else {
+            // Multi-line - wrap text
+            List<String> lines = wrapText(value, fontRegular, 10, maxWidth);
+            float currentY = yPosition;
+
+            for (int i = 0; i < lines.size(); i++) {
+                content.beginText();
+                content.setFont(fontRegular, 10);
+                // First line aligned with key, subsequent lines indented
+                float lineX = (i == 0) ? valueX : x + 20;
+                content.newLineAtOffset(lineX, currentY);
+                content.showText(lines.get(i));
+                content.endText();
+                currentY -= 12; // Line spacing
+            }
+
+            return currentY - 3; // Extra spacing after multi-line value
+        }
     }
 
     /**
@@ -344,6 +428,33 @@ public class PdfBuilderService {
             yPosition -= 5;
         }
         return yPosition;
+    }
+
+    /**
+     * Helper method to split text into lines that fit within maxWidth
+     */
+    private List<String> wrapText(String text, PDFont font, int fontSize, float maxWidth) throws IOException {
+        List<String> lines = new ArrayList<>();
+        String[] words = text.split(" ");
+        StringBuilder line = new StringBuilder();
+
+        for (String word : words) {
+            String testLine = line.length() == 0 ? word : line + " " + word;
+            float textWidth = font.getStringWidth(testLine) / 1000 * fontSize;
+
+            if (textWidth > maxWidth && line.length() > 0) {
+                lines.add(line.toString());
+                line = new StringBuilder(word);
+            } else {
+                line = new StringBuilder(testLine);
+            }
+        }
+
+        if (line.length() > 0) {
+            lines.add(line.toString());
+        }
+
+        return lines;
     }
 
     /**
@@ -389,12 +500,12 @@ public class PdfBuilderService {
      */
     public PDImageXObject createBarChart(PDDocument document, String title, Map<String, Long> data) throws IOException {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
-        data.forEach((key, value) -> dataset.addValue(value, "Số lượng", key));
+        data.forEach((key, value) -> dataset.addValue(value, "So luong", key));
 
         JFreeChart chart = ChartFactory.createBarChart(
                 title,
-                "Danh mục",
-                "Số phương tiện",
+                "Danh muc",
+                "So phuong tien",
                 dataset,
                 PlotOrientation.VERTICAL,
                 false,
@@ -403,7 +514,25 @@ public class PdfBuilderService {
         );
 
         chart.setBackgroundPaint(Color.WHITE);
-        chart.getPlot().setBackgroundPaint(new Color(245, 245, 245));
+
+        // Configure plot
+        org.jfree.chart.plot.CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(new Color(245, 245, 245));
+
+        // Set font for labels without special characters
+        Font labelFont = new Font("SansSerif", Font.PLAIN, 10);
+        plot.getDomainAxis().setTickLabelFont(labelFont);
+        plot.getDomainAxis().setLabelFont(labelFont);
+        plot.getRangeAxis().setTickLabelFont(labelFont);
+        plot.getRangeAxis().setLabelFont(labelFont);
+
+        // Rotate category labels to prevent overlap
+        plot.getDomainAxis().setCategoryLabelPositions(
+            org.jfree.chart.axis.CategoryLabelPositions.UP_45
+        );
+
+        // Add padding to prevent label cutoff
+        plot.setAxisOffset(new org.jfree.chart.ui.RectangleInsets(5, 5, 5, 5));
 
         return chartToImage(document, chart, 500, 300);
     }
@@ -419,12 +548,28 @@ public class PdfBuilderService {
         JFreeChart chart = ChartFactory.createPieChart(
                 title,
                 dataset,
-                true,
-                true,
-                false
+                true,  // legend
+                true,  // tooltips
+                false  // urls
         );
 
         chart.setBackgroundPaint(Color.WHITE);
+
+        // Configure plot
+        org.jfree.chart.plot.PiePlot plot = (org.jfree.chart.plot.PiePlot) chart.getPlot();
+        plot.setBackgroundPaint(Color.WHITE);
+
+        // Set font for labels
+        Font labelFont = new Font("SansSerif", Font.PLAIN, 10);
+        plot.setLabelFont(labelFont);
+
+        // Add padding to prevent label cutoff
+        plot.setInsets(new org.jfree.chart.ui.RectangleInsets(5, 5, 5, 5));
+
+        // Configure legend
+        if (chart.getLegend() != null) {
+            chart.getLegend().setItemFont(labelFont);
+        }
 
         return chartToImage(document, chart, 400, 300);
     }
@@ -434,12 +579,12 @@ public class PdfBuilderService {
      */
     public PDImageXObject createLineChart(PDDocument document, String title, Map<String, Long> data) throws IOException {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
-        data.forEach((key, value) -> dataset.addValue(value, "Lưu lượng", key));
+        data.forEach((key, value) -> dataset.addValue(value, "Luu luong", key));
 
         JFreeChart chart = ChartFactory.createLineChart(
                 title,
-                "Thời gian",
-                "Số phương tiện",
+                "Thoi gian",
+                "So phuong tien",
                 dataset,
                 PlotOrientation.VERTICAL,
                 false,
@@ -448,7 +593,27 @@ public class PdfBuilderService {
         );
 
         chart.setBackgroundPaint(Color.WHITE);
-        chart.getPlot().setBackgroundPaint(new Color(245, 245, 245));
+
+        // Configure plot
+        org.jfree.chart.plot.CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(new Color(245, 245, 245));
+
+        // Set font for labels
+        Font labelFont = new Font("SansSerif", Font.PLAIN, 10);
+        plot.getDomainAxis().setTickLabelFont(labelFont);
+        plot.getDomainAxis().setLabelFont(labelFont);
+        plot.getRangeAxis().setTickLabelFont(labelFont);
+        plot.getRangeAxis().setLabelFont(labelFont);
+
+        // Rotate labels if too many data points
+        if (data.size() > 10) {
+            plot.getDomainAxis().setCategoryLabelPositions(
+                org.jfree.chart.axis.CategoryLabelPositions.UP_45
+            );
+        }
+
+        // Add padding
+        plot.setAxisOffset(new org.jfree.chart.ui.RectangleInsets(5, 5, 5, 5));
 
         return chartToImage(document, chart, 500, 250);
     }
@@ -464,35 +629,176 @@ public class PdfBuilderService {
     }
 
     /**
-     * Vẽ ảnh từ URL
+     * Vẽ ảnh từ URL với xử lý lỗi an toàn
      */
-    public void drawImageFromUrl(PDPageContentStream content, PDDocument document,
+    public boolean drawImageFromUrl(PDPageContentStream content, PDDocument document,
                                  String imageUrl, float x, float y, float width, float height) {
         try {
-            URL url = new URL(imageUrl);
-            BufferedImage bufferedImage = ImageIO.read(url);
+            // Validate URL
+            if (imageUrl == null || imageUrl.trim().isEmpty()) {
+                log.warn("Empty image URL provided");
+                drawImagePlaceholder(content, x, y, width, height, "No URL");
+                return false;
+            }
 
+            // Resolve URL from frontend format to backend-accessible format
+            String originalUrl = imageUrl;
+            imageUrl = urlResolver.resolveImageUrl(imageUrl);
+            if (!originalUrl.equals(imageUrl)) {
+                log.info("URL resolved: {} -> {}", originalUrl, imageUrl);
+            }
+
+            log.info("Attempting to load image from URL: {}", imageUrl);
+
+            // Try loading image
+            BufferedImage bufferedImage = loadImageWithRetry(imageUrl, 2);
+
+            if (bufferedImage == null) {
+                log.warn("Failed to load image after retries: {}", imageUrl);
+                drawImagePlaceholder(content, x, y, width, height, "Load failed");
+                return false;
+            }
+
+            log.info("Image loaded successfully, size: {}x{}", bufferedImage.getWidth(), bufferedImage.getHeight());
+
+            // Convert to JPEG (better PDF compatibility)
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ImageIO.write(bufferedImage, "jpg", baos);
+            boolean writeSuccess = ImageIO.write(bufferedImage, "JPEG", baos);
 
-            PDImageXObject image = PDImageXObject.createFromByteArray(document, baos.toByteArray(), "image");
+            if (!writeSuccess || baos.size() == 0) {
+                log.warn("Failed to convert image to JPEG: {}", imageUrl);
+                drawImagePlaceholder(content, x, y, width, height, "Convert failed");
+                return false;
+            }
+
+            log.info("Image converted to JPEG, size: {} bytes", baos.size());
+
+            // Create and draw image
+            PDImageXObject image = PDImageXObject.createFromByteArray(
+                document,
+                baos.toByteArray(),
+                "image"
+            );
             content.drawImage(image, x, y, width, height);
-        } catch (Exception e) {
-            log.warn("Failed to load image from URL: {}", imageUrl, e);
-            // Draw placeholder
-            try {
-                content.setStrokingColor(GRID_COLOR);
-                content.addRect(x, y, width, height);
-                content.stroke();
 
+            log.info("Successfully drew image from URL: {}", imageUrl);
+            return true;
+
+        } catch (Exception e) {
+            log.error("Unexpected error loading image from URL: {} - {}", imageUrl, e.getMessage(), e);
+            drawImagePlaceholder(content, x, y, width, height, "Error");
+            return false;
+        }
+    }
+
+    /**
+     * Load image with retry logic
+     */
+    private BufferedImage loadImageWithRetry(String imageUrl, int maxRetries) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                log.debug("Loading image attempt {}/{}: {}", attempt, maxRetries, imageUrl);
+
+                URL url = new URL(imageUrl);
+
+                // Check if it's a file URL or HTTP URL
+                if (imageUrl.startsWith("file:")) {
+                    // Local file
+                    return ImageIO.read(url);
+                } else {
+                    // HTTP/HTTPS URL
+                    java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+                    connection.setConnectTimeout(15000); // 15 seconds
+                    connection.setReadTimeout(15000);
+                    connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                    connection.setRequestProperty("Accept", "image/*");
+                    connection.setInstanceFollowRedirects(true);
+                    connection.setDoInput(true);
+
+                    int responseCode = connection.getResponseCode();
+                    log.debug("HTTP response code: {}", responseCode);
+
+                    if (responseCode == 200) {
+                        BufferedImage image = ImageIO.read(connection.getInputStream());
+                        if (image != null) {
+                            log.debug("Successfully loaded image on attempt {}", attempt);
+                            return image;
+                        } else {
+                            log.warn("ImageIO.read returned null for URL: {}", imageUrl);
+                        }
+                    } else {
+                        log.warn("HTTP error {} for URL: {}", responseCode, imageUrl);
+                    }
+
+                    connection.disconnect();
+                }
+            } catch (java.net.SocketTimeoutException e) {
+                log.warn("Timeout on attempt {}/{}: {}", attempt, maxRetries, imageUrl);
+            } catch (java.net.UnknownHostException e) {
+                log.warn("Unknown host: {} - {}", imageUrl, e.getMessage());
+                break; // No point retrying DNS errors
+            } catch (java.net.MalformedURLException e) {
+                log.error("Malformed URL: {} - {}", imageUrl, e.getMessage());
+                break; // No point retrying bad URLs
+            } catch (Exception e) {
+                log.warn("Error on attempt {}/{}: {} - {}", attempt, maxRetries, imageUrl, e.getMessage());
+            }
+
+            // Wait before retry (except on last attempt)
+            if (attempt < maxRetries) {
+                try {
+                    Thread.sleep(1000); // Wait 1 second before retry
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+
+        log.error("Failed to load image after {} attempts: {}", maxRetries, imageUrl);
+        return null;
+    }
+
+    /**
+     * Vẽ placeholder khi ảnh không tải được
+     */
+    private void drawImagePlaceholder(PDPageContentStream content, float x, float y,
+                                     float width, float height, String reason) {
+        try {
+            // Draw border
+            content.setStrokingColor(GRID_COLOR);
+            content.setLineWidth(1);
+            content.addRect(x, y, width, height);
+            content.stroke();
+
+            // Draw X
+            content.moveTo(x, y);
+            content.lineTo(x + width, y + height);
+            content.moveTo(x + width, y);
+            content.lineTo(x, y + height);
+            content.stroke();
+
+            // Draw text
+            content.setNonStrokingColor(GRID_COLOR);
+            content.beginText();
+            content.setFont(fontRegular, 10);
+            float textWidth = fontRegular.getStringWidth("Image not available") / 1000 * 10;
+            content.newLineAtOffset(x + (width - textWidth) / 2, y + height / 2 + 5);
+            content.showText("Image not available");
+            content.endText();
+
+            if (reason != null) {
                 content.beginText();
                 content.setFont(fontRegular, 8);
-                content.newLineAtOffset(x + 5, y + height / 2);
-                content.showText("Image not available");
+                textWidth = fontRegular.getStringWidth(reason) / 1000 * 8;
+                content.newLineAtOffset(x + (width - textWidth) / 2, y + height / 2 - 10);
+                content.showText(reason);
                 content.endText();
-            } catch (IOException ex) {
-                log.error("Failed to draw placeholder", ex);
             }
+
+            content.setNonStrokingColor(TEXT_COLOR);
+        } catch (IOException ex) {
+            log.error("Failed to draw placeholder", ex);
         }
     }
 
@@ -518,11 +824,48 @@ public class PdfBuilderService {
     }
 
     /**
-     * Format số thực
+     * Format số thực với số chữ số thập phân
      */
     public String formatDouble(double number, int decimals) {
-        String format = "%." + decimals + "f";
+        String format = "%,." + decimals + "f";
         return String.format(format, number);
     }
-}
 
+    /**
+     * Calculate text width in points
+     */
+    public float getTextWidth(String text, int fontSize) throws IOException {
+        return fontRegular.getStringWidth(text) / 1000 * fontSize;
+    }
+
+    /**
+     * Truncate text to fit within maxWidth
+     */
+    public String truncateText(String text, float maxWidth, int fontSize) throws IOException {
+        float textWidth = getTextWidth(text, fontSize);
+
+        if (textWidth <= maxWidth) {
+            return text;
+        }
+
+        // Binary search for the right length
+        int left = 0;
+        int right = text.length();
+        String result = text;
+
+        while (left < right) {
+            int mid = (left + right + 1) / 2;
+            String testText = text.substring(0, mid);
+            float testWidth = getTextWidth(testText, fontSize);
+
+            if (testWidth <= maxWidth) {
+                result = testText;
+                left = mid;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        return result;
+    }
+}

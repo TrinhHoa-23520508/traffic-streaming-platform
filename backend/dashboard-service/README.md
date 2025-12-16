@@ -1,7 +1,5 @@
 # Dashboard Service
 
-## 📝 Giới thiệu
-
 **Dashboard Service** là một ứng dụng Spring Boot chịu trách nhiệm:
 
 1.  **Tiêu thụ (Consume)** dữ liệu traffic đã được phân tích (số lượng xe, vị trí...) từ topic Kafka `traffic_metrics_topic`.

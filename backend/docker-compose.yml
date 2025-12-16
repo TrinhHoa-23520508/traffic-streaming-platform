@@ -134,6 +134,10 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET_NAME: documents
+      IMAGE_BACKEND_HOST: host.docker.internal
+
+    extra_hosts:
+        - "host.docker.internal:host-gateway"
     depends_on:
       broker:
         condition: service_healthy

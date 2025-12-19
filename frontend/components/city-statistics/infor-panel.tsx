@@ -37,6 +37,8 @@ interface InforPanelProps {
     dateRangeValue?: DateRange;
     onDateRangeChange?: (range: DateRange) => void;
     showCurrentTimeOptionInDatePicker?: boolean;
+    className?: string;
+    contentClassName?: string;
 }
 
 export default function InforPanel({
@@ -63,7 +65,9 @@ export default function InforPanel({
     useDateRange = false,
     dateRangeValue,
     onDateRangeChange,
-    showCurrentTimeOptionInDatePicker
+    showCurrentTimeOptionInDatePicker,
+    className,
+    contentClassName
 }: InforPanelProps) {
     const options = filterOptionHasAll ? ['Tất cả', ...(districts || [])] : (districts || []);
     const [open, setOpen] = React.useState(false);
@@ -138,8 +142,8 @@ export default function InforPanel({
     }, [open]);
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-200/60 px-6 py-5 w-full transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50 hover:border-slate-300/80 group">
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-50 pb-4 mb-2">
+        <div className={`bg-white rounded-2xl border border-slate-200/60 px-6 py-5 w-full transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50 hover:border-slate-300/80 group flex flex-col ${className || ''}`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-50 pb-4 mb-2 flex-shrink-0">
                 <div className="flex flex-col gap-3">
                     <h2 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
                         <span className="w-1 h-6 rounded-full inline-block" style={{ backgroundColor: CHART_COLORS.quaternary }}></span>
@@ -241,7 +245,7 @@ export default function InforPanel({
                 </>
             </div>
 
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className={`animate-in fade-in slide-in-from-bottom-2 duration-500 flex-1 overflow-hidden ${contentClassName || ''}`}>
                 {children}
             </div>
         </div>

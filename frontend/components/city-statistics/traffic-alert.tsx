@@ -1,6 +1,6 @@
 "use client"
 
-import { FiClock } from "react-icons/fi"
+import { FiClock, FiCamera } from "react-icons/fi"
 import React, { useState, useEffect } from 'react'
 import InforPanel from "./infor-panel"
 import { trafficApi } from "@/lib/api/trafficApi"
@@ -19,6 +19,7 @@ type TrafficAlert = {
     time: string
     severity: AlertSeverity
     totalCount: number
+    imageUrl?: string
 }
 
 const SEVERITY_THRESHOLDS = {
@@ -52,16 +53,19 @@ type Props = {
     onAlertsUpdate?: () => void;
     refreshTrigger?: number;
     districts?: string[];
+    onAlertSelect?: (alert: TrafficAlert) => void;
+    selectedAlert?: TrafficAlert | null;
+    liveviewUrl?: string;
 }
 
-export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, districts = [] }: Props) {
+export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, districts = [], onAlertSelect, selectedAlert, liveviewUrl }: Props) {
     const [alerts, setAlerts] = useState<TrafficAlert[]>([]);
     const [lastUpdated, setLastUpdated] = useState<string>("");
     const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Tất cả");
     const [severityFilter, setSeverityFilter] = useState<AlertSeverity | "all">("all");
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-    const itemsPerPage = ITEMS_PER_PAGE;
+    const itemsPerPage = selectedAlert ? 3 : 4;
     const maxAlerts = MAX_ALERTS;
 
     const filteredAlerts = alerts.filter(a => {
@@ -105,7 +109,8 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                         date: new Date(data.timestamp).toISOString().split('T')[0],
                         time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
                         severity: getSeverity(data.totalCount),
-                        totalCount: data.totalCount
+                        totalCount: data.totalCount,
+                        imageUrl: data.annotatedImageUrl
                     }))
                     .slice(0, maxAlerts);
 
@@ -137,7 +142,8 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                         date: new Date(data.timestamp).toISOString().split('T')[0],
                         time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
                         severity: getSeverity(data.totalCount),
-                        totalCount: data.totalCount
+                        totalCount: data.totalCount,
+                        imageUrl: data.annotatedImageUrl
                     };
 
                     setAlerts(prev => {
@@ -170,7 +176,8 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                         date: new Date(data.timestamp).toISOString().split('T')[0],
                         time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
                         severity: getSeverity(data.totalCount),
-                        totalCount: data.totalCount
+                        totalCount: data.totalCount,
+                        imageUrl: data.annotatedImageUrl
                     };
 
                     setAlerts(prev => {
@@ -207,10 +214,14 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
     }
 
     function onSelect(alert: TrafficAlert) {
-        const event = new CustomEvent('selectCamera', {
-            detail: { cameraId: alert.cameraId }
-        });
-        window.dispatchEvent(event);
+        if (onAlertSelect) {
+            onAlertSelect(alert);
+        } else {
+            const event = new CustomEvent('selectCamera', {
+                detail: { cameraId: alert.cameraId }
+            });
+            window.dispatchEvent(event);
+        }
     }
 
     function toReadableTime(t: string) {
@@ -238,8 +249,10 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
             onDateChange={setSelectedDate}
             filterValue={areaDistrict}
             onFilterChange={setAreaDistrict}
-            children={<div className="pb-3 h-[520px] flex flex-col justify-between">
-                <div className="flex gap-2 items-center overflow-hidden scrollbar-hide flex-shrink-0">
+            className="h-full"
+            contentClassName="flex flex-col h-full"
+            children={<div className="h-full flex flex-col justify-between">
+                <div className="flex gap-2 items-center overflow-hidden scrollbar-hide flex-shrink-0 mb-3">
                     {severityOptions.map((option) => (
                         <button
                             key={option.value}
@@ -259,7 +272,9 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                     ))}
                 </div>
 
-                <div className="flex flex-col gap-2 h-[390px]">
+                <CameraPreviewSection alert={selectedAlert || null} liveviewUrl={liveviewUrl} />
+
+                <div className="flex flex-col gap-2 flex-1 overflow-y-auto pr-1 pb-2">
                     {paginatedAlerts.length === 0 ? (
                         <div className="flex items-center justify-center text-sm text-gray-500 h-full">Không có cảnh báo giao thông nào phù hợp</div>
                     ) : (
@@ -299,7 +314,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                                 </div>
                             ))}
 
-                            {Array.from({ length: itemsPerPage - paginatedAlerts.length }).map((_, i) => (
+                            {Array.from({ length: Math.max(0, itemsPerPage - paginatedAlerts.length) }).map((_, i) => (
                                 <div key={`placeholder-${i}`} className="min-h-[120px] flex-shrink-0" />
                             ))}
                         </>
@@ -307,7 +322,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                 </div>
 
                 {filteredAlerts.length > 0 && (
-                    <div className="flex items-center justify-between flex-shrink-0 pt-2 h-[10px]">
+                    <div className="flex items-center justify-between flex-shrink-0 py-2 h-[30px]">
                         <div className="text-xs text-gray-500">
                             Trang {currentPage} / {totalPages} ({filteredAlerts.length} cảnh báo)
                         </div>
@@ -330,5 +345,48 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                     </div>
                 )}
             </div>}></InforPanel>
+    )
+}
+
+function CameraPreviewSection({ alert, liveviewUrl }: { alert: TrafficAlert | null, liveviewUrl?: string }) {
+    const [displayUrl, setDisplayUrl] = useState<string | undefined>(undefined);
+
+    useEffect(() => {
+        if (liveviewUrl) {
+            setDisplayUrl(`https://api.notis.vn/v4/${liveviewUrl}?t=${Date.now()}`);
+        } else if (alert?.imageUrl) {
+            setDisplayUrl(alert.imageUrl);
+        } else {
+            setDisplayUrl(undefined);
+        }
+    }, [alert, liveviewUrl]);
+
+    if (!alert) return null;
+
+    return (
+        <div className="mb-3 rounded-lg overflow-hidden relative bg-slate-100 border border-slate-200 aspect-video flex-shrink-0 group">
+            {displayUrl ? (
+                <div className="relative w-full h-full">
+                    <img
+                        src={displayUrl}
+                        alt={alert.title}
+                        className="w-full h-full object-cover transition-transform duration-500"
+                        onError={(e) => {
+                            if (alert.imageUrl && e.currentTarget.src !== alert.imageUrl) {
+                                e.currentTarget.src = alert.imageUrl;
+                            }
+                        }}
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                        <div className="font-bold text-lg shadow-black drop-shadow-md">{alert.title}</div>
+                        <div className="text-sm opacity-90 shadow-black drop-shadow-md">{alert.time} - {alert.date}</div>
+                    </div>
+                </div>
+            ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-400">
+                    <FiCamera size={32} />
+                </div>
+            )}
+        </div>
     )
 }

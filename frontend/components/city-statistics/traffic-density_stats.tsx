@@ -1,6 +1,7 @@
 "use client"
 
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { createPortal } from 'react-dom';
 import InforPanel from "./infor-panel";
 import { useState, useEffect, useRef } from "react";
 import { CameraList, HourlySummary, trafficApi } from "@/lib/api/trafficApi";
@@ -76,6 +77,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
     const [chartData, setChartData] = useState<HourlyData[]>([]);
     const [loading, setLoading] = useState(true);
     const wsUpdateRef = useRef(false);
+    const chartRef = useRef<HTMLDivElement>(null);
 
     const [cameraOptions, setCameraOptions] = useState<CameraList[]>([]);
 
@@ -184,7 +186,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         return n?.toLocaleString("vi-VN") ?? "0";
     }
 
-    function CustomTooltip({ active, payload, label }: any) {
+    function CustomTooltip({ active, payload, label, coordinate }: any) {
         if (!active || !payload || !payload.length) return null;
         const item = payload[0];
         const value = item?.value ?? 0;
@@ -192,10 +194,28 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         const dataPoint = payload[0].payload;
         const fullDate = dataPoint.time ? format(new Date(dataPoint.time), 'dd/MM/yyyy HH:mm') : label;
 
-        return (
+        let style: React.CSSProperties = {
+            minWidth: 220,
+            pointerEvents: 'none',
+            zIndex: 99999,
+            position: 'fixed',
+            visibility: 'hidden'
+        };
+
+        if (chartRef.current && coordinate) {
+            const box = chartRef.current.getBoundingClientRect();
+            style = {
+                ...style,
+                visibility: 'visible',
+                left: box.left + coordinate.x + 20,
+                top: box.top + coordinate.y - 50,
+            };
+        }
+
+        const tooltip = (
             <div
                 className="bg-white/95 backdrop-blur-sm text-slate-800 p-3 rounded-xl shadow-lg border border-slate-100"
-                style={{ minWidth: 220 }}
+                style={style}
             >
                 <div className="flex items-start justify-between">
                     <div>
@@ -218,6 +238,12 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 </div>
             </div>
         );
+
+        if (typeof document !== 'undefined') {
+            return createPortal(tooltip, document.body);
+        }
+
+        return tooltip;
     }
 
     if (loading && chartData.length === 0) {
@@ -235,7 +261,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 cameraFilterValue={selectedCamera}
                 onCameraFilterChange={setSelectedCamera}
                 showCurrentTimeOptionInDatePicker={true}
-                children={<div className="w-full h-[300px] flex items-center justify-center text-gray-500">Đang tải dữ liệu...</div>}
+                children={<div className="w-full h-[200px] flex items-center justify-center text-gray-500">Đang tải dữ liệu...</div>}
             />
         );
     }
@@ -255,7 +281,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
             onCameraFilterChange={setSelectedCamera}
             showCurrentTimeOptionInDatePicker={true}
             children={
-                <div className="relative w-full h-[300px]">
+                <div className="relative w-full h-full flex-1 min-h-0">
                     {loading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10 backdrop-blur-[2px]">
                             <div className="flex items-center gap-4 bg-white/95 px-5 py-3 rounded-xl border border-white/95">
@@ -271,47 +297,49 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                             </div>
                         </div>
                     )}
-                    <ResponsiveContainer width="100%" height={300}><AreaChart data={chartData} margin={{ top: 20, right: 20, left: 15, bottom: 30 }}>
-                        <defs>
-                            <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={CHART_COLORS.quinary} stopOpacity={0.3} />
-                                <stop offset="95%" stopColor={CHART_COLORS.quinary} stopOpacity={0} />
-                            </linearGradient>
-                        </defs>
+                    <div style={{ width: '100%', height: 200 }} ref={chartRef}>
+                        <ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 20, right: 20, left: 15, bottom: 30 }}>
+                            <defs>
+                                <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={CHART_COLORS.quinary} stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor={CHART_COLORS.quinary} stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
 
-                        <CartesianGrid
-                            strokeDasharray="3 3"
-                            vertical={false}
-                            stroke="#e2e8f0" />
-                        <XAxis
-                            dataKey="time"
-                            stroke="#64748b"
-                            style={{ fontSize: '11px', fontWeight: 500 }}
-                            tickMargin={10}
-                            axisLine={false}
-                            tickLine={false}
-                            tickFormatter={(value) => {
-                                try { return format(new Date(value), 'HH:mm'); } catch { return String(value); }
-                            }}
-                            label={{ value: 'Thời gian', position: 'bottom', offset: 0, style: { fill: '#94a3b8', fontSize: '12px' } }}
-                        />
-                        <YAxis
-                            label={{ value: 'Lưu lượng (xe)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: '12px' }, offset: 0 }}
-                            stroke="#64748b"
-                            style={{ fontSize: '11px', fontWeight: 500 }}
-                            axisLine={false}
-                            tickLine={false}
-                            tickFormatter={(value) => value >= 1000 ? `${value / 1000} k` : value}
-                        />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
-                        <Area
-                            type="monotone"
-                            dataKey="traffic"
-                            stroke={CHART_COLORS.quinary}
-                            strokeWidth={1.5}
-                            fill="url(#colorTraffic)"
-                        />
-                    </AreaChart></ResponsiveContainer>
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                vertical={false}
+                                stroke="#e2e8f0" />
+                            <XAxis
+                                dataKey="time"
+                                stroke="#64748b"
+                                style={{ fontSize: '11px', fontWeight: 500 }}
+                                tickMargin={10}
+                                axisLine={false}
+                                tickLine={false}
+                                tickFormatter={(value) => {
+                                    try { return format(new Date(value), 'HH:mm'); } catch { return String(value); }
+                                }}
+                                label={{ value: 'Thời gian', position: 'bottom', offset: 0, style: { fill: '#94a3b8', fontSize: '12px' } }}
+                            />
+                            <YAxis
+                                label={{ value: 'Lưu lượng (xe)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: '12px' }, offset: 0 }}
+                                stroke="#64748b"
+                                style={{ fontSize: '11px', fontWeight: 500 }}
+                                axisLine={false}
+                                tickLine={false}
+                                tickFormatter={(value) => value >= 1000 ? `${value / 1000} k` : value}
+                            />
+                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
+                            <Area
+                                type="monotone"
+                                dataKey="traffic"
+                                stroke={CHART_COLORS.quinary}
+                                strokeWidth={1.5}
+                                fill="url(#colorTraffic)"
+                            />
+                        </AreaChart></ResponsiveContainer>
+                    </div>
                 </div>
             } />
     )

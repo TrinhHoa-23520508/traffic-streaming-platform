@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import InforPanel from "./infor-panel";
 import { BarChart, Bar, CartesianGrid, Legend, Tooltip, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { trafficApi } from "@/lib/api/trafficApi";
@@ -63,6 +64,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
 
     const [loading, setLoading] = useState(true);
     const isAutoUpdating = useRef(false);
+    const chartRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const fetchVehicleData = async (showLoading = true) => {
@@ -135,21 +137,39 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
         }
     }, [data]);
 
-    const chartHeight = Math.max(200, vehicleData.length * 40 + 60);
+    const chartHeight = Math.max(vehicleData.length * 40, 200);
 
     function formatNumber(n: number) {
         return n?.toLocaleString("vi-VN") ?? "0";
     }
 
-    function CustomTooltip({ active, payload, label }: any) {
+    function CustomTooltip({ active, payload, label, coordinate }: any) {
         if (!active || !payload || !payload.length) return null;
 
         const total = payload.reduce((sum: number, p: any) => sum + (p?.value || 0), 0);
 
         const defaultColors = [CHART_COLORS.tertiary, CHART_COLORS.quinary, CHART_COLORS.senary, CHART_COLORS.septenary];
 
-        return (
-            <div className="bg-white/95 backdrop-blur-sm text-slate-800 p-3 rounded-xl shadow-lg border border-slate-100" style={{ minWidth: 220 }}>
+        let style: React.CSSProperties = {
+            minWidth: 220,
+            pointerEvents: 'none',
+            zIndex: 99999,
+            position: 'fixed',
+            visibility: 'hidden'
+        };
+
+        if (chartRef.current && coordinate) {
+            const box = chartRef.current.getBoundingClientRect();
+            style = {
+                ...style,
+                visibility: 'visible',
+                left: box.left + coordinate.x + 20,
+                top: box.top + coordinate.y - 50,
+            };
+        }
+
+        const tooltip = (
+            <div className="bg-white/95 backdrop-blur-sm text-slate-800 p-3 rounded-xl shadow-lg border border-slate-100" style={style}>
                 <div className="text-sm font-bold mb-3 text-slate-800 border-b border-slate-100 pb-2">{label}</div>
                 <div className="space-y-2 text-xs">
                     {payload.map((p: any, i: number) => (
@@ -167,6 +187,12 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
                 <div className="border-t border-slate-100 mt-3 pt-2 text-right text-sm font-bold text-slate-900">Tổng: {formatNumber(total)}</div>
             </div>
         );
+
+        if (typeof document !== 'undefined') {
+            return createPortal(tooltip, document.body);
+        }
+
+        return tooltip;
     }
 
     if (loading && vehicleData.length === 0) {
@@ -180,7 +206,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
                 onDateRangeChange={setDateRange}
                 showCameraFilter={false}
                 showCurrentTimeOptionInDatePicker={true}
-                children={<div className="w-full min-h-[240px] flex items-center justify-center text-gray-500">Đang tải dữ liệu...</div>}
+                children={<div className="w-full h-[200px] flex items-center justify-center text-gray-500">Đang tải dữ liệu...</div>}
             />
         );
     }
@@ -210,46 +236,47 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
                             </div>
                         </div>
                     )}
-                    <div className="w-full">
-                        <ResponsiveContainer width="100%" height={chartHeight}>
-                            <BarChart
-                                data={vehicleData}
-                                barSize={20}
-                                layout="vertical"
-                                margin={{ right: 20, left: 15, bottom: 30 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                                <XAxis
-                                    dataKey="district"
-                                    type="number"
-                                    stroke="#64748b"
-                                    interval={0}
-                                    textAnchor="middle"
-                                    style={{ fontSize: '11px', fontWeight: 500 }}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
-                                    label={{ value: 'Số xe', position: 'bottom', offset: 0, style: { fill: '#94a3b8', fontSize: '12px' } }}
-                                />s
-                                <YAxis
-                                    stroke="#64748b"
-                                    type="category"
-                                    dataKey="district"
-                                    style={{ fontSize: '11px', fontWeight: 500 }}
-                                    width={60}
-                                    axisLine={false}
-                                    tickLine={false}
-                                />
-                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f1f5f9', opacity: 0.5 }} />
-                                <Legend verticalAlign="top" height={36} iconType="circle" iconSize={8} wrapperStyle={{ paddingBottom: 10, fontSize: '12px', fontWeight: 500 }} />
-                                <Bar dataKey="xeMay" name="Xe máy" stackId="a" fill={CHART_COLORS.tertiary} radius={[0, 0, 0, 0]} />
-                                <Bar dataKey="xeOTo" name="Xe ô tô" stackId="a" fill={CHART_COLORS.quinary} radius={[0, 0, 0, 0]} />
-                                <Bar dataKey="xeTai" name="Xe tải" stackId="a" fill={CHART_COLORS.senary} radius={[0, 0, 0, 0]} />
-                                <Bar dataKey="xeKhac" name="Xe khác" stackId="a" fill={CHART_COLORS.septenary} radius={[0, 4, 4, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                    <div className="w-full overflow-y-auto h-[175px] pr-2">
+                        <div style={{ height: chartHeight }} ref={chartRef}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                    data={vehicleData}
+                                    barSize={20}
+                                    layout="vertical"
+                                    margin={{ right: 20, left: 15, bottom: 30 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                                    <XAxis
+                                        type="number"
+                                        stroke="#64748b"
+                                        interval={0}
+                                        textAnchor="middle"
+                                        style={{ fontSize: '11px', fontWeight: 500 }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
+                                        label={{ value: 'Số xe', position: 'bottom', offset: 0, style: { fill: '#94a3b8', fontSize: '12px' } }}
+                                    />
+                                    <YAxis
+                                        stroke="#64748b"
+                                        type="category"
+                                        dataKey="district"
+                                        style={{ fontSize: '11px', fontWeight: 500 }}
+                                        width={60}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f1f5f9', opacity: 0.5 }} />
+                                    <Legend verticalAlign="top" height={36} iconType="circle" iconSize={8} wrapperStyle={{ paddingBottom: 10, fontSize: '12px', fontWeight: 500 }} />
+                                    <Bar dataKey="xeMay" name="Xe máy" stackId="a" fill={CHART_COLORS.tertiary} radius={[0, 0, 0, 0]} />
+                                    <Bar dataKey="xeOTo" name="Xe ô tô" stackId="a" fill={CHART_COLORS.quinary} radius={[0, 0, 0, 0]} />
+                                    <Bar dataKey="xeTai" name="Xe tải" stackId="a" fill={CHART_COLORS.senary} radius={[0, 0, 0, 0]} />
+                                    <Bar dataKey="xeKhac" name="Xe khác" stackId="a" fill={CHART_COLORS.septenary} radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                </ div>
+                </div>
             }
         />
     )

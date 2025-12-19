@@ -8,8 +8,7 @@ import { LatLngExpression, LatLngTuple } from 'leaflet';
 import L from 'leaflet';
 import CameraMarkers from "@/components/camera-markers";
 import type { Camera } from "@/types/camera";
-import { FiMenu, FiNavigation, FiX, FiFileText } from "react-icons/fi";
-import ReportDialog from "@/components/report-dialog";
+import { FiNavigation, FiX, FiMapPin, FiZap, FiTrendingUp } from "react-icons/fi";
 
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
@@ -54,15 +53,12 @@ function ChangeMapView({ center, zoom }: { center: LatLngExpression, zoom: numbe
         const zoomChanged = prevZoomRef.current !== zoom;
 
         // Only update if something actually changed
-        if (centerChanged && zoomChanged) {
-            // Both changed - use setView
-            map.setView(center, zoom);
-        } else if (centerChanged) {
-            // Only center changed - pan without zoom
-            map.panTo(center);
-        } else if (zoomChanged) {
-            // Only zoom changed
-            map.setZoom(zoom);
+        if (centerChanged || zoomChanged) {
+            // Use flyTo for smooth animation
+            map.flyTo(center, zoom, {
+                duration: 0.8, // Animation duration in seconds
+                easeLinearity: 0.25
+            });
         }
 
         // Update refs
@@ -96,6 +92,15 @@ const Map = (props: MapProps) => {
     const [routingEnabled, setRoutingEnabled] = useState<boolean>(false);
     const [cameras, setCameras] = useState<any[]>([]);
     const [routingCameraClickHandler, setRoutingCameraClickHandler] = useState<((camera: any) => void) | null>(null);
+
+    // Handle camera selection from Report Dialog
+    const handleReportCameraSelect = (cameraId: string) => {
+        // Check both id and _id to match camera data structure
+        const camera = cameras.find(c => c.id === cameraId || c._id === cameraId);
+        if (camera && onCameraClick) {
+            onCameraClick(camera);
+        }
+    };
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -139,10 +144,7 @@ const Map = (props: MapProps) => {
                 heatEnabled={heatEnabled}
             />
 
-            <div
-                className="absolute top-4 z-[1000] pointer-events-auto transition-all duration-300 ease-in-out"
-                style={{ right: rightOffset }}
-            >
+            <div className="absolute top-4 right-4 z-[1000] pointer-events-auto transition-all duration-300 ease-in-out">
                 <div className="flex items-center gap-2">
                     <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2">
                         <label className="flex items-center gap-2 select-none cursor-pointer">
@@ -158,25 +160,6 @@ const Map = (props: MapProps) => {
                     >
                         <FiNavigation size={18} />
                     </button>
-
-                    {!isModalOpen && (
-                        <>
-                            <button
-                                onClick={() => onOpenReport && onOpenReport()}
-                                className={`p-2 rounded-full shadow transition-colors ${isReportOpen ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                                title="Báo cáo giao thông"
-                            >
-                                <FiFileText size={18} />
-                            </button>
-                            <button
-                                onClick={() => onOpenDrawer && onOpenDrawer()}
-                                className={`p-2 rounded-full shadow transition-colors ${isDrawerOpen ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                                title="Thống kê thành phố"
-                            >
-                                <FiMenu size={18} />
-                            </button>
-                        </>
-                    )}
                 </div>
             </div>
 
@@ -193,6 +176,7 @@ const Map = (props: MapProps) => {
                     onSetCameraClickHandler={setRoutingCameraClickHandler}
                 />
             )}
+
         </MapContainer>
     )
 }
@@ -713,15 +697,14 @@ interface RouteCardProps {
 }
 
 function RouteCard({ type, route, isActive, onSelect, comparisonRoute }: RouteCardProps) {
-    const icon = type === 'shortest' ? '📏' : '⚡';
-    const title = type === 'shortest' ? 'Shortest Distance' : 'Fastest (Traffic)';
-    const baseClasses = 'flex-1 min-w-[220px] p-3 rounded-lg border-2 text-left transition-all';
-    const activeClasses = type === 'shortest' ? 'border-blue-500 bg-blue-50 shadow' : 'border-green-500 bg-green-50 shadow';
-    const inactiveClasses = 'border-gray-200 bg-white hover:border-gray-300';
+    const isShortest = type === 'shortest';
+    const title = isShortest ? 'Shortest Distance' : 'Fastest Route';
+    
     const distanceKm = (route.distance / 1000).toFixed(2);
     const noTrafficMinutes = Math.max(1, Math.round(route.duration / 60));
     const trafficMinutes = Math.max(1, Math.round(route.adjustedDuration / 60));
     const trafficClass = route.trafficScore < 10 ? 'text-green-600' : route.trafficScore < 25 ? 'text-yellow-600' : 'text-red-600';
+    
     const comparisonExists = comparisonRoute !== undefined;
     const isSameRoute = comparisonExists && comparisonRoute!.id === route.id;
     let comparisonText: string | null = null;
@@ -752,34 +735,60 @@ function RouteCard({ type, route, isActive, onSelect, comparisonRoute }: RouteCa
         <button
             type="button"
             onClick={onSelect}
-            className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
+            className={`
+                relative flex-1 min-w-[240px] p-4 rounded-xl border transition-all duration-200 text-left group
+                ${isActive 
+                    ? (isShortest ? 'bg-blue-50 border-blue-500 shadow-md ring-1 ring-blue-500' : 'bg-green-50 border-green-500 shadow-md ring-1 ring-green-500') 
+                    : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                }
+            `}
         >
-            <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">{icon}</span>
-                <span className="font-semibold text-sm">{title}</span>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-lg ${isShortest ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
+                        {isShortest ? <FiMapPin size={18} /> : <FiZap size={18} />}
+                    </div>
+                    <div>
+                        <h4 className={`font-bold text-sm ${isShortest ? 'text-blue-900' : 'text-green-900'}`}>{title}</h4>
+                        {comparisonText && (
+                            <span className="text-[10px] font-medium text-gray-500 block -mt-0.5">{comparisonText}</span>
+                        )}
+                    </div>
+                </div>
                 {isActive && (
-                    <span className={`ml-auto text-xs ${type === 'shortest' ? 'text-blue-600' : 'text-green-600'}`}>✓</span>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isShortest ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'}`}>
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                    </div>
                 )}
             </div>
-            <div className="text-left space-y-1">
-                <div className="text-xs text-gray-600">
-                    Distance: <span className="font-medium text-gray-900">{distanceKm} km</span>
+
+            {/* Main Stats */}
+            <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                <div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-0.5">Duration</div>
+                    <div className={`text-xl font-bold flex items-baseline gap-1 ${isShortest ? 'text-gray-800' : 'text-green-700'}`}>
+                        {trafficMinutes} <span className="text-xs font-normal text-gray-500">min</span>
+                    </div>
                 </div>
-                <div className="text-xs text-gray-600">
-                    ETA (free-flow): <span className="font-medium text-gray-900">{noTrafficMinutes} min</span>
-                </div>
-                <div className="text-xs text-gray-600">
-                    ETA (traffic): <span className={`font-semibold ${type === 'fastest' ? 'text-green-700' : 'text-gray-900'}`}>{trafficMinutes} min</span>
-                </div>
-                <div className="text-xs text-gray-600">
-                    Traffic score: <span className={`font-medium ${trafficClass}`}>{route.trafficScore.toFixed(1)}</span>
+                <div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-0.5">Distance</div>
+                    <div className="text-xl font-bold flex items-baseline gap-1 text-gray-800">
+                        {distanceKm} <span className="text-xs font-normal text-gray-500">km</span>
+                    </div>
                 </div>
             </div>
-            {comparisonText && (
-                <div className="mt-2 text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded">
-                    {comparisonText}
+
+            {/* Traffic Info */}
+            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                    <FiTrendingUp size={14} className={trafficClass} />
+                    <span className="text-xs text-gray-600">Traffic Score: <span className={`font-semibold ${trafficClass}`}>{route.trafficScore.toFixed(1)}</span></span>
                 </div>
-            )}
+                <div className="text-xs text-gray-400">
+                    ~{noTrafficMinutes} min free-flow
+                </div>
+            </div>
         </button>
     );
 }

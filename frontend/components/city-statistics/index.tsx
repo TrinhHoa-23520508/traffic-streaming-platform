@@ -31,7 +31,11 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
         const fetchDistricts = async () => {
             try {
                 const data = await trafficApi.getAllDistricts();
-                setDistricts(data);
+                // Handle case where backend returns object { districtName: "..." } instead of string
+                const districtNames = data.map((item: any) => 
+                    typeof item === 'object' && item.districtName ? item.districtName : String(item)
+                );
+                setDistricts(districtNames);
             } catch (error) {
                 console.error("Failed to fetch districts", error);
             }

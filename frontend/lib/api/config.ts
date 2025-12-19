@@ -19,6 +19,10 @@ export const API_CONFIG = {
       CAMERAS: '/api/traffic/cameras',
       DISTRICTS: '/api/traffic/districts',
     },
+    REPORTS: {
+      BASE: '/api/reports',
+      DOWNLOAD: '/api/reports/download', // /{reportId}
+    }
   },
 
   WS_TOPIC: '/topic/traffic',

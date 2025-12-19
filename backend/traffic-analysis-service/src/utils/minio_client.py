@@ -15,7 +15,7 @@ class MinioClient:
         try:
             # Khởi tạo MinIO client
             self.client = Minio(
-                endpoint,
+                endpoint=endpoint,
                 access_key=access_key,
                 secret_key=secret_key,
                 secure=False  # Sử dụng HTTP thay vì HTTPS
@@ -25,8 +25,8 @@ class MinioClient:
             logger.info(f"Đang kết nối đến MinIO tại {endpoint}")
             
             # Kiểm tra và tạo bucket nếu chưa tồn tại
-            if not self.client.bucket_exists(bucket_name):
-                self.client.make_bucket(bucket_name)
+            if not self.client.bucket_exists(bucket_name=bucket_name):
+                self.client.make_bucket(bucket_name=bucket_name)
                 logger.info(f"✓ Đã tạo bucket mới: {bucket_name}")
             else:
                 logger.info(f"✓ Bucket đã tồn tại: {bucket_name}")
@@ -92,14 +92,13 @@ class MinioClient:
             
             # Upload lên MinIO
             self.client.put_object(
-                self.bucket_name,
-                filename,
-                io.BytesIO(image_data),
-                len(image_data),
+                bucket_name=self.bucket_name,  
+                object_name=filename,          
+                data=io.BytesIO(image_data),   
+                length=len(image_data),        
                 content_type='image/jpeg'
             )
             encoded_filename = quote(filename, safe='/')
-            # Tạo URL với localhost:9000
             url = f"http://localhost:9000/{self.bucket_name}/{encoded_filename}"
             
             logger.info(f"✓ Đã upload ảnh thành công!")

@@ -102,7 +102,7 @@ services:
       minio:
         condition: service_healthy
     deploy:
-      replicas: 6
+      replicas: 2
       resources:
         reservations:
           devices:
@@ -111,7 +111,14 @@ services:
               capabilities: [ gpu ]
     cpus: '2'
     mem_limit: 4G
-
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"       
+        mode: "non-blocking" 
+        max-buffer-size: "4m"
+  
   dashboard-service:
     build: ./dashboard-service
     ports:
@@ -122,26 +129,46 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: admin
       APP_SIMULATE: "false"
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET_NAME: documents
+      IMAGE_BACKEND_HOST: host.docker.internal
+
+    extra_hosts:
+        - "host.docker.internal:host-gateway"
     depends_on:
       broker:
         condition: service_healthy
       postgres:
         condition: service_healthy
-
-  image-retrieval-service:
-    build: ./image-retrieval-service
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
     ports:
-      - "1810:1810"
+      - "5050:80"
     environment:
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      MINIO_BUCKET_NAME: traffic-analyzed-images
-      SERVER_PORT: 1810
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
     depends_on:
-      minio:
+      postgres:
         condition: service_healthy
+
+  # image-retrieval-service:
+  #   build: ./image-retrieval-service
+  #   ports:
+  #     - "1810:1810"
+  #   environment:
+  #     MINIO_ENDPOINT: http://minio:9000
+  #     MINIO_PUBLIC_ENDPOINT: http://localhost:9000
+  #     MINIO_ACCESS_KEY: minioadmin
+  #     MINIO_SECRET_KEY: minioadmin
+  #     MINIO_BUCKET_NAME: traffic-analyzed-images
+  #     SERVER_PORT: 1810
+  #   depends_on:
+  #     minio:
+  #       condition: service_healthy
 
 volumes:
   postgres_data:

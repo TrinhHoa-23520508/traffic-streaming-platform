@@ -345,6 +345,7 @@ function RoutingManager({ cameras, onCancel, onSetCameraClickHandler }: { camera
     const shortestRoute = routeOptions.shortest;
     const fastestRoute = routeOptions.fastest;
     const hasRoutes = Boolean(shortestRoute);
+    const isSameRoute = Boolean(shortestRoute && fastestRoute && fastestRoute.id === shortestRoute.id);
     const shouldRenderFastest = Boolean(fastestRoute && (!shortestRoute || fastestRoute.id !== shortestRoute.id));
     const derivedActiveType: RouteVariant | null = focusedRouteType
         ?? (fastestRoute && (!shortestRoute || fastestRoute.id !== shortestRoute.id)
@@ -428,8 +429,15 @@ function RoutingManager({ cameras, onCancel, onSetCameraClickHandler }: { camera
             )}
 
             {/* Route Segments */}
-            {renderRoutePolyline(shortestRoute, 'shortest', derivedActiveType)}
-            {shouldRenderFastest && renderRoutePolyline(fastestRoute, 'fastest', derivedActiveType)}
+            {/* When both routes are the same, render based on the active type. Otherwise, render both with appropriate logic */}
+            {isSameRoute ? (
+                renderRoutePolyline(derivedActiveType === 'shortest' ? shortestRoute : fastestRoute, derivedActiveType || 'shortest', derivedActiveType)
+            ) : (
+                <>
+                    {renderRoutePolyline(shortestRoute, 'shortest', derivedActiveType)}
+                    {shouldRenderFastest && renderRoutePolyline(fastestRoute, 'fastest', derivedActiveType)}
+                </>
+            )}
         </>
     );
 }

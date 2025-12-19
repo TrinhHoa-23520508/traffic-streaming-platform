@@ -8,8 +8,7 @@ import { LatLngExpression, LatLngTuple } from 'leaflet';
 import L from 'leaflet';
 import CameraMarkers from "@/components/camera-markers";
 import type { Camera } from "@/types/camera";
-import { FiMenu, FiNavigation, FiX, FiFileText, FiMapPin, FiZap, FiTrendingUp } from "react-icons/fi";
-import ReportDialog from "@/components/report-dialog";
+import { FiNavigation, FiX, FiMapPin, FiZap, FiTrendingUp } from "react-icons/fi";
 
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
@@ -54,15 +53,12 @@ function ChangeMapView({ center, zoom }: { center: LatLngExpression, zoom: numbe
         const zoomChanged = prevZoomRef.current !== zoom;
 
         // Only update if something actually changed
-        if (centerChanged && zoomChanged) {
-            // Both changed - use setView
-            map.setView(center, zoom);
-        } else if (centerChanged) {
-            // Only center changed - pan without zoom
-            map.panTo(center);
-        } else if (zoomChanged) {
-            // Only zoom changed
-            map.setZoom(zoom);
+        if (centerChanged || zoomChanged) {
+            // Use flyTo for smooth animation
+            map.flyTo(center, zoom, {
+                duration: 0.8, // Animation duration in seconds
+                easeLinearity: 0.25
+            });
         }
 
         // Update refs
@@ -148,10 +144,7 @@ const Map = (props: MapProps) => {
                 heatEnabled={heatEnabled}
             />
 
-            <div
-                className="absolute top-4 z-[1000] pointer-events-auto transition-all duration-300 ease-in-out"
-                style={{ right: rightOffset }}
-            >
+            <div className="absolute top-4 right-4 z-[1000] pointer-events-auto transition-all duration-300 ease-in-out">
                 <div className="flex items-center gap-2">
                     <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2">
                         <label className="flex items-center gap-2 select-none cursor-pointer">
@@ -167,25 +160,6 @@ const Map = (props: MapProps) => {
                     >
                         <FiNavigation size={18} />
                     </button>
-
-                    {!isModalOpen && (
-                        <>
-                            <button
-                                onClick={() => onOpenReport && onOpenReport()}
-                                className={`p-2 rounded-full shadow transition-colors ${isReportOpen ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                                title="Báo cáo giao thông"
-                            >
-                                <FiFileText size={18} />
-                            </button>
-                            <button
-                                onClick={() => onOpenDrawer && onOpenDrawer()}
-                                className={`p-2 rounded-full shadow transition-colors ${isDrawerOpen ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                                title="Thống kê thành phố"
-                            >
-                                <FiMenu size={18} />
-                            </button>
-                        </>
-                    )}
                 </div>
             </div>
 
@@ -203,13 +177,6 @@ const Map = (props: MapProps) => {
                 />
             )}
 
-            <ReportDialog 
-                open={!!isReportOpen} 
-                onOpenChange={(open) => {
-                    if (!open && onOpenReport) onOpenReport();
-                }}
-                onCameraSelect={handleReportCameraSelect}
-            />
         </MapContainer>
     )
 }

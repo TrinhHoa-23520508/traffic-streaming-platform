@@ -27,6 +27,7 @@ export interface Report {
 }
 
 export interface GenerateReportRequest {
+  name?: string;
   startDate: string;
   endDate: string;
   interval: string;
@@ -158,7 +159,7 @@ const reportApi = {
 
         // Transform to backend payload format
         const backendPayload: BackendReportRequest = {
-            name: `Báo cáo giao thông ${format(new Date(request.startDate), 'dd/MM/yyyy')}`,
+            name: request.name || `Báo cáo giao thông ${format(new Date(request.startDate), 'dd/MM/yyyy')}`,
             startTime: format(new Date(request.startDate), "yyyy-MM-dd'T'HH:mm:ssXXX"),
             endTime: format(new Date(request.endDate), "yyyy-MM-dd'T'HH:mm:ssXXX"),
             intervalMinutes: parseInt(request.interval),

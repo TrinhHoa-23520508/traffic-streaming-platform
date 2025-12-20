@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import reportApi, { District, Camera, Report } from "@/lib/api/reportApi"
+import reportApi, { District, Camera, Report, ReportDetail } from "@/lib/api/reportApi"
 import DatePicker from "@/components/date-picker"
 
 interface ReportDialogProps {
@@ -38,17 +38,46 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
   const [reportName, setReportName] = React.useState("")
   
   const [districts, setDistricts] = React.useState<District[]>([])
-  const [selectedDistrict, setSelectedDistrict] = React.useState<string>("")
+  const [selectedDistricts, setSelectedDistricts] = React.useState<string[]>([])
   const [cameras, setCameras] = React.useState<Camera[]>([])
   const [selectedCameras, setSelectedCameras] = React.useState<string[]>([])
   const [isGenerating, setIsGenerating] = React.useState(false)
   const [isLoadingDistricts, setIsLoadingDistricts] = React.useState(false)
   const [isLoadingCameras, setIsLoadingCameras] = React.useState(false)
+  
+  // Scheduling State
+  const [isScheduled, setIsScheduled] = React.useState(false)
+  const [scheduledDate, setScheduledDate] = React.useState<Date | undefined>(new Date())
+  const [scheduledTimeStr, setScheduledTimeStr] = React.useState("00:00")
 
   // List Tab State
   const [reports, setReports] = React.useState<Report[]>([])
   const [isLoadingReports, setIsLoadingReports] = React.useState(false)
-  const [selectedReport, setSelectedReport] = React.useState<Report | null>(null)
+  const [selectedReport, setSelectedReport] = React.useState<ReportDetail | null>(null)
+  const [isLoadingDetail, setIsLoadingDetail] = React.useState(false)
+
+  const handleViewReport = async (report: Report) => {
+    // Initialize with basic info and empty details
+    const tempDetail: ReportDetail = {
+        ...report,
+        startTime: "",
+        endTime: "",
+        interval: 0,
+        districts: [],
+        cameras: []
+    }
+    setSelectedReport(tempDetail)
+    setIsLoadingDetail(true)
+    
+    try {
+        const detail = await reportApi.getReportDetail(report.id)
+        setSelectedReport(detail)
+    } catch (error) {
+        console.error("Failed to fetch report details:", error)
+    } finally {
+        setIsLoadingDetail(false)
+    }
+  }
 
   // Update report name when start date changes
   React.useEffect(() => {
@@ -75,15 +104,23 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
     }
   }, [open])
 
-  // Fetch Cameras when district changes
+  // Fetch Cameras when districts change
   React.useEffect(() => {
-    if (selectedDistrict && selectedDistrict !== "ALL") {
+    if (selectedDistricts.length > 0) {
         const fetchCameras = async () => {
             setIsLoadingCameras(true)
             try {
-                const data = await reportApi.getCamerasByDistrict(selectedDistrict)
-                setCameras(data)
-                setSelectedCameras([]) // Reset selection
+                // Fetch cameras for all selected districts
+                const promises = selectedDistricts.map(dId => reportApi.getCamerasByDistrict(dId))
+                const results = await Promise.all(promises)
+                const allCameras = results.flat()
+                
+                // Remove duplicates if any
+                const uniqueCameras = Array.from(new Map(allCameras.map(c => [c.id, c])).values())
+                
+                setCameras(uniqueCameras)
+                // Filter selected cameras to only keep those in the new list
+                setSelectedCameras(prev => prev.filter(id => uniqueCameras.some(c => c.id === id)))
             } catch (error) {
                 console.error("Failed to fetch cameras:", error)
             } finally {
@@ -95,7 +132,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
         setCameras([])
         setSelectedCameras([])
     }
-  }, [selectedDistrict])
+  }, [selectedDistricts])
 
   // Fetch Reports when tab changes to 'list'
   React.useEffect(() => {
@@ -103,6 +140,24 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
         fetchReports()
     }
   }, [activeTab, open])
+
+  // Fetch Report Detail when selected
+  React.useEffect(() => {
+    if (selectedReport && !selectedReport.districts) { // If details missing
+        const fetchDetail = async () => {
+            setIsLoadingDetail(true)
+            try {
+                const detail = await reportApi.getReportDetail(selectedReport.id)
+                setSelectedReport(detail)
+            } catch (error) {
+                console.error("Failed to fetch report detail:", error)
+            } finally {
+                setIsLoadingDetail(false)
+            }
+        }
+        fetchDetail()
+    }
+  }, [selectedReport?.id])
 
   const fetchReports = async () => {
     setIsLoadingReports(true)
@@ -136,8 +191,8 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
         return
     }
 
-    if (!selectedDistrict) {
-        alert("Vui lòng chọn Quận/Huyện hoặc Toàn thành phố")
+    if (selectedDistricts.length === 0) {
+        alert("Vui lòng chọn ít nhất một Quận/Huyện")
         return
     }
 
@@ -150,6 +205,15 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
     const [endHours, endMinutes] = endTime.split(':').map(Number)
     endDateTime.setHours(endHours, endMinutes, 0)
 
+    // Calculate scheduled time
+    let scheduledTimeIso: string | undefined = undefined
+    if (isScheduled && scheduledDate) {
+        const schedDateTime = new Date(scheduledDate)
+        const [schedHours, schedMinutes] = scheduledTimeStr.split(':').map(Number)
+        schedDateTime.setHours(schedHours, schedMinutes, 0)
+        scheduledTimeIso = schedDateTime.toISOString()
+    }
+
     setIsGenerating(true)
     try {
         await reportApi.generateReport({
@@ -157,8 +221,9 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
             startDate: startDateTime.toISOString(),
             endDate: endDateTime.toISOString(),
             interval,
-            districtId: selectedDistrict === "ALL" ? undefined : selectedDistrict,
-            cameraIds: selectedDistrict === "ALL" ? [] : selectedCameras
+            districtIds: selectedDistricts,
+            cameraIds: selectedCameras,
+            scheduledTime: scheduledTimeIso
         })
         alert("Báo cáo đang được tạo. Vui lòng kiểm tra tab 'Danh sách báo cáo' sau ít phút.")
         // Switch to list tab to show progress/result if applicable
@@ -230,10 +295,11 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                         </TabsList>
                     </div>
 
-                    <TabsContent value="export" className="flex-1 overflow-y-auto p-6 data-[state=inactive]:hidden">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full">
-                            {/* Left Column: Settings */}
-                            <div className="lg:col-span-5 space-y-6">
+                    <TabsContent value="export" className="flex-1 overflow-y-auto data-[state=inactive]:hidden p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Left Column: Settings + Districts */}
+                            <div className="space-y-6">
+                                {/* Cấu hình báo cáo */}
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-semibold text-gray-900">Cấu hình báo cáo</h3>
                                     
@@ -248,7 +314,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-4 gap-3">
                                         <div className="grid gap-2">
                                             <Label>Ngày bắt đầu</Label>
                                             <DatePicker value={startDate} onChange={setStartDate} />
@@ -257,14 +323,11 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                             <Label>Ngày kết thúc</Label>
                                             <DatePicker value={endDate} onChange={setEndDate} />
                                         </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
                                         <div className="grid gap-2">
                                             <Label>Giờ bắt đầu</Label>
                                             <input 
                                                 type="time" 
-                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                className="flex h-10 w-auto rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                                 value={startTime}
                                                 onChange={(e) => setStartTime(e.target.value)}
                                             />
@@ -273,14 +336,14 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                             <Label>Giờ kết thúc</Label>
                                             <input 
                                                 type="time" 
-                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                className="flex h-10 w-auto rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                                 value={endTime}
                                                 onChange={(e) => setEndTime(e.target.value)}
                                             />
                                         </div>
                                     </div>
 
-                                    <div className="grid gap-2">
+                                    <div className="grid gap-2 max-w-xs">
                                         <Label>Độ phân giải thời gian (Interval)</Label>
                                         <Select value={interval} onValueChange={setInterval}>
                                         <SelectTrigger>
@@ -295,117 +358,200 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                         </Select>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Right Column: Scope */}
-                            <div className="lg:col-span-7 space-y-6 flex flex-col">
-                                <h3 className="text-lg font-semibold text-gray-900">Phạm vi dữ liệu</h3>
-                                <div className="border rounded-lg p-6 space-y-6 bg-slate-50/50 flex-1 flex flex-col">
-                                    
-                                    {/* 1. Chọn Quận/Huyện */}
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-semibold text-gray-700">Chọn Quận / Huyện</Label>
-                                        <Select value={selectedDistrict} onValueChange={setSelectedDistrict} disabled={isLoadingDistricts}>
-                                        <SelectTrigger className="bg-white h-12">
-                                            <SelectValue placeholder={isLoadingDistricts ? "Đang tải..." : "-- Chọn khu vực --"} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="ALL" className="font-semibold text-blue-600">Toàn thành phố</SelectItem>
-                                            {districts.map((d) => (
-                                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* 2. Chọn Camera */}
-                                    {selectedDistrict !== "ALL" && (
-                                        <div className="space-y-2 flex-1 flex flex-col">
-                                            <Label className="text-sm font-semibold text-gray-700">
-                                            Danh sách Camera {selectedDistrict ? `(${cameras.length})` : ''}
-                                            </Label>
-                                            
-                                            {!selectedDistrict ? (
-                                            <div className="flex-1 border rounded-lg bg-gray-100 flex items-center justify-center text-sm text-gray-400 italic min-h-[200px]">
-                                                Vui lòng chọn Quận/Huyện trước
+                                {/* Quận/Huyện - NO scroll, display full */}
+                                <div className="space-y-3">
+                                    <Label className="text-lg font-semibold text-gray-900">Chọn Quận / Huyện ({selectedDistricts.length})</Label>
+                                    <div className="border rounded-lg p-4 bg-slate-50/50">
+                                        {isLoadingDistricts ? (
+                                            <div className="flex items-center justify-center py-8">
+                                                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                                             </div>
-                                            ) : isLoadingCameras ? (
-                                                <div className="flex-1 border rounded-lg bg-white flex items-center justify-center min-h-[200px]">
-                                                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                                                </div>
-                                            ) : (
-                                            <ScrollArea className="flex-1 border rounded-lg p-4 bg-white min-h-[200px]">
-                                                {cameras.length > 0 ? (
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                        {cameras.map((cam) => (
-                                                            <div key={cam.id} className="flex items-center space-x-3 hover:bg-slate-50 p-2 rounded-md transition-colors border border-transparent hover:border-slate-200">
-                                                                <Checkbox 
-                                                                    id={cam.id} 
-                                                                    checked={selectedCameras.includes(cam.id)}
-                                                                    onCheckedChange={(checked) => {
-                                                                        if (checked) {
-                                                                            setSelectedCameras([...selectedCameras, cam.id])
-                                                                            if (onCameraSelect) onCameraSelect(cam.id)
-                                                                        } else {
-                                                                            setSelectedCameras(selectedCameras.filter(id => id !== cam.id))
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                <label
-                                                                    htmlFor={cam.id}
-                                                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
-                                                                    onClick={() => {
-                                                                        if (onCameraSelect) onCameraSelect(cam.id)
-                                                                    }}
-                                                                >
-                                                                    {cam.name}
-                                                                </label>
-                                                            </div>
-                                                        ))}
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {districts.map((d) => (
+                                                    <div key={d.id} className="flex items-center space-x-2 hover:bg-white p-2 rounded-md transition-colors border border-transparent hover:border-slate-200">
+                                                        <Checkbox 
+                                                            id={`district-${d.id}`}
+                                                            checked={selectedDistricts.includes(d.id)}
+                                                            onCheckedChange={(checked) => {
+                                                                if (checked) {
+                                                                    setSelectedDistricts([...selectedDistricts, d.id])
+                                                                } else {
+                                                                    setSelectedDistricts(selectedDistricts.filter(id => id !== d.id))
+                                                                }
+                                                            }}
+                                                        />
+                                                        <label
+                                                            htmlFor={`district-${d.id}`}
+                                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                                                        >
+                                                            {d.name}
+                                                        </label>
                                                     </div>
-                                                ) : (
-                                                    <div className="text-sm text-gray-500 p-4 text-center">Không có camera nào trong khu vực này</div>
-                                                )}
-                                            </ScrollArea>
-                                            )}
-                                            
-                                            {/* Quick Select All Helper */}
-                                            {selectedDistrict && cameras.length > 0 && (
-                                            <div className="flex justify-end pt-2">
-                                                <Button 
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* Quick select/deselect all districts */}
+                                    {districts.length > 0 && (
+                                        <div className="flex justify-end">
+                                            <Button 
                                                 variant="ghost" 
                                                 size="sm" 
                                                 className="text-blue-600 hover:text-blue-800"
-                                                onClick={() => {
-                                                    const allIds = cameras.map(c => c.id);
-                                                    if (selectedCameras.length === allIds.length) {
-                                                    setSelectedCameras([]);
+                                                onClick={async () => {
+                                                    if (selectedDistricts.length === districts.length) {
+                                                        setSelectedDistricts([]);
+                                                        setSelectedCameras([]);
                                                     } else {
-                                                    setSelectedCameras(allIds);
+                                                        // Select all districts
+                                                        const allDistrictIds = districts.map(d => d.id);
+                                                        setSelectedDistricts(allDistrictIds);
+                                                        
+                                                        // Fetch and auto-select all cameras
+                                                        setIsLoadingCameras(true);
+                                                        try {
+                                                            const promises = allDistrictIds.map(dId => reportApi.getCamerasByDistrict(dId));
+                                                            const results = await Promise.all(promises);
+                                                            const allCameras = results.flat();
+                                                            const uniqueCameras = Array.from(new Map(allCameras.map(c => [c.id, c])).values());
+                                                            setCameras(uniqueCameras);
+                                                            setSelectedCameras(uniqueCameras.map(c => c.id));
+                                                        } catch (error) {
+                                                            console.error("Failed to fetch cameras:", error);
+                                                        } finally {
+                                                            setIsLoadingCameras(false);
+                                                        }
                                                     }
                                                 }}
-                                                >
-                                                {selectedCameras.length === cameras.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-                                                </Button>
-                                            </div>
-                                            )}
+                                            >
+                                                {selectedDistricts.length === districts.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                                            </Button>
                                         </div>
                                     )}
+                                </div>
+
+                                {/* Scheduling Section */}
+                                <div className="space-y-4 border-t pt-4">
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox 
+                                            id="schedule-report" 
+                                            checked={isScheduled}
+                                            onCheckedChange={(checked) => setIsScheduled(checked as boolean)}
+                                        />
+                                        <label
+                                            htmlFor="schedule-report"
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                        >
+                                            Hẹn giờ thực thi báo cáo
+                                        </label>
+                                    </div>
                                     
-                                    {selectedDistrict === "ALL" && (
-                                        <div className="flex-1 border rounded-lg bg-blue-50 flex flex-col items-center justify-center text-blue-600 p-8 text-center min-h-[200px]">
-                                            <FileText className="h-12 w-12 mb-4 opacity-50" />
-                                            <p className="font-medium">Đã chọn chế độ báo cáo toàn thành phố</p>
-                                            <p className="text-sm opacity-75 mt-2">Hệ thống sẽ tổng hợp dữ liệu từ tất cả các camera trên địa bàn.</p>
+                                    {isScheduled && (
+                                        <div className="p-4 bg-slate-50 rounded-lg border animate-in slide-in-from-top-2 space-y-3">
+                                            <div className="flex gap-4">
+                                                <div className="grid gap-2">
+                                                    <Label>Ngày thực thi</Label>
+                                                    <DatePicker value={scheduledDate} onChange={setScheduledDate} />
+                                                </div>
+                                                <div className="grid gap-2">
+                                                    <Label>Giờ thực thi</Label>
+                                                    <input 
+                                                        type="time" 
+                                                        className="flex h-10 w-auto rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        value={scheduledTimeStr}
+                                                        onChange={(e) => setScheduledTimeStr(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                * Báo cáo sẽ được hệ thống tự động tạo vào thời gian đã chọn.
+                                            </div>
                                         </div>
                                     )}
                                 </div>
                             </div>
+
+                            {/* Right Column: Camera List - WITH scroll */}
+                            <div className="space-y-3">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    Danh sách Camera {selectedDistricts.length > 0 ? `(${cameras.length})` : ''}
+                                </h3>
+                                
+                                <div className="border rounded-lg bg-slate-50/50 h-[600px] overflow-hidden flex flex-col">
+                                    {selectedDistricts.length === 0 ? (
+                                        <div className="flex-1 flex items-center justify-center text-sm text-gray-400 italic">
+                                            Vui lòng chọn Quận/Huyện trước
+                                        </div>
+                                    ) : isLoadingCameras ? (
+                                        <div className="flex-1 flex items-center justify-center">
+                                            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                                        </div>
+                                    ) : cameras.length === 0 ? (
+                                        <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
+                                            Không có camera nào trong khu vực này
+                                        </div>
+                                    ) : (
+                                        <ScrollArea className="flex-1 p-4">
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {cameras.map((cam) => (
+                                                    <div key={cam.id} className="flex items-center space-x-2 hover:bg-white p-2 rounded-md transition-colors border border-transparent hover:border-slate-200">
+                                                        <Checkbox 
+                                                            id={cam.id} 
+                                                            checked={selectedCameras.includes(cam.id)}
+                                                            onCheckedChange={(checked) => {
+                                                                if (checked) {
+                                                                    setSelectedCameras([...selectedCameras, cam.id])
+                                                                    if (onCameraSelect) onCameraSelect(cam.id)
+                                                                } else {
+                                                                    setSelectedCameras(selectedCameras.filter(id => id !== cam.id))
+                                                                }
+                                                            }}
+                                                        />
+                                                        <label
+                                                            htmlFor={cam.id}
+                                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                                                            onClick={() => {
+                                                                if (onCameraSelect) onCameraSelect(cam.id)
+                                                            }}
+                                                        >
+                                                            {cam.name}
+                                                        </label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                    )}
+                                </div>
+                                
+                                {/* Quick Select All Cameras */}
+                                {selectedDistricts.length > 0 && cameras.length > 0 && (
+                                    <div className="flex justify-end">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="text-blue-600 hover:text-blue-800"
+                                            onClick={() => {
+                                                const allIds = cameras.map(c => c.id);
+                                                if (selectedCameras.length === allIds.length) {
+                                                    setSelectedCameras([]);
+                                                } else {
+                                                    setSelectedCameras(allIds);
+                                                }
+                                            }}
+                                        >
+                                            {selectedCameras.length === cameras.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="pt-6 flex justify-end gap-4 border-t mt-6">
+                        {/* Footer buttons - sticky at bottom */}
+                        <div className="pt-6 flex justify-end gap-4 border-t mt-8 sticky bottom-0 bg-white py-4 -mx-6 px-6">
                             <Button variant="outline" size="lg" onClick={() => onOpenChange(false)}>Hủy</Button>
-                            <Button size="lg" onClick={handleGenerate} disabled={isGenerating || (!selectedDistrict) || (selectedDistrict !== "ALL" && selectedCameras.length === 0)}>
+                            <Button size="lg" onClick={handleGenerate} disabled={isGenerating || selectedDistricts.length === 0}>
                                 {isGenerating ? (
                                     <>
                                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -414,7 +560,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                 ) : (
                                     <>
                                         <Download className="mr-2 h-5 w-5" />
-                                        Xuất Báo Cáo
+                                        {isScheduled ? 'Lên lịch báo cáo' : 'Xuất Báo Cáo'}
                                     </>
                                 )}
                             </Button>
@@ -443,7 +589,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                                             key={report.id} 
                                                             report={report} 
                                                             isActive={selectedReport?.id === report.id}
-                                                            onClick={() => setSelectedReport(report)}
+                                                            onClick={() => handleViewReport(report)}
                                                         />
                                                     ))}
                                                 </div>
@@ -458,7 +604,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                                             key={report.id} 
                                                             report={report} 
                                                             isActive={selectedReport?.id === report.id}
-                                                            onClick={() => setSelectedReport(report)}
+                                                            onClick={() => handleViewReport(report)}
                                                         />
                                                     ))}
                                                 </div>
@@ -473,7 +619,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                                             key={report.id} 
                                                             report={report} 
                                                             isActive={selectedReport?.id === report.id}
-                                                            onClick={() => setSelectedReport(report)}
+                                                            onClick={() => handleViewReport(report)}
                                                         />
                                                     ))}
                                                 </div>
@@ -520,37 +666,100 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                                 </Button>
                                             </div>
                                         </div>
-                                        <div className="flex-1 min-h-0">
-                                            <ScrollArea className="h-full w-full">
-                                                <div className="p-8 flex flex-col items-center justify-center min-h-full">
-                                                    {selectedReport.status === 'COMPLETED' ? (
-                                                        <div className="text-center space-y-4 max-w-md">
-                                                            <div className="bg-white p-8 rounded-full shadow-lg inline-block mb-4">
-                                                                <FileText className="h-16 w-16 text-blue-500" />
-                                                            </div>
-                                                            <h4 className="text-xl font-semibold text-gray-900">Báo cáo đã sẵn sàng</h4>
-                                                            <p className="text-gray-500">
-                                                                Bạn có thể xem trước thông tin tóm tắt hoặc tải xuống file PDF đầy đủ để xem chi tiết.
-                                                            </p>
-                                                            {/* Future: If we have a preview URL or HTML content, render it here */}
-                                                        </div>
-                                                    ) : selectedReport.status === 'PENDING' ? (
-                                                        <div className="text-center space-y-4">
-                                                            <Loader2 className="h-16 w-16 animate-spin text-yellow-500 mx-auto" />
-                                                            <h4 className="text-xl font-semibold text-gray-900">Đang xử lý báo cáo...</h4>
-                                                            <p className="text-gray-500">Vui lòng đợi trong giây lát.</p>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="text-center space-y-4">
-                                                            <div className="bg-red-100 p-6 rounded-full inline-block">
-                                                                <FiX className="h-12 w-12 text-red-500" />
-                                                            </div>
-                                                            <h4 className="text-xl font-semibold text-gray-900">Tạo báo cáo thất bại</h4>
-                                                            <p className="text-gray-500">Đã có lỗi xảy ra trong quá trình tạo báo cáo.</p>
-                                                        </div>
-                                                    )}
+                                        <div className="flex-1 min-h-0 overflow-y-auto p-8">
+                                            {isLoadingDetail ? (
+                                                <div className="flex flex-col items-center justify-center h-64">
+                                                    <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-4" />
+                                                    <p className="text-gray-500">Đang tải thông tin chi tiết...</p>
                                                 </div>
-                                            </ScrollArea>
+                                            ) : (
+                                                <div className="space-y-8 max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-sm border">
+                                                    {/* Status Header */}
+                                                    <div className="flex items-center justify-between pb-6 border-b">
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Trạng thái</h4>
+                                                            <div className={cn(
+                                                                "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium",
+                                                                selectedReport.status === 'COMPLETED' ? "bg-green-100 text-green-700" :
+                                                                selectedReport.status === 'PENDING' ? "bg-yellow-100 text-yellow-700" :
+                                                                "bg-red-100 text-red-700"
+                                                            )}>
+                                                                {selectedReport.status === 'COMPLETED' ? 'Sẵn sàng' : selectedReport.status === 'PENDING' ? 'Đang xử lý' : 'Lỗi'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">ID Báo cáo</h4>
+                                                            <p className="font-mono text-sm text-gray-700">{selectedReport.id}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Time Range */}
+                                                    <div className="grid grid-cols-2 gap-8">
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Thời gian bắt đầu</h4>
+                                                            <p className="text-lg font-semibold text-gray-900">
+                                                                {selectedReport.startTime ? format(new Date(selectedReport.startTime), "HH:mm dd/MM/yyyy") : "N/A"}
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Thời gian kết thúc</h4>
+                                                            <p className="text-lg font-semibold text-gray-900">
+                                                                {selectedReport.endTime ? format(new Date(selectedReport.endTime), "HH:mm dd/MM/yyyy") : "N/A"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Configuration */}
+                                                    <div>
+                                                        <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Cấu hình</h4>
+                                                        <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                                                            <div>
+                                                                <span className="text-sm text-gray-500">Độ phân giải (Interval):</span>
+                                                                <p className="font-medium text-gray-900">{selectedReport.interval ? `${selectedReport.interval} phút` : "N/A"}</p>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-sm text-gray-500">Loại báo cáo:</span>
+                                                                <p className="font-medium text-gray-900">{selectedReport.type || "PDF"}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Scope */}
+                                                    <div className="space-y-4">
+                                                        <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider border-b pb-2">Phạm vi dữ liệu</h4>
+                                                        
+                                                        <div>
+                                                            <span className="text-sm font-medium text-gray-700 block mb-2">Quận / Huyện ({selectedReport.districts?.length || 0})</span>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {selectedReport.districts && selectedReport.districts.length > 0 ? (
+                                                                    selectedReport.districts.map((d, i) => (
+                                                                        <span key={i} className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium border border-blue-100">
+                                                                            {d}
+                                                                        </span>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="text-sm text-gray-400 italic">Toàn thành phố</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <div>
+                                                            <span className="text-sm font-medium text-gray-700 block mb-2">Camera ({selectedReport.cameras?.length || 0})</span>
+                                                            {selectedReport.cameras && selectedReport.cameras.length > 0 ? (
+                                                                <div className="max-h-32 overflow-y-auto border rounded-md p-2 bg-gray-50 text-sm text-gray-600">
+                                                                    <ul className="list-disc list-inside space-y-1">
+                                                                        {selectedReport.cameras.map((c, i) => (
+                                                                            <li key={i} className="truncate">{c}</li>
+                                                                        ))}
+                                                                    </ul>
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-sm text-gray-400 italic">Tất cả camera trong khu vực</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ) : (

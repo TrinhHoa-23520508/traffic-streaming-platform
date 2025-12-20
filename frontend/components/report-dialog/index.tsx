@@ -202,19 +202,19 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
         <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
             role="dialog" aria-modal="true"
         >
-            <div className="flex items-center justify-between py-4 px-6 border-b border-gray-200 relative flex-none bg-white">
-                <div>
+            <div className="flex items-center justify-center py-4 px-6 border-b border-gray-200 relative flex-none bg-white">
+                <div className="text-center">
                     <h1 className="text-black text-2xl font-bold">Báo Cáo Giao Thông</h1>
                     <p className="text-gray-500 text-sm">Quản lý và xuất báo cáo thống kê.</p>
                 </div>
                 <button
                     onClick={() => onOpenChange(false)}
-                    className="text-gray-500 hover:text-black cursor-pointer p-2 rounded-md transition-colors hover:bg-gray-100"
+                    className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black cursor-pointer p-2 rounded-md transition-colors hover:bg-gray-100"
                     aria-label="Đóng"
                 >
                     <FiX size={24} />
@@ -223,7 +223,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
 
             <div className="flex-1 overflow-hidden flex flex-col">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                    <div className="px-6 pt-4 border-b">
+                    <div className="px-6 pt-4 border-b flex justify-center">
                         <TabsList className="grid w-[400px] grid-cols-2">
                             <TabsTrigger value="export">Xuất Báo Cáo</TabsTrigger>
                             <TabsTrigger value="list">Danh sách báo cáo</TabsTrigger>
@@ -424,74 +424,76 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                     <TabsContent value="list" className="flex-1 overflow-hidden p-6 data-[state=inactive]:hidden">
                         <div className="grid grid-cols-12 gap-6 h-full">
                             {/* List Column */}
-                            <div className="col-span-4 flex flex-col h-full border rounded-lg bg-white overflow-hidden">
-                                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                            <div className="col-span-4 flex flex-col h-full border rounded-lg bg-white overflow-hidden min-h-0">
+                                <div className="p-4 border-b flex justify-between items-center bg-gray-50 flex-none">
                                     <h3 className="font-semibold text-gray-700">Danh sách báo cáo</h3>
                                     <Button variant="ghost" size="sm" onClick={fetchReports} disabled={isLoadingReports}>
                                         <RefreshCw className={`h-4 w-4 ${isLoadingReports ? 'animate-spin' : ''}`} />
                                     </Button>
                                 </div>
-                                <ScrollArea className="flex-1 p-4">
-                                    <div className="space-y-4">
-                                        {/* Pending */}
-                                        {pendingReports.length > 0 && (
-                                            <div className="space-y-2">
-                                                <h4 className="text-xs font-bold text-yellow-600 uppercase tracking-wider">Đang xử lý</h4>
-                                                {pendingReports.map(report => (
-                                                    <ReportItem 
-                                                        key={report.id} 
-                                                        report={report} 
-                                                        isActive={selectedReport?.id === report.id}
-                                                        onClick={() => setSelectedReport(report)}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-                                        
-                                        {/* Completed */}
-                                        {completedReports.length > 0 && (
-                                            <div className="space-y-2">
-                                                <h4 className="text-xs font-bold text-green-600 uppercase tracking-wider">Hoàn thành</h4>
-                                                {completedReports.map(report => (
-                                                    <ReportItem 
-                                                        key={report.id} 
-                                                        report={report} 
-                                                        isActive={selectedReport?.id === report.id}
-                                                        onClick={() => setSelectedReport(report)}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
+                                <div className="flex-1 min-h-0">
+                                    <ScrollArea className="h-full w-full">
+                                        <div className="p-4 space-y-4">
+                                            {/* Pending */}
+                                            {pendingReports.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <h4 className="text-xs font-bold text-yellow-600 uppercase tracking-wider">Đang xử lý</h4>
+                                                    {pendingReports.map(report => (
+                                                        <ReportItem 
+                                                            key={report.id} 
+                                                            report={report} 
+                                                            isActive={selectedReport?.id === report.id}
+                                                            onClick={() => setSelectedReport(report)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
+                                            
+                                            {/* Completed */}
+                                            {completedReports.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <h4 className="text-xs font-bold text-green-600 uppercase tracking-wider">Hoàn thành</h4>
+                                                    {completedReports.map(report => (
+                                                        <ReportItem 
+                                                            key={report.id} 
+                                                            report={report} 
+                                                            isActive={selectedReport?.id === report.id}
+                                                            onClick={() => setSelectedReport(report)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
 
-                                        {/* Failed */}
-                                        {failedReports.length > 0 && (
-                                            <div className="space-y-2">
-                                                <h4 className="text-xs font-bold text-red-600 uppercase tracking-wider">Thất bại</h4>
-                                                {failedReports.map(report => (
-                                                    <ReportItem 
-                                                        key={report.id} 
-                                                        report={report} 
-                                                        isActive={selectedReport?.id === report.id}
-                                                        onClick={() => setSelectedReport(report)}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
+                                            {/* Failed */}
+                                            {failedReports.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <h4 className="text-xs font-bold text-red-600 uppercase tracking-wider">Thất bại</h4>
+                                                    {failedReports.map(report => (
+                                                        <ReportItem 
+                                                            key={report.id} 
+                                                            report={report} 
+                                                            isActive={selectedReport?.id === report.id}
+                                                            onClick={() => setSelectedReport(report)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
 
-                                        {safeReports.length === 0 && !isLoadingReports && (
-                                            <div className="text-center py-8 text-gray-400">
-                                                <p>Chưa có báo cáo nào.</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </ScrollArea>
+                                            {safeReports.length === 0 && !isLoadingReports && (
+                                                <div className="text-center py-8 text-gray-400">
+                                                    <p>Chưa có báo cáo nào.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                </div>
                             </div>
 
                             {/* Preview Column */}
-                            <div className="col-span-8 flex flex-col h-full border rounded-lg bg-gray-50 overflow-hidden">
+                            <div className="col-span-8 flex flex-col h-full border rounded-lg bg-gray-50 overflow-hidden min-h-0">
                                 {selectedReport ? (
                                     <div className="flex flex-col h-full">
-                                        <div className="p-4 border-b bg-white flex justify-between items-center shadow-sm">
+                                        <div className="p-4 border-b bg-white flex justify-between items-center shadow-sm flex-none">
                                             <div>
                                                 <h3 className="font-bold text-lg text-gray-900">{selectedReport.fileName}</h3>
                                                 <p className="text-sm text-gray-500">
@@ -518,33 +520,37 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                                 </Button>
                                             </div>
                                         </div>
-                                        <div className="flex-1 p-8 flex items-center justify-center overflow-hidden">
-                                            {selectedReport.status === 'COMPLETED' ? (
-                                                <div className="text-center space-y-4 max-w-md">
-                                                    <div className="bg-white p-8 rounded-full shadow-lg inline-block mb-4">
-                                                        <FileText className="h-16 w-16 text-blue-500" />
-                                                    </div>
-                                                    <h4 className="text-xl font-semibold text-gray-900">Báo cáo đã sẵn sàng</h4>
-                                                    <p className="text-gray-500">
-                                                        Bạn có thể xem trước thông tin tóm tắt hoặc tải xuống file PDF đầy đủ để xem chi tiết.
-                                                    </p>
-                                                    {/* Future: If we have a preview URL or HTML content, render it here */}
+                                        <div className="flex-1 min-h-0">
+                                            <ScrollArea className="h-full w-full">
+                                                <div className="p-8 flex flex-col items-center justify-center min-h-full">
+                                                    {selectedReport.status === 'COMPLETED' ? (
+                                                        <div className="text-center space-y-4 max-w-md">
+                                                            <div className="bg-white p-8 rounded-full shadow-lg inline-block mb-4">
+                                                                <FileText className="h-16 w-16 text-blue-500" />
+                                                            </div>
+                                                            <h4 className="text-xl font-semibold text-gray-900">Báo cáo đã sẵn sàng</h4>
+                                                            <p className="text-gray-500">
+                                                                Bạn có thể xem trước thông tin tóm tắt hoặc tải xuống file PDF đầy đủ để xem chi tiết.
+                                                            </p>
+                                                            {/* Future: If we have a preview URL or HTML content, render it here */}
+                                                        </div>
+                                                    ) : selectedReport.status === 'PENDING' ? (
+                                                        <div className="text-center space-y-4">
+                                                            <Loader2 className="h-16 w-16 animate-spin text-yellow-500 mx-auto" />
+                                                            <h4 className="text-xl font-semibold text-gray-900">Đang xử lý báo cáo...</h4>
+                                                            <p className="text-gray-500">Vui lòng đợi trong giây lát.</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-center space-y-4">
+                                                            <div className="bg-red-100 p-6 rounded-full inline-block">
+                                                                <FiX className="h-12 w-12 text-red-500" />
+                                                            </div>
+                                                            <h4 className="text-xl font-semibold text-gray-900">Tạo báo cáo thất bại</h4>
+                                                            <p className="text-gray-500">Đã có lỗi xảy ra trong quá trình tạo báo cáo.</p>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            ) : selectedReport.status === 'PENDING' ? (
-                                                <div className="text-center space-y-4">
-                                                    <Loader2 className="h-16 w-16 animate-spin text-yellow-500 mx-auto" />
-                                                    <h4 className="text-xl font-semibold text-gray-900">Đang xử lý báo cáo...</h4>
-                                                    <p className="text-gray-500">Vui lòng đợi trong giây lát.</p>
-                                                </div>
-                                            ) : (
-                                                <div className="text-center space-y-4">
-                                                    <div className="bg-red-100 p-6 rounded-full inline-block">
-                                                        <FiX className="h-12 w-12 text-red-500" />
-                                                    </div>
-                                                    <h4 className="text-xl font-semibold text-gray-900">Tạo báo cáo thất bại</h4>
-                                                    <p className="text-gray-500">Đã có lỗi xảy ra trong quá trình tạo báo cáo.</p>
-                                                </div>
-                                            )}
+                                            </ScrollArea>
                                         </div>
                                     </div>
                                 ) : (

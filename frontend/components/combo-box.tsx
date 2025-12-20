@@ -67,10 +67,33 @@ export default function Combobox({
     setOpen(false)
   }
 
+  const triggerRef = React.useRef<HTMLElement | null>(null)
+  const [triggerWidth, setTriggerWidth] = React.useState<number | undefined>(undefined)
+
+  React.useLayoutEffect(() => {
+    if (!open) return
+    const el = triggerRef.current
+    if (el) {
+      const rect = el.getBoundingClientRect()
+      setTriggerWidth(rect.width)
+    }
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open) return
+    const onResize = () => {
+      const el = triggerRef.current
+      if (el) setTriggerWidth(el.getBoundingClientRect().width)
+    }
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [open])
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={triggerRef as any}
           variant="outline"
           role="combobox"
           aria-expanded={open}
@@ -81,7 +104,11 @@ export default function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn("p-0", popoverClassName)}>
+
+      <PopoverContent
+        className={cn("p-0", popoverClassName)}
+        style={triggerWidth ? { width: `${triggerWidth}px`, minWidth: `${triggerWidth}px` } : undefined}
+      >
         <Command>
           <CommandInput placeholder={searchPlaceholder} className="h-9" />
           <CommandList className={listClassName}>

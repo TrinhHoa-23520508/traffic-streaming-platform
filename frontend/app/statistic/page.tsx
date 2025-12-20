@@ -12,7 +12,7 @@ export default function StatisticPage() {
     };
 
     return (
-        <div className="fixed inset-0 h-screen w-screen overflow-hidden bg-gray-900/50">
+        <div className="relative h-screen w-screen overflow-hidden bg-slate-50">
             {/* Navigation Sidebar */}
             <div className="fixed top-6 left-2 z-[1001] pointer-events-auto">
                 <div className="bg-white rounded-lg shadow-lg p-1.5 flex flex-col gap-1.5">
@@ -40,11 +40,9 @@ export default function StatisticPage() {
                 </div>
             </div>
 
-            <CityStatsDrawer open={true} onOpenChange={(open) => {
-                if (!open) {
-                    handleClose();
-                }
-            }} />
+            <div className="pl-20 h-full w-full">
+                <CityStatsDrawer />
+            </div>
         </div>
     );
 }

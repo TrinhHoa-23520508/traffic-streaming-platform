@@ -1,6 +1,7 @@
 "use client"
 
 import { FiClock, FiCamera } from "react-icons/fi"
+import { IoClose } from 'react-icons/io5'
 import React, { useState, useEffect } from 'react'
 import InforPanel from "./infor-panel"
 import { trafficApi } from "@/lib/api/trafficApi"
@@ -65,7 +66,6 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
     const [severityFilter, setSeverityFilter] = useState<AlertSeverity | "all">("all");
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-    const itemsPerPage = selectedAlert ? 3 : 4;
     const maxAlerts = MAX_ALERTS;
 
     const filteredAlerts = alerts.filter(a => {
@@ -74,9 +74,9 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
         return matchDistrict && matchSeverity;
     });
 
-    const totalPages = Math.ceil(filteredAlerts.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
+    const totalPages = Math.ceil(filteredAlerts.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
     const paginatedAlerts = filteredAlerts.slice(startIndex, endIndex);
 
     useEffect(() => {
@@ -314,7 +314,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                                 </div>
                             ))}
 
-                            {Array.from({ length: Math.max(0, itemsPerPage - paginatedAlerts.length) }).map((_, i) => (
+                            {Array.from({ length: Math.max(0, ITEMS_PER_PAGE - paginatedAlerts.length) }).map((_, i) => (
                                 <div key={`placeholder-${i}`} className="min-h-[120px] flex-shrink-0" />
                             ))}
                         </>
@@ -350,22 +350,27 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
 
 function CameraPreviewSection({ alert, liveviewUrl }: { alert: TrafficAlert | null, liveviewUrl?: string }) {
     const [displayUrl, setDisplayUrl] = useState<string | undefined>(undefined);
+    const [showImage, setShowImage] = useState<boolean>(true);
 
     useEffect(() => {
         if (liveviewUrl) {
-            setDisplayUrl(`https://api.notis.vn/v4/${liveviewUrl}?t=${Date.now()}`);
+            const url = `https://api.notis.vn/v4/${liveviewUrl}?t=${Date.now()}`;
+            setDisplayUrl(url);
+            setShowImage(Boolean(url));
         } else if (alert?.imageUrl) {
             setDisplayUrl(alert.imageUrl);
+            setShowImage(Boolean(alert.imageUrl));
         } else {
             setDisplayUrl(undefined);
+            setShowImage(false);
         }
     }, [alert, liveviewUrl]);
 
-    if (!alert) return null;
+    if (!alert || !showImage) return null;
 
     return (
         <div className="mb-3 rounded-lg overflow-hidden relative bg-slate-100 border border-slate-200 aspect-video flex-shrink-0 group">
-            {displayUrl ? (
+            {displayUrl && showImage ? (
                 <div className="relative w-full h-full">
                     <img
                         src={displayUrl}
@@ -377,6 +382,14 @@ function CameraPreviewSection({ alert, liveviewUrl }: { alert: TrafficAlert | nu
                             }
                         }}
                     />
+
+                    <button
+                        onClick={() => setShowImage(false)}
+                        className="absolute top-3 right-3 z-20 rounded-md bg-white/90 border border-slate-200 text-slate-700 p-1.5 shadow-sm focus:outline-none transition"
+                    >
+                        <IoClose className="w-4 h-4" />
+                    </button>
+
                     <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
                         <div className="font-bold text-lg shadow-black drop-shadow-md">{alert.title}</div>
                         <div className="text-sm opacity-90 shadow-black drop-shadow-md">{alert.time} - {alert.date}</div>

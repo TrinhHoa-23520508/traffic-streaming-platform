@@ -221,7 +221,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                 </button>
             </div>
 
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-auto flex flex-col">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
                     <div className="px-6 pt-4 border-b flex justify-center">
                         <TabsList className="grid w-[400px] grid-cols-2">
@@ -433,7 +433,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                 </div>
                                 <div className="flex-1 min-h-0">
                                     <ScrollArea className="h-full w-full">
-                                        <div className="p-4 space-y-4">
+                                        <div className="p-4 space-y-4 pr-4">
                                             {/* Pending */}
                                             {pendingReports.length > 0 && (
                                                 <div className="space-y-2">

@@ -221,8 +221,10 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
             onDateRangeChange={setDateRange}
             showCameraFilter={false}
             showCurrentTimeOptionInDatePicker={true}
+            className="h-full"
+            contentClassName="flex flex-col h-full"
             children={
-                <div className="relative w-full">
+                <div className="relative w-full h-full flex flex-col">
                     {loading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10 backdrop-blur-[2px]">
                             <div className="flex items-center gap-4 bg-white/95 px-5 py-3 rounded-xl border border-white/95">
@@ -236,7 +238,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
                             </div>
                         </div>
                     )}
-                    <div className="w-full overflow-y-auto h-[175px] pr-2">
+                    <div className="w-full overflow-y-auto flex-1 pr-2">
                         <div style={{ height: chartHeight }} ref={chartRef}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart

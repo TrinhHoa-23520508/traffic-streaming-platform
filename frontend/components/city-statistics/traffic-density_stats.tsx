@@ -280,8 +280,10 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
             cameraFilterValue={selectedCamera}
             onCameraFilterChange={setSelectedCamera}
             showCurrentTimeOptionInDatePicker={true}
+            className="h-full"
+            contentClassName="h-full"
             children={
-                <div className="relative w-full h-full flex-1 min-h-0">
+                <div className="relative w-full h-full flex-1 min-h-0 flex flex-col">
                     {loading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10 backdrop-blur-[2px]">
                             <div className="flex items-center gap-4 bg-white/95 px-5 py-3 rounded-xl border border-white/95">
@@ -297,7 +299,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                             </div>
                         </div>
                     )}
-                    <div style={{ width: '100%', height: 200 }} ref={chartRef}>
+                    <div className="flex-1 min-h-0" ref={chartRef}>
                         <ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 20, right: 20, left: 15, bottom: 30 }}>
                             <defs>
                                 <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">

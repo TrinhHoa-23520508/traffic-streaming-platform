@@ -118,17 +118,17 @@ export default function CityStatisticsPage() {
                     <RefreshButton onClick={handleRefresh} isLoading={isRefreshing} />
                 </div>
 
-                <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-                    <div className="flex-1 min-h-0">
-                        <VehicleStatisticsStackChart
+                <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-2">
+                    <div className="h-[350px] flex-shrink-0">
+                        <TrafficDensityStatisticsAreaChart
+                            data={cityStatsData}
                             refreshTrigger={refreshKey}
                             onLoadComplete={handleApiComplete}
                             districts={districts}
                         />
                     </div>
-                    <div className="flex-1 min-h-0">
-                        <TrafficDensityStatisticsAreaChart
-                            data={cityStatsData}
+                    <div className="flex-shrink-0">
+                        <VehicleStatisticsStackChart
                             refreshTrigger={refreshKey}
                             onLoadComplete={handleApiComplete}
                             districts={districts}

@@ -150,8 +150,9 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
 
         const defaultColors = [CHART_COLORS.tertiary, CHART_COLORS.quinary, CHART_COLORS.senary, CHART_COLORS.septenary];
 
+        const tooltipWidth = 260;
         let style: React.CSSProperties = {
-            minWidth: 220,
+            minWidth: tooltipWidth,
             pointerEvents: 'none',
             zIndex: 99999,
             position: 'fixed',
@@ -160,10 +161,14 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
 
         if (chartRef.current && coordinate) {
             const box = chartRef.current.getBoundingClientRect();
+            let leftPos = box.left + coordinate.x - tooltipWidth - 20;
+            if (leftPos < 8) {
+                leftPos = box.left + coordinate.x + 20; // fallback to right side
+            }
             style = {
                 ...style,
                 visibility: 'visible',
-                left: box.left + coordinate.x + 20,
+                left: leftPos,
                 top: box.top + coordinate.y - 50,
             };
         }
@@ -221,10 +226,8 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
             onDateRangeChange={setDateRange}
             showCameraFilter={false}
             showCurrentTimeOptionInDatePicker={true}
-            className="h-full"
-            contentClassName="flex flex-col h-full"
             children={
-                <div className="relative w-full h-full flex flex-col">
+                <div className="relative w-full flex flex-col">
                     {loading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10 backdrop-blur-[2px]">
                             <div className="flex items-center gap-4 bg-white/95 px-5 py-3 rounded-xl border border-white/95">
@@ -238,7 +241,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
                             </div>
                         </div>
                     )}
-                    <div className="w-full overflow-y-auto flex-1 pr-2">
+                    <div className="w-full pr-2">
                         <div style={{ height: chartHeight }} ref={chartRef}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart

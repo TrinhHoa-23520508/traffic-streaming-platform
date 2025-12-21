@@ -194,8 +194,9 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         const dataPoint = payload[0].payload;
         const fullDate = dataPoint.time ? format(new Date(dataPoint.time), 'dd/MM/yyyy HH:mm') : label;
 
+        const tooltipWidth = 260;
         let style: React.CSSProperties = {
-            minWidth: 220,
+            minWidth: tooltipWidth,
             pointerEvents: 'none',
             zIndex: 99999,
             position: 'fixed',
@@ -204,10 +205,14 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
         if (chartRef.current && coordinate) {
             const box = chartRef.current.getBoundingClientRect();
+            let leftPos = box.left + coordinate.x - tooltipWidth - 20;
+            if (leftPos < 8) {
+                leftPos = box.left + coordinate.x + 20; // fallback to right side
+            }
             style = {
                 ...style,
                 visibility: 'visible',
-                left: box.left + coordinate.x + 20,
+                left: leftPos,
                 top: box.top + coordinate.y - 50,
             };
         }

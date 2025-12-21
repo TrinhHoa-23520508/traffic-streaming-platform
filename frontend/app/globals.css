@@ -151,8 +151,8 @@ html, body {
 
 .camera-marker-content {
   position: relative;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,8 +165,8 @@ html, body {
 }
 
 .camera-marker-content svg {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   color: white;
   z-index: 2;
   pointer-events: none;

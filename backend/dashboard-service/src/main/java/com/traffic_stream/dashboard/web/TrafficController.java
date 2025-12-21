@@ -1,5 +1,7 @@
 package com.traffic_stream.dashboard.web;
 
+import com.traffic_stream.dashboard.dto.CameraDTO;
+import com.traffic_stream.dashboard.dto.DistrictDTO;
 import com.traffic_stream.dashboard.entity.TrafficMetric;
 import com.traffic_stream.dashboard.service.TrafficService;
 import org.springframework.http.ResponseEntity;
@@ -101,4 +103,28 @@ public class TrafficController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    /**
+     * API 6: Lấy danh sách tất cả các quận có dữ liệu
+     * Endpoint: GET /api/traffic/districts
+     */
+    @GetMapping("/districts")
+    public ResponseEntity<List<DistrictDTO>> getAllDistricts() {
+        List<DistrictDTO> districts = trafficService.getAllDistricts();
+        return ResponseEntity.ok(districts);
+    }
+
+    /**
+     * API 7: Lấy danh sách tất cả camera
+     * Lọc (optional): ?district=Tên Quận
+     * Endpoint: GET /api/traffic/cameras
+     * Endpoint: GET /api/traffic/cameras?district=Quận 1
+     */
+    @GetMapping("/cameras")
+    public ResponseEntity<List<CameraDTO>> getAllCameras(
+            @RequestParam(required = false) String district) {
+        List<CameraDTO> cameras = trafficService.getAllCameras(district);
+        return ResponseEntity.ok(cameras);
+    }
+
 }

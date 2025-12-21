@@ -83,4 +83,29 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
 
     //Tìm theo khoảng thời gian và quận (cho API Hourly Summary có filter quận)
     List<TrafficMetric> findByTimestampBetweenAndDistrict(Instant start, Instant end, String district);
+
+    @Query("SELECT DISTINCT t.district FROM TrafficMetric t ORDER BY t.district")
+    List<String> findDistinctDistricts();
+
+    @Query("SELECT DISTINCT t.cameraId FROM TrafficMetric t ORDER BY t.cameraId")
+    List<String> findDistinctCameraIds();
+
+    @Query("SELECT DISTINCT t.cameraId FROM TrafficMetric t WHERE t.district = :district ORDER BY t.cameraId")
+    List<String> findDistinctCameraIdsByDistrict(@Param("district") String district);
+
+    List<TrafficMetric> findByCameraIdIn(List<String> cameraIds);
+
+    List<TrafficMetric> findByCameraIdInAndTimestampBetween(List<String> cameraIds, Instant start, Instant end);
+    List<TrafficMetric> findByDistrictInAndTimestampBetween(List<String> districts, Instant start, Instant end);
+
+    // Validation queries - optimized for minimal DB calls
+    @Query("SELECT DISTINCT t.district FROM TrafficMetric t WHERE t.district IN :districts")
+    List<String> findExistingDistrictsIn(@Param("districts") List<String> districts);
+
+    @Query("SELECT DISTINCT t.cameraId FROM TrafficMetric t WHERE t.cameraId IN :cameraIds")
+    List<String> findExistingCameraIdsIn(@Param("cameraIds") List<String> cameraIds);
+
+    @Query("SELECT DISTINCT t.cameraId, t.district FROM TrafficMetric t WHERE t.cameraId IN :cameraIds")
+    List<Object[]> findCameraDistrictMappingsByCameraIds(@Param("cameraIds") List<String> cameraIds);
+
 }

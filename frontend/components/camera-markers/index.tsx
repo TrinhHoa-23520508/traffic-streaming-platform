@@ -13,6 +13,7 @@ interface CameraMarkersProps {
     onCamerasUpdate?: (cameras: any[]) => void;
     routingMode?: boolean;
     onRoutingCameraClick?: ((camera: any) => void) | null;
+    heatEnabled?: boolean;
 }
 
 // Custom camera icon using DivIcon for CSS styling
@@ -33,12 +34,12 @@ const createCameraIcon = (isSelected: boolean) => divIcon({
             </svg>
         </div>
     `,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -32]
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -24]
 });
 
-export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate, routingMode, onRoutingCameraClick }: CameraMarkersProps) {
+export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate, routingMode, onRoutingCameraClick, heatEnabled }: CameraMarkersProps) {
     const [visibleCameras, setVisibleCameras] = useState<Camera[]>([]);
     const [loading, setLoading] = useState(true);
     const map = useMap();
@@ -61,13 +62,17 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                 return;
             }
 
-            const bounds = map.getBounds();
-
-            const inBounds = camerasRef.current.filter((camera) =>
-                bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
-            );
-
-            setVisibleCameras(inBounds);
+            // Check if map is ready
+            try {
+                const bounds = map.getBounds();
+                const inBounds = camerasRef.current.filter((camera) =>
+                    bounds.contains([camera.loc.coordinates[1], camera.loc.coordinates[0]])
+                );
+                setVisibleCameras(inBounds);
+            } catch (e) {
+                // Map might not be ready yet
+                console.warn("Map bounds not ready yet");
+            }
         }, 150); // 150ms debounce
     }, [map]);
 
@@ -236,7 +241,7 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
     const defaultIcon = useMemo(() => createCameraIcon(false), []);
     const selectedIcon = useMemo(() => createCameraIcon(true), []);
 
-    if (loading) {
+    if (loading || heatEnabled) {
         return null;
     }
 

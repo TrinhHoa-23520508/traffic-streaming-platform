@@ -6,8 +6,8 @@
  */
 
 export const API_CONFIG = {
-  BASE_URL: 'http://103.20.97.112:6677',
-  WS_URL: 'http://103.20.97.112/ws',
+  BASE_URL: 'http://localhost:6677',
+  WS_URL: 'http://localhost:6677/ws',
 
   ENDPOINTS: {
     TRAFFIC: {
@@ -16,7 +16,13 @@ export const API_CONFIG = {
       BY_DATE: '/api/traffic/by-date',
       HOURLY_SUMMARY: '/api/traffic/hourly-summary',
       CAMERA_LATEST: '/api/traffic/camera',
+      CAMERAS: '/api/traffic/cameras',
+      DISTRICTS: '/api/traffic/districts',
     },
+    REPORTS: {
+      BASE: '/api/reports',
+      DOWNLOAD: '/api/reports/download', // /{reportId}
+    }
   },
 
   WS_TOPIC: '/topic/traffic',

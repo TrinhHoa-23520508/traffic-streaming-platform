@@ -1,6 +1,7 @@
 "use client"
 
-import { FiClock } from "react-icons/fi"
+import { FiClock, FiCamera } from "react-icons/fi"
+import { IoClose } from 'react-icons/io5'
 import React, { useState, useEffect } from 'react'
 import InforPanel from "./infor-panel"
 import { trafficApi } from "@/lib/api/trafficApi"
@@ -19,12 +20,13 @@ type TrafficAlert = {
     time: string
     severity: AlertSeverity
     totalCount: number
+    imageUrl?: string
 }
 
 const SEVERITY_THRESHOLDS = {
-    HIGH: 35,
-    MEDIUM: 25,
-    LOW: 15
+    HIGH: 5,
+    MEDIUM: 3,
+    LOW: 1
 } as const;
 
 const ITEMS_PER_PAGE = 3;
@@ -50,15 +52,20 @@ const isSameDay = (date1: Date, date2: Date): boolean => {
 
 type Props = {
     onAlertsUpdate?: () => void;
+    refreshTrigger?: number;
+    districts?: string[];
+    onAlertSelect?: (alert: TrafficAlert) => void;
+    selectedAlert?: TrafficAlert | null;
+    liveviewUrl?: string;
 }
 
-export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
+export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, districts = [], onAlertSelect, selectedAlert, liveviewUrl }: Props) {
     const [alerts, setAlerts] = useState<TrafficAlert[]>([]);
+    const [lastUpdated, setLastUpdated] = useState<string>("");
     const [areaDistrict, setAreaDistrict] = useState<string | undefined>("Tất cả");
     const [severityFilter, setSeverityFilter] = useState<AlertSeverity | "all">("all");
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-    const itemsPerPage = ITEMS_PER_PAGE;
     const maxAlerts = MAX_ALERTS;
 
     const filteredAlerts = alerts.filter(a => {
@@ -67,9 +74,9 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
         return matchDistrict && matchSeverity;
     });
 
-    const totalPages = Math.ceil(filteredAlerts.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
+    const totalPages = Math.ceil(filteredAlerts.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
     const paginatedAlerts = filteredAlerts.slice(startIndex, endIndex);
 
     useEffect(() => {
@@ -94,7 +101,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                     .filter(data => data.totalCount >= SEVERITY_THRESHOLDS.LOW)
                     .map(data => ({
                         id: `${data.cameraId}-${data.id}`,
-                        title: `${data.cameraName} - ${data.district}`,
+                        title: `${data.cameraName}`,
                         description: `${getSeverityLabel(data.totalCount)}, được phát hiện tại camera ${data.cameraId}`,
                         cameraId: data.cameraId,
                         cameraName: data.cameraName,
@@ -102,11 +109,13 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                         date: new Date(data.timestamp).toISOString().split('T')[0],
                         time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
                         severity: getSeverity(data.totalCount),
-                        totalCount: data.totalCount
+                        totalCount: data.totalCount,
+                        imageUrl: data.annotatedImageUrl
                     }))
                     .slice(0, maxAlerts);
 
                 setAlerts(initialAlerts);
+                setLastUpdated(new Date().toLocaleString('vi-VN'));
 
                 const unsubscribe = trafficApi.subscribe((data) => {
                     if (data.totalCount < SEVERITY_THRESHOLDS.LOW) return;
@@ -133,13 +142,15 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                         date: new Date(data.timestamp).toISOString().split('T')[0],
                         time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
                         severity: getSeverity(data.totalCount),
-                        totalCount: data.totalCount
+                        totalCount: data.totalCount,
+                        imageUrl: data.annotatedImageUrl
                     };
 
                     setAlerts(prev => {
                         const updated = [newAlert, ...prev];
                         return updated.slice(0, maxAlerts);
                     });
+                    setLastUpdated(new Date().toLocaleString('vi-VN'));
                     // Call onAlertsUpdate after state update completes
                     setTimeout(() => onAlertsUpdate?.(), 0);
                 });
@@ -165,13 +176,15 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                         date: new Date(data.timestamp).toISOString().split('T')[0],
                         time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
                         severity: getSeverity(data.totalCount),
-                        totalCount: data.totalCount
+                        totalCount: data.totalCount,
+                        imageUrl: data.annotatedImageUrl
                     };
 
                     setAlerts(prev => {
                         const updated = [newAlert, ...prev];
                         return updated.slice(0, maxAlerts);
                     });
+                    setLastUpdated(new Date().toLocaleString('vi-VN'));
                     // Call onAlertsUpdate after state update completes
                     setTimeout(() => onAlertsUpdate?.(), 0);
                 });
@@ -186,7 +199,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
             console.log('🧹 Cleaning up traffic alerts subscription');
             unsubscribePromise.then(unsubscribe => unsubscribe?.());
         };
-    }, [areaDistrict, selectedDate, onAlertsUpdate]);
+    }, [areaDistrict, selectedDate, onAlertsUpdate, refreshTrigger]);
 
     const labelBySeverity: Record<AlertSeverity, string> = {
         high: "Mức độ CAO",
@@ -195,16 +208,20 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
     }
 
     const badgeClassesBySeverity: Record<AlertSeverity, string> = {
-        high: "bg-rose-50 text-rose-700 border-rose-200",
-        medium: "bg-orange-50 text-orange-700 border-orange-200",
-        low: "bg-amber-50 text-amber-700 border-amber-200",
+        high: "bg-rose-50 text-rose-700 border-rose-50",
+        medium: "bg-orange-50 text-orange-700 border-orange-50",
+        low: "bg-amber-50 text-amber-700 border-amber-50",
     }
 
     function onSelect(alert: TrafficAlert) {
-        const event = new CustomEvent('selectCamera', {
-            detail: { cameraId: alert.cameraId }
-        });
-        window.dispatchEvent(event);
+        if (onAlertSelect) {
+            onAlertSelect(alert);
+        } else {
+            const event = new CustomEvent('selectCamera', {
+                detail: { cameraId: alert.cameraId }
+            });
+            window.dispatchEvent(event);
+        }
     }
 
     function toReadableTime(t: string) {
@@ -223,14 +240,19 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
     return (
         <InforPanel
             title="Cảnh báo giao thông"
+            lastUpdated={lastUpdated}
             filterOptionHasAll={true}
             showFilter={true}
+            districts={districts}
+            useDateRange={false}
             dateValue={selectedDate}
             onDateChange={setSelectedDate}
             filterValue={areaDistrict}
             onFilterChange={setAreaDistrict}
-            children={<div className="pb-3 h-[520px] flex flex-col justify-between">
-                <div className="flex gap-2 items-center overflow-hidden scrollbar-hide flex-shrink-0">
+            className="h-full"
+            contentClassName="flex flex-col h-full"
+            children={<div className="h-full flex flex-col justify-between">
+                <div className="flex gap-2 items-center overflow-hidden scrollbar-hide flex-shrink-0 mb-3">
                     {severityOptions.map((option) => (
                         <button
                             key={option.value}
@@ -240,9 +262,9 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                                 borderColor: CHART_COLORS.quaternary,
                                 color: 'white'
                             } : undefined}
-                            className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors whitespace-nowrap cursor-pointer ${severityFilter === option.value
+                            className={`px-4 py-1.5 text-xs font-medium rounded-full border transition-all duration-200 whitespace-nowrap cursor-pointer ${severityFilter === option.value
                                 ? option.activeClass
-                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
                                 }`}
                         >
                             {option.label}
@@ -250,7 +272,9 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                     ))}
                 </div>
 
-                <div className="flex flex-col gap-2 h-[390px]">
+                <CameraPreviewSection alert={selectedAlert || null} liveviewUrl={liveviewUrl} />
+
+                <div className="flex flex-col gap-2 flex-1 overflow-y-auto pr-1 pb-2">
                     {paginatedAlerts.length === 0 ? (
                         <div className="flex items-center justify-center text-sm text-gray-500 h-full">Không có cảnh báo giao thông nào phù hợp</div>
                     ) : (
@@ -262,27 +286,27 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                                     tabIndex={0}
                                     onClick={() => onSelect(a)}
                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(a) } }}
-                                    className="relative group rounded-lg bg-white border border-slate-100 py-2 px-4 cursor-pointer select-none transition-colors focus:outline-none focus:ring-2 focus:ring-sky-100 hover:border-sky-400 min-h-[120px] flex-shrink-0"
+                                    className="relative group rounded-xl bg-white border border-slate-100 p-4 cursor-pointer select-none transition-all duration-200 hover:shadow-md hover:border-sky-200 hover:bg-sky-50/30 focus:outline-none focus:ring-2 focus:ring-sky-100 min-h-[120px] flex-shrink-0 flex flex-col justify-between"
                                 >
 
-                                    <div className="flex items-start justify-between gap-4 py-1 pl-2">
+                                    <div className="flex items-start justify-between gap-4">
                                         <div className="flex-1">
-                                            <div className="text-slate-900 font-semibold text-sm leading-tight">{a.title}</div>
-                                            <div className="text-slate-500 text-sm mt-1 min-h-[2.5rem] break-words">{a.description}</div>
+                                            <div className="text-slate-900 font-semibold text-sm leading-snug group-hover:text-sky-700 transition-colors">{a.title}</div>
+                                            <div className="text-slate-500 text-xs mt-1.5 line-clamp-2">{a.description}</div>
                                         </div>
-                                        <span className={`shrink-0 inline-flex items-center rounded-md px-3 py-1 text-xs font-semibold border ${badgeClassesBySeverity[a.severity]}`}>
+                                        <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badgeClassesBySeverity[a.severity]}`}>
                                             {labelBySeverity[a.severity]}
                                         </span>
                                     </div>
 
-                                    <div className="text-xs text-slate-500 flex items-center gap-2 pl-4 mt-1">
-                                        <span className="inline-flex items-center gap-2 rounded-md bg-slate-50 px-2 py-1 font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
-                                            <FiClock className="h-4 w-4 text-slate-400" />
-                                            <span>{toReadableTime(a.time)}</span>
+                                    <div className="text-xs text-slate-500 flex items-center gap-3 mt-3 pt-3 border-t border-slate-50 group-hover:border-sky-100/50 transition-colors">
+                                        <span className="inline-flex items-center gap-1.5 text-slate-400">
+                                            <FiClock className="h-3.5 w-3.5" />
+                                            <span className="font-medium text-slate-600">{toReadableTime(a.time)}</span>
                                         </span>
                                         <span
-                                            className="inline-flex items-center gap-2 rounded-md px-2 py-1 font-medium"
-                                            style={{ backgroundColor: CHART_COLORS.octonary, color: CHART_COLORS.primary }}
+                                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-medium text-[10px]"
+                                            style={{ backgroundColor: CHART_COLORS.octonary, color: CHART_COLORS.tertiary }}
                                         >
                                             <span>{a.district}</span>
                                         </span>
@@ -290,7 +314,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                                 </div>
                             ))}
 
-                            {Array.from({ length: itemsPerPage - paginatedAlerts.length }).map((_, i) => (
+                            {Array.from({ length: Math.max(0, ITEMS_PER_PAGE - paginatedAlerts.length) }).map((_, i) => (
                                 <div key={`placeholder-${i}`} className="min-h-[120px] flex-shrink-0" />
                             ))}
                         </>
@@ -298,7 +322,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                 </div>
 
                 {filteredAlerts.length > 0 && (
-                    <div className="flex items-center justify-between flex-shrink-0 pt-2 h-[10px]">
+                    <div className="flex items-center justify-between flex-shrink-0 py-2 h-[30px]">
                         <div className="text-xs text-gray-500">
                             Trang {currentPage} / {totalPages} ({filteredAlerts.length} cảnh báo)
                         </div>
@@ -306,14 +330,14 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                             <button
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
-                                className="px-3 py-1 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 enabled:cursor-pointer transition-colors"
+                                className="px-3 py-1 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-600 enabled:cursor-pointer transition-all duration-200 shadow-sm"
                             >
                                 Trước
                             </button>
                             <button
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages}
-                                className="px-3 py-1 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 enabled:cursor-pointer transition-colors"
+                                className="px-3 py-1 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-600 enabled:cursor-pointer transition-all duration-200 shadow-sm"
                             >
                                 Sau
                             </button>
@@ -321,5 +345,61 @@ export default function TrafficAlertsPanel({ onAlertsUpdate }: Props) {
                     </div>
                 )}
             </div>}></InforPanel>
+    )
+}
+
+function CameraPreviewSection({ alert, liveviewUrl }: { alert: TrafficAlert | null, liveviewUrl?: string }) {
+    const [displayUrl, setDisplayUrl] = useState<string | undefined>(undefined);
+    const [showImage, setShowImage] = useState<boolean>(true);
+
+    useEffect(() => {
+        if (liveviewUrl) {
+            const url = `https://api.notis.vn/v4/${liveviewUrl}?t=${Date.now()}`;
+            setDisplayUrl(url);
+            setShowImage(Boolean(url));
+        } else if (alert?.imageUrl) {
+            setDisplayUrl(alert.imageUrl);
+            setShowImage(Boolean(alert.imageUrl));
+        } else {
+            setDisplayUrl(undefined);
+            setShowImage(false);
+        }
+    }, [alert, liveviewUrl]);
+
+    if (!alert || !showImage) return null;
+
+    return (
+        <div className="mb-3 rounded-lg overflow-hidden relative bg-slate-100 border border-slate-200 aspect-video flex-shrink-0 group">
+            {displayUrl && showImage ? (
+                <div className="relative w-full h-full">
+                    <img
+                        src={displayUrl}
+                        alt={alert.title}
+                        className="w-full h-full object-cover transition-transform duration-500"
+                        onError={(e) => {
+                            if (alert.imageUrl && e.currentTarget.src !== alert.imageUrl) {
+                                e.currentTarget.src = alert.imageUrl;
+                            }
+                        }}
+                    />
+
+                    <button
+                        onClick={() => setShowImage(false)}
+                        className="absolute top-3 right-3 z-20 rounded-md bg-white/90 border border-slate-200 text-slate-700 p-1.5 shadow-sm focus:outline-none transition"
+                    >
+                        <IoClose className="w-4 h-4" />
+                    </button>
+
+                    <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                        <div className="font-bold text-lg shadow-black drop-shadow-md">{alert.title}</div>
+                        <div className="text-sm opacity-90 shadow-black drop-shadow-md">{alert.time} - {alert.date}</div>
+                    </div>
+                </div>
+            ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-400">
+                    <FiCamera size={32} />
+                </div>
+            )}
+        </div>
     )
 }

@@ -1,32 +1,68 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FiX } from "react-icons/fi"
+import { FiCamera, FiRefreshCw } from "react-icons/fi"
 import { Button } from "../ui/button"
 import TrafficDensityStatisticsAreaChart from "./traffic-density_stats"
 import VehicleStatisticsStackChart from "./vehicle-stats"
 import TrafficAlertsPanel from "./traffic-alert"
 import { trafficApi } from "@/lib/api/trafficApi"
+import InforPanel from "./infor-panel"
 
-type CityStatsDrawerProps = {
-    open?: boolean
-    onOpenChange?: (open: boolean) => void
+type AlertSeverity = "high" | "medium" | "low"
+type TrafficAlert = {
+    id: string
+    title: string
+    description: string
+    cameraId: string
+    cameraName: string
+    district: string
+    date: string
+    time: string
+    severity: AlertSeverity
+    totalCount: number
+    imageUrl?: string
 }
 
-export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerProps) {
-    const [internalOpen, setInternalOpen] = useState(false)
+export default function CityStatisticsPage() {
     const [cityStatsData, setCityStatsData] = useState<any>(null)
-    const [lastUpdate, setLastUpdate] = useState<string>('')
+    const [districts, setDistricts] = useState<string[]>([])
     const [refreshKey, setRefreshKey] = useState(0)
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [completedCount, setCompletedCount] = useState(0)
-    const [isMounted, setIsMounted] = useState(false)
-    const isOpen = open ?? internalOpen
-    const setIsOpen = onOpenChange ?? setInternalOpen
+    const [selectedAlert, setSelectedAlert] = useState<TrafficAlert | null>(null)
+    const [cameraMap, setCameraMap] = useState<Record<string, string>>({})
+
+    useEffect(() => {
+        fetch('/camera_api.json')
+            .then(res => res.json())
+            .then(data => {
+                const map: Record<string, string> = {}
+                data.forEach((cam: any) => {
+                    if (cam.id && cam.liveviewUrl) {
+                        map[cam.id] = cam.liveviewUrl
+                    }
+                })
+                setCameraMap(map)
+            })
+            .catch(err => console.error("Failed to load camera map", err))
+    }, [])
 
     // Ensure client-side only rendering for timestamp
     useEffect(() => {
-        setIsMounted(true)
+        const fetchDistricts = async () => {
+            try {
+                const data = await trafficApi.getAllDistricts();
+                // Handle case where backend returns object { districtName: "..." } instead of string
+                const districtNames = data.map((item: any) =>
+                    typeof item === 'object' && item.districtName ? item.districtName : String(item)
+                );
+                setDistricts(districtNames);
+            } catch (error) {
+                console.error("Failed to fetch districts", error);
+            }
+        };
+        fetchDistricts();
     }, [])
 
     const handleApiComplete = () => {
@@ -34,7 +70,6 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
             const newCount = prev + 1;
             if (newCount >= 2) {
                 setIsRefreshing(false);
-                setLastUpdate(new Date().toLocaleString('vi-VN'));
                 return 0;
             }
             return newCount;
@@ -50,16 +85,11 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
     };
 
     useEffect(() => {
-        setLastUpdate(new Date().toLocaleString('vi-VN'));
-    }, []);
-
-    useEffect(() => {
         console.log('Setting up city stats WebSocket subscription...');
 
         const unsubscribe = trafficApi.subscribeCityStats((data) => {
             console.log('City stats data received in component:', data);
             setCityStatsData(data);
-            setLastUpdate(new Date().toLocaleString('vi-VN'));
         });
 
         return () => {
@@ -69,49 +99,44 @@ export default function CityStatsDrawer({ open, onOpenChange }: CityStatsDrawerP
     }, []);
 
     return (
-        <>
-            <div className="fixed inset-0 flex justify-end z-40 pointer-events-none">
-                <div
-                    className={`pointer-events-auto m-4 pb-3 h-[calc(100vh-2rem)] w-160 bg-white rounded-xl shadow-lg border border-gray-200 transform transition-transform duration-100 flex flex-col overflow-hidden ${isOpen ? "translate-x-0" : "translate-x-[110%]"}`}
-                    role="dialog" aria-modal="true"
-                >
-                    <div className="flex items-center justify-between py-2 px-4 border-b border-gray-200 relative flex-none bg-white">
-                        <div className="ml-2">
-                            <h1 className="text-black text-[26px] font-bold">Thống kê toàn thành phố</h1>
-                            <h2 className="text-gray-500 text-[14px]">
-                                Cập nhật lần cuối:
-                                <span className="text-gray-400 text-[13px] ml-1">
-                                    {isMounted ? (lastUpdate || 'Chưa có dữ liệu') : 'Đang tải...'}
-                                </span>
-                            </h2>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <RefreshButton onClick={handleRefresh} isLoading={isRefreshing} />
-                            <button
-                                onClick={() => setIsOpen(false)}
-                                className="text-gray-500 hover:text-black cursor-pointer p-1 rounded-md transition-colors"
-                                aria-label="Đóng"
-                            >
-                                <FiX size={25} />
-                            </button>
-                        </div>
-                    </div>
+        <div className="flex h-screen w-full bg-slate-50 py-4 pr-8 gap-4 overflow-hidden">
+            <div className="w-1/3 flex flex-col gap-4 h-full min-w-[350px]">
+                <div className="h-full">
+                    <TrafficAlertsPanel
+                        refreshTrigger={refreshKey}
+                        districts={districts}
+                        onAlertSelect={setSelectedAlert}
+                        selectedAlert={selectedAlert}
+                        liveviewUrl={selectedAlert ? cameraMap[selectedAlert.cameraId] : undefined}
+                    />
+                </div>
+            </div>
 
-                    <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 flex flex-col gap-3">
-                        <TrafficAlertsPanel onAlertsUpdate={() => setLastUpdate(new Date().toLocaleString('vi-VN'))} />
+            <div className="w-2/3 flex flex-col gap-4 h-full min-w-[600px]">
+                <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
+                    <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Thống kê toàn thành phố</h1>
+                    <RefreshButton onClick={handleRefresh} isLoading={isRefreshing} />
+                </div>
+
+                <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-2">
+                    <div className="h-[350px] flex-shrink-0">
                         <TrafficDensityStatisticsAreaChart
                             data={cityStatsData}
                             refreshTrigger={refreshKey}
                             onLoadComplete={handleApiComplete}
+                            districts={districts}
                         />
+                    </div>
+                    <div className="flex-shrink-0">
                         <VehicleStatisticsStackChart
                             refreshTrigger={refreshKey}
                             onLoadComplete={handleApiComplete}
+                            districts={districts}
                         />
                     </div>
                 </div>
             </div>
-        </>
+        </div>
     )
 }
 
@@ -119,12 +144,16 @@ function RefreshButton({ onClick, isLoading }: { onClick: () => void; isLoading:
     return (
         <Button
             variant="outline"
-            className={`cursor-pointer px-3 py-1 rounded-md transition 
-                ${isLoading ? "bg-gray-50 border-gray-200 text-gray-700" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"}`}
+            size="sm"
+            className={`cursor-pointer gap-2 transition-all duration-200 font-medium border shadow-sm
+                ${isLoading
+                    ? "bg-slate-50 border-slate-200 text-slate-400"
+                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"}`}
             onClick={onClick}
             disabled={isLoading}
         >
-            {isLoading ? 'Đang tải...' : 'Làm mới'}
+            <FiRefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Đang tải...' : 'Làm mới dữ liệu'}
         </Button>
     )
 }

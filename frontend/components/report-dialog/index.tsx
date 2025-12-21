@@ -277,13 +277,6 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                     <h1 className="text-black text-2xl font-bold">Báo Cáo Giao Thông</h1>
                     <p className="text-gray-500 text-sm">Quản lý và xuất báo cáo thống kê.</p>
                 </div>
-                <button
-                    onClick={() => onOpenChange(false)}
-                    className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black cursor-pointer p-2 rounded-md transition-colors hover:bg-gray-100"
-                    aria-label="Đóng"
-                >
-                    <FiX size={24} />
-                </button>
             </div>
 
             <div className="flex-1 overflow-auto flex flex-col">

@@ -26,14 +26,9 @@ COPY requirements.txt .
 # Upgrade pip
 RUN pip install --upgrade pip
 
-# Cài đặt thư viện Python
-RUN pip install --no-cache-dir numpy opencv-python kafka-python requests Pillow minio
-
-# Cài đặt PyTorch với CUDA 11.8 support
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu118
-
-# Cài đặt Ultralytics (YOLOv11)
-RUN pip install --no-cache-dir ultralytics
+# Cài đặt thư viện Python từ requirements.txt
+# --extra-index-url để tìm torch bản CUDA, nhưng vẫn tìm các gói khác trên PyPI
+RUN pip install --no-cache-dir -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu118
 
 # Tải YOLOv11 model
 RUN mkdir -p /app/models

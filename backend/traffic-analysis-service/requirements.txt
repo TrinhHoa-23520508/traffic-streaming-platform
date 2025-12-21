@@ -7,3 +7,4 @@ Pillow
 requests
 ultralytics
 minio
+prometheus-client

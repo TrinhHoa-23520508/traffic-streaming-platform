@@ -26,12 +26,22 @@ export interface Report {
   status: 'PENDING' | 'COMPLETED' | 'FAILED';
 }
 
+export interface ReportDetail extends Report {
+  startTime: string;
+  endTime: string;
+  interval: number;
+  districts: string[];
+  cameras: string[];
+}
+
 export interface GenerateReportRequest {
+  name?: string;
   startDate: string;
   endDate: string;
   interval: string;
-  districtId?: string;
+  districtIds?: string[];
   cameraIds?: string[];
+  scheduledTime?: string;
 }
 
 interface BackendReportRequest {
@@ -131,38 +141,98 @@ const reportApi = {
     }
   },
 
+  getReportDetail: async (reportId: string): Promise<ReportDetail> => {
+    try {
+        // Try backend first
+        const response = await fetch(`${getBaseUrl()}${API_CONFIG.ENDPOINTS.REPORTS.BASE}/${reportId}`);
+        if (response.ok) {
+            const wrappedResponse = await response.json();
+            
+            // Backend returns wrapped response: { success, status, data: {...} }
+            const data = wrappedResponse.data || wrappedResponse;
+            
+            return {
+                id: data.id.toString(),
+                fileName: data.name || data.fileName,
+                fileUrl: data.fileUrl || '',
+                createdAt: data.createdAt,
+                type: 'PDF',
+                status: data.status,
+                startTime: data.startTime || '',
+                endTime: data.endTime || '',
+                interval: data.intervalMinutes || data.interval || 0,
+                districts: data.districts || [],
+                cameras: data.cameras || []
+            };
+        }
+    } catch (error) {
+        console.warn("Backend getReportDetail failed, trying localStorage:", error);
+    }
+    
+    // Fallback: Try localStorage for locally generated reports
+    const localDetailStr = localStorage.getItem(`report_detail_${reportId}`);
+    if (localDetailStr) {
+        return JSON.parse(localDetailStr) as ReportDetail;
+    }
+    
+    // Ultimate fallback: return empty detail
+    const reportsStr = localStorage.getItem('traffic_reports');
+    if (reportsStr) {
+        const reports: Report[] = JSON.parse(reportsStr);
+        const report = reports.find(r => r.id === reportId);
+        if (report) {
+            return {
+                ...report,
+                startTime: '',
+                endTime: '',
+                interval: 0,
+                districts: [],
+                cameras: []
+            };
+        }
+    }
+    
+    throw new Error("Report not found");
+  },
+
   generateReport: async (request: GenerateReportRequest): Promise<void> => {
     try {
         // 1. Try creating report via Backend API
         
-        // Ensure we have cameras. If none selected, fetch all for the district.
+        // Ensure we have cameras. If none selected, fetch all for the selected districts.
         let targetCameras = request.cameraIds || [];
-        if (targetCameras.length === 0 && request.districtId) {
+        if (targetCameras.length === 0 && request.districtIds && request.districtIds.length > 0) {
             try {
-                const districtCameras = await reportApi.getCamerasByDistrict(request.districtId);
-                targetCameras = districtCameras.map(c => c.id);
+                // Fetch cameras for all selected districts
+                const cameraPromises = request.districtIds.map(dId => reportApi.getCamerasByDistrict(dId));
+                const results = await Promise.all(cameraPromises);
+                const allCameras = results.flat();
+                targetCameras = allCameras.map(c => c.id);
             } catch (e) {
-                console.warn("Failed to auto-fetch cameras for district", e);
+                console.warn("Failed to auto-fetch cameras for districts", e);
             }
         }
 
         // Calculate executeAt:
-        // If report end time is in the past -> Execute immediately (now + small buffer)
-        // If report end time is in the future -> Execute at end time + small buffer
-        const now = new Date();
-        const endTime = new Date(request.endDate);
-        
-        // Buffer of 2 seconds as requested (to ensure backend receives a future timestamp)
-        const bufferMs = 2000; 
-        const executeTime = new Date(Math.max(now.getTime(), endTime.getTime()) + bufferMs);
+        let executeTime: Date;
+        if (request.scheduledTime) {
+            executeTime = new Date(request.scheduledTime);
+        } else {
+            // Default: If report end time is in the past -> Execute immediately (now + small buffer)
+            // If report end time is in the future -> Execute at end time + small buffer
+            const now = new Date();
+            const endTime = new Date(request.endDate);
+            const bufferMs = 2000; 
+            executeTime = new Date(Math.max(now.getTime(), endTime.getTime()) + bufferMs);
+        }
 
         // Transform to backend payload format
         const backendPayload: BackendReportRequest = {
-            name: `Báo cáo giao thông ${format(new Date(request.startDate), 'dd/MM/yyyy')}`,
+            name: request.name || `Báo cáo giao thông ${format(new Date(request.startDate), 'dd/MM/yyyy')}`,
             startTime: format(new Date(request.startDate), "yyyy-MM-dd'T'HH:mm:ssXXX"),
             endTime: format(new Date(request.endDate), "yyyy-MM-dd'T'HH:mm:ssXXX"),
             intervalMinutes: parseInt(request.interval),
-            districts: request.districtId ? [request.districtId] : [],
+            districts: request.districtIds || [],
             cameras: targetCameras,
             executeAt: format(executeTime, "yyyy-MM-dd'T'HH:mm:ssXXX")
         };
@@ -200,15 +270,26 @@ const reportApi = {
         const reportId = `report-${Date.now()}`;
         const fileName = `traffic-report-${reportDate}.pdf`;
         
-        // Create a new report entry
+        // Create a new report entry (only base Report fields)
         const newReport: Report = {
             id: reportId,
             fileName: fileName,
-            fileUrl: '', // Not used for client-side generation
+            fileUrl: '',
             createdAt: new Date().toISOString(),
             type: 'PDF',
             status: isFutureReport ? 'PENDING' : 'COMPLETED'
         };
+        
+        // Store detail separately for local fallback
+        const reportDetail: ReportDetail = {
+            ...newReport,
+            startTime: request.startDate,
+            endTime: request.endDate,
+            interval: parseInt(request.interval),
+            districts: request.districtIds || [],
+            cameras: request.cameraIds || []
+        };
+        localStorage.setItem(`report_detail_${reportId}`, JSON.stringify(reportDetail));
 
         // Save report metadata to localStorage
         const existingReportsStr = localStorage.getItem('traffic_reports');
@@ -291,24 +372,25 @@ const reportApi = {
           let data: any[] = [];
           let title = 'Traffic Report';
 
-          if (request.districtId) {
+          const firstDistrict = request.districtIds?.[0];
+          if (firstDistrict) {
             // Report for a specific district: Show Hourly Summary
             const summary = await trafficApi.getHourlySummary({
                 date: reportDate,
-                district: request.districtId
+                district: firstDistrict
             } as any);
 
             // summary is Map<Integer, Long> (Hour -> Count)
             data = Object.entries(summary).map(([hour, count]) => [
                 `${hour}:00`,
-                request.districtId,
+                firstDistrict,
                 count
             ]);
             
             // Sort by hour
             data.sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
             
-            title = `Traffic Report - ${request.districtId} (${reportDate})`;
+            title = `Traffic Report - ${request.districtIds?.join(', ') || 'All'} (${reportDate})`;
         } else {
             // Report for All Districts: Show Daily Summary
             const summary = await trafficApi.getDistrictSummary({
@@ -336,7 +418,7 @@ const reportApi = {
         // Add Table
         autoTable(doc, {
             startY: 40,
-            head: request.districtId 
+            head: firstDistrict 
                 ? [['Hour', 'District', 'Vehicle Count']]
                 : [['District', 'Total Count', 'Vehicle Details']],
             body: data,

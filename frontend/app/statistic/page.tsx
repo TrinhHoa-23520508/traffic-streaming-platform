@@ -2,8 +2,25 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import CityStatsDrawer from "@/components/city-statistics";
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import { FiMap, FiBarChart2, FiFileText } from "react-icons/fi";
+
+// Lazy load the heavy component for instant navigation
+const CityStatsDrawer = dynamic(
+    () => import("@/components/city-statistics"),
+    {
+        loading: () => (
+            <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-10 h-10 border-3 border-slate-300 border-t-blue-500 rounded-full animate-spin"></div>
+                    <p className="text-slate-600 text-sm">Loading statistics...</p>
+                </div>
+            </div>
+        ),
+        ssr: false
+    }
+);
 
 export default function StatisticPage() {
     const router = useRouter();

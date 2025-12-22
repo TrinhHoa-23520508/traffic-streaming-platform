@@ -1,15 +1,27 @@
 "use client"
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback, memo, startTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
 import SearchBox from "@/components/search";
 import CameraInfoCard from "@/components/camera-info-card";
 import ImageModal from "@/components/image-modal";
 import type { Camera } from "@/types/camera";
-import CityStatsDrawer from "@/components/city-statistics";
-import ReportDialog from "@/components/report-dialog";
 import { FiMap, FiBarChart2, FiFileText } from "react-icons/fi";
+import Link from "next/link";
+
+// Preload the map component for faster initial render
+const Map = dynamic(
+    () => import('@/components/map'),
+    {
+        loading: () => (
+            <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+            </div>
+        ),
+        ssr: false
+    }
+);
 
 export default function MapPage() {
     const params = useParams();
@@ -26,25 +38,34 @@ export default function MapPage() {
     const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
     const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lon: number, name: string } | null>(null);
-    const [imageRefreshKey, setImageRefreshKey] = useState<number>(0);
+    const [imageRefreshKey, setImageRefreshKey] = useState<number>(() => Date.now());
     const [modalImageUrl, setModalImageUrl] = useState<string | null>(null);
     const [cameras, setCameras] = useState<Camera[]>([]);
 
-    const Map = useMemo(() => dynamic(
-        () => import('@/components/map'),
-        {
-            loading: () => <p>Loading</p>,
-            ssr: false
-        }
-    ), [])
-
-    // Load cameras data
+    // Load cameras data - use cache for instant reload
     useEffect(() => {
         const loadCameras = async () => {
             try {
+                // Check sessionStorage cache first for instant load
+                const cached = sessionStorage.getItem('cameras_data');
+                if (cached) {
+                    const { data, timestamp } = JSON.parse(cached);
+                    // Use cache if less than 5 minutes old
+                    if (Date.now() - timestamp < 5 * 60 * 1000) {
+                        setCameras(data);
+                        return;
+                    }
+                }
+                
                 const response = await fetch('/camera_api.json');
                 const data: Camera[] = await response.json();
                 setCameras(data);
+                
+                // Cache the data
+                sessionStorage.setItem('cameras_data', JSON.stringify({
+                    data,
+                    timestamp: Date.now()
+                }));
             } catch (error) {
                 console.error('Error loading cameras:', error);
             }
@@ -57,19 +78,16 @@ export default function MapPage() {
         if (!hasLoadedFromUrl.current && initialCameraIdRef.current && cameras.length > 0) {
             const camera = cameras.find(c => c._id === initialCameraIdRef.current || c.id === initialCameraIdRef.current);
             if (camera) {
-                setSelectedCamera(camera);
-                setMapCenter([camera.loc.coordinates[1], camera.loc.coordinates[0]]);
-                setLocationName(camera.name);
-                setSelectedLocation(null);
+                startTransition(() => {
+                    setSelectedCamera(camera);
+                    setMapCenter([camera.loc.coordinates[1], camera.loc.coordinates[0]]);
+                    setLocationName(camera.name);
+                    setSelectedLocation(null);
+                });
                 hasLoadedFromUrl.current = true;
             }
         }
     }, [cameras]);
-
-    // Initialize imageRefreshKey on client side only
-    useEffect(() => {
-        setImageRefreshKey(Date.now());
-    }, [])
 
     // Auto-refresh camera snapshot every 20 seconds
     useEffect(() => {
@@ -88,93 +106,104 @@ export default function MapPage() {
             const newImageUrl = `https://api.notis.vn/v4/${selectedCamera.liveviewUrl}?t=${imageRefreshKey}`;
             setModalImageUrl(newImageUrl);
         }
-    }, [imageRefreshKey]);
+    }, [imageRefreshKey, modalImageUrl, selectedCamera]);
 
-    const handleLocationSelect = (lat: number, lon: number, name: string) => {
-        setMapCenter([lat, lon]);
-        setLocationName(name);
-        setSelectedCamera(null);
-        setSelectedLocation({ lat, lon, name });
+    // Memoized handlers to prevent unnecessary re-renders
+    const handleLocationSelect = useCallback((lat: number, lon: number, name: string) => {
+        startTransition(() => {
+            setMapCenter([lat, lon]);
+            setLocationName(name);
+            setSelectedCamera(null);
+            setSelectedLocation({ lat, lon, name });
+        });
         // Clear camera from URL without navigation
         window.history.replaceState(null, '', '/map');
-    };
+    }, []);
 
-    const handleCameraClick = (camera: Camera) => {
-        console.log('📹 Camera Clicked:', {
-            id: camera.id || camera._id,
-            name: camera.name,
-            density: (camera as any).density || 'N/A',
-            coordinates: [camera.loc.coordinates[1], camera.loc.coordinates[0]]
+    const handleCameraClick = useCallback((camera: Camera) => {
+        // Update state first for immediate UI response using startTransition for non-blocking update
+        startTransition(() => {
+            setSelectedCamera(camera);
+            setMapCenter([camera.loc.coordinates[1], camera.loc.coordinates[0]]);
+            setLocationName(camera.name);
+            setSelectedLocation(null);
         });
-        
-        // Update state first for immediate UI response
-        setSelectedCamera(camera);
-        setMapCenter([camera.loc.coordinates[1], camera.loc.coordinates[0]]);
-        setLocationName(camera.name);
-        setSelectedLocation(null);
         
         // Update URL after state (non-blocking)
         requestAnimationFrame(() => {
             window.history.replaceState(null, '', `/map/${camera._id || camera.id}`);
         });
-    };
+    }, []);
 
-    const handleCameraClose = () => {
+    const handleCameraClose = useCallback(() => {
         setSelectedCamera(null);
         // Remove camera from URL without navigation
         window.history.replaceState(null, '', '/map');
-    };
+    }, []);
 
-    const handleImageClick = (imageUrl: string) => {
+    const handleImageClick = useCallback((imageUrl: string) => {
         setModalImageUrl(imageUrl);
-    }
+    }, []);
 
-    // Handlers for navigation to stats and report pages
-    const handleOpenStats = () => {
-        // Close any selected camera before navigating
-        if (selectedCamera) {
-            setSelectedCamera(null);
-        }
+    const handleCloseModal = useCallback(() => {
+        setModalImageUrl(null);
+    }, []);
+
+    // Handlers for navigation to stats and report pages - use startTransition for smooth navigation
+    const handleOpenStats = useCallback(() => {
+        startTransition(() => {
+            // Close any selected camera before navigating
+            if (selectedCamera) {
+                setSelectedCamera(null);
+            }
+        });
         // Navigate to stats page
         router.push('/statistic');
-    };
+    }, [selectedCamera, router]);
 
-    const handleOpenReport = () => {
-        // Close any selected camera before navigating
-        if (selectedCamera) {
-            setSelectedCamera(null);
-        }
+    const handleOpenReport = useCallback(() => {
+        startTransition(() => {
+            // Close any selected camera before navigating
+            if (selectedCamera) {
+                setSelectedCamera(null);
+            }
+        });
         // Navigate to report page
         router.push('/report');
-    };
+    }, [selectedCamera, router]);
 
     return (
         <div className="fixed inset-0 h-screen w-screen overflow-visible">
-            {/* Navigation Sidebar */}
+            {/* Navigation Sidebar - Use Link for prefetching */}
             {!modalImageUrl && (
                 <div className="fixed top-6 left-2 z-[1001] pointer-events-auto">
                     <div className="bg-white rounded-lg shadow-lg p-1.5 flex flex-col gap-1.5">
-                        <button
-                            onClick={() => router.push('/map')}
+                        <Link
+                            href="/map"
+                            prefetch={true}
                             className="p-2 rounded-md transition-colors bg-blue-500 text-white hover:bg-blue-600"
                             title="Map"
                         >
                             <FiMap size={16} />
-                        </button>
-                        <button
+                        </Link>
+                        <Link
+                            href="/statistic"
+                            prefetch={true}
                             onClick={handleOpenStats}
                             className="p-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
                             title="Statistic"
                         >
                             <FiBarChart2 size={16} />
-                        </button>
-                        <button
+                        </Link>
+                        <Link
+                            href="/report"
+                            prefetch={true}
                             onClick={handleOpenReport}
                             className="p-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
                             title="Report"
                         >
                             <FiFileText size={16} />
-                        </button>
+                        </Link>
                     </div>
                 </div>
             )}
@@ -230,7 +259,7 @@ export default function MapPage() {
                 <ImageModal
                     key={modalImageUrl}
                     imageUrl={modalImageUrl}
-                    onClose={() => setModalImageUrl(null)}
+                    onClose={handleCloseModal}
                 />
             )}
         </div>

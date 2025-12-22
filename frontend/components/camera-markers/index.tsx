@@ -54,7 +54,7 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
             clearTimeout(updateVisibleMarkersRef.current);
         }
         
-        // Debounce to reduce excessive updates during pan/zoom
+        // Debounce to reduce excessive updates during pan/zoom - reduced to 50ms for snappier response
         updateVisibleMarkersRef.current = setTimeout(() => {
             if (!map) return;
             if (camerasRef.current.length === 0) {
@@ -71,17 +71,41 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                 setVisibleCameras(inBounds);
             } catch (e) {
                 // Map might not be ready yet
-                console.warn("Map bounds not ready yet");
             }
-        }, 150); // 150ms debounce
+        }, 50); // Reduced debounce for faster response
     }, [map]);
 
-    // Load camera data once
+    // Load camera data once - use sessionStorage cache for instant reload
     useEffect(() => {
         const loadCameras = async () => {
             try {
+                // Check sessionStorage cache first
+                const cached = sessionStorage.getItem('cameras_markers_data');
+                if (cached) {
+                    const { data, timestamp } = JSON.parse(cached);
+                    // Use cache if less than 5 minutes old
+                    if (Date.now() - timestamp < 5 * 60 * 1000) {
+                        const withCounts = data.map((d: Camera) => ({ ...d, density: 0 }));
+                        camerasRef.current = withCounts as any;
+                        setLoading(false);
+                        
+                        const cameraIds = data.map((c: Camera) => c.id || (c as any)._id || c.name);
+                        trafficApi.initializeCameraIds(cameraIds);
+                        
+                        if (onCamerasUpdate) onCamerasUpdate(withCounts);
+                        updateVisibleMarkers();
+                        return;
+                    }
+                }
+                
                 const response = await fetch('/camera_api.json');
                 const data: Camera[] = await response.json();
+
+                // Cache the data
+                sessionStorage.setItem('cameras_markers_data', JSON.stringify({
+                    data,
+                    timestamp: Date.now()
+                }));
 
                 // Initialize with zero counts (will be updated from API)
                 const withCounts = data.map(d => ({ ...d, density: 0 }));

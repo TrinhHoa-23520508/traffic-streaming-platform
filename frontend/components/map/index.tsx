@@ -94,13 +94,18 @@ const Map = (props: MapProps) => {
     const [routingCameraClickHandler, setRoutingCameraClickHandler] = useState<((camera: any) => void) | null>(null);
 
     // Handle camera selection from Report Dialog
-    const handleReportCameraSelect = (cameraId: string) => {
+    const handleReportCameraSelect = useCallback((cameraId: string) => {
         // Check both id and _id to match camera data structure
         const camera = cameras.find(c => c.id === cameraId || c._id === cameraId);
         if (camera && onCameraClick) {
             onCameraClick(camera);
         }
-    };
+    }, [cameras, onCameraClick]);
+
+    // Memoized camera update handler
+    const handleCamerasUpdate = useCallback((updatedCameras: any[]) => {
+        setCameras(updatedCameras);
+    }, []);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -120,11 +125,19 @@ const Map = (props: MapProps) => {
             scrollWheelZoom={true}
             style={{ height: "100%", width: "100%" }}
             zoomControl={false}
+            // Performance optimizations for smoother map interactions
+            preferCanvas={true}
+            updateWhenZooming={false}
+            updateWhenIdle={true}
         >
             <ZoomControl position="bottomright" />
             <ChangeMapView center={posix} zoom={zoom} />
             <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                // Tile layer performance optimizations
+                updateWhenZooming={false}
+                updateWhenIdle={true}
+                keepBuffer={4}
             />
 
             {/* User's selected location marker (default Leaflet icon) - Only show when location selected, not camera */}
@@ -138,7 +151,7 @@ const Map = (props: MapProps) => {
             <CameraMarkers
                 onCameraClick={onCameraClick}
                 selectedCameraId={selectedCamera?._id}
-                onCamerasUpdate={setCameras}
+                onCamerasUpdate={handleCamerasUpdate}
                 routingMode={routingEnabled}
                 onRoutingCameraClick={routingCameraClickHandler}
                 heatEnabled={heatEnabled}
@@ -345,6 +358,7 @@ function RoutingManager({ cameras, onCancel, onSetCameraClickHandler }: { camera
     const shortestRoute = routeOptions.shortest;
     const fastestRoute = routeOptions.fastest;
     const hasRoutes = Boolean(shortestRoute);
+    const isSameRoute = Boolean(shortestRoute && fastestRoute && fastestRoute.id === shortestRoute.id);
     const shouldRenderFastest = Boolean(fastestRoute && (!shortestRoute || fastestRoute.id !== shortestRoute.id));
     const derivedActiveType: RouteVariant | null = focusedRouteType
         ?? (fastestRoute && (!shortestRoute || fastestRoute.id !== shortestRoute.id)
@@ -428,8 +442,15 @@ function RoutingManager({ cameras, onCancel, onSetCameraClickHandler }: { camera
             )}
 
             {/* Route Segments */}
-            {renderRoutePolyline(shortestRoute, 'shortest', derivedActiveType)}
-            {shouldRenderFastest && renderRoutePolyline(fastestRoute, 'fastest', derivedActiveType)}
+            {/* When both routes are the same, render based on the active type. Otherwise, render both with appropriate logic */}
+            {isSameRoute ? (
+                renderRoutePolyline(derivedActiveType === 'shortest' ? shortestRoute : fastestRoute, derivedActiveType || 'shortest', derivedActiveType)
+            ) : (
+                <>
+                    {renderRoutePolyline(shortestRoute, 'shortest', derivedActiveType)}
+                    {shouldRenderFastest && renderRoutePolyline(fastestRoute, 'fastest', derivedActiveType)}
+                </>
+            )}
         </>
     );
 }

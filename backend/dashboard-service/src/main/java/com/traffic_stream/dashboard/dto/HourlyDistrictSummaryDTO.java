@@ -9,11 +9,11 @@ import java.util.Map;
 public class HourlyDistrictSummaryDTO {
 
     private String district;
-    private int hour;
+    private String hour;
     private long totalCount = 0L;
     private Map<String, Long> detectionDetailsSummary;
 
-    public HourlyDistrictSummaryDTO(String district, int hour) {
+    public HourlyDistrictSummaryDTO(String district, String hour) {
         this.district = district;
         this.hour = hour;
         this.detectionDetailsSummary = new HashMap<>();

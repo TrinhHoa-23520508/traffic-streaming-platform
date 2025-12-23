@@ -47,9 +47,6 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
     // API 3 : Lấy TẤT CẢ bản ghi theo ngày
     List<TrafficMetric> findByTimestampBetween(Instant start, Instant end);
 
-    // API 3b: Lấy TẤT CẢ bản ghi theo ngày VÀ camera
-    List<TrafficMetric> findByTimestampBetweenAndCameraId(Instant start, Instant end, String cameraId);
-
     /**
      * API 4 (CHO CHART 24H): Lấy tổng count theo từng giờ trong ngày
      * - Lọc theo khoảng thời gian (start, end)
@@ -58,13 +55,14 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
      * Lưu ý: Query này dùng hàm EXTRACT của Postgres và AT TIME ZONE để xử lý múi
      * giờ
      */
-    @Query(value = "SELECT EXTRACT(HOUR FROM t.timestamp AT TIME ZONE :tz) as hour, SUM(t.total_count) as total " +
+    @Query(value = "SELECT to_char(t.timestamp AT TIME ZONE :tz, 'YYYY-MM-DD\"T\"HH24:00:00') as time_bucket, " +
+            "SUM(t.total_count) as total " +
             "FROM traffic_metrics t " +
             "WHERE t.timestamp >= :start AND t.timestamp < :end " +
             "AND (:district IS NULL OR t.district = :district) " +
-            "GROUP BY hour " +
-            "ORDER BY hour ASC", nativeQuery = true)
-    List<Object[]> getHourlySummary(
+            "GROUP BY time_bucket " +
+            "ORDER BY time_bucket ASC", nativeQuery = true)
+    List<Object[]> getHourlyTimeSeries(
             @Param("start") Instant start,
             @Param("end") Instant end,
             @Param("district") String district,
@@ -78,6 +76,13 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
      * @return một Optional chứa TrafficMetric mới nhất, hoặc rỗng nếu không có
      */
     Optional<TrafficMetric> findFirstByCameraIdOrderByTimestampDesc(String cameraId);
+
+
+    //Tìm theo khoảng thời gian và camera (cho API Hourly Summary có filter camera)
+    List<TrafficMetric> findByTimestampBetweenAndCameraId(Instant start, Instant end, String cameraId);
+
+    //Tìm theo khoảng thời gian và quận (cho API Hourly Summary có filter quận)
+    List<TrafficMetric> findByTimestampBetweenAndDistrict(Instant start, Instant end, String district);
 
     @Query("SELECT DISTINCT t.district FROM TrafficMetric t ORDER BY t.district")
     List<String> findDistinctDistricts();

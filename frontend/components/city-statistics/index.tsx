@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, startTransition } from "react"
 import { FiCamera, FiRefreshCw } from "react-icons/fi"
 import { Button } from "../ui/button"
 import TrafficDensityStatisticsAreaChart from "./traffic-density_stats"
@@ -33,39 +33,65 @@ export default function CityStatisticsPage() {
     const [selectedAlert, setSelectedAlert] = useState<TrafficAlert | null>(null)
     const [cameraMap, setCameraMap] = useState<Record<string, string>>({})
 
+    // Defer camera data loading to not block initial render
     useEffect(() => {
-        fetch('/camera_api.json')
-            .then(res => res.json())
-            .then(data => {
-                const map: Record<string, string> = {}
-                data.forEach((cam: any) => {
-                    if (cam.id && cam.liveviewUrl) {
-                        map[cam.id] = cam.liveviewUrl
-                    }
-                })
-                setCameraMap(map)
-            })
-            .catch(err => console.error("Failed to load camera map", err))
-    }, [])
-
-    // Ensure client-side only rendering for timestamp
-    useEffect(() => {
-        const fetchDistricts = async () => {
-            try {
-                const data = await trafficApi.getAllDistricts();
-                // Handle case where backend returns object { districtName: "..." } instead of string
-                const districtNames = data.map((item: any) =>
-                    typeof item === 'object' && item.districtName ? item.districtName : String(item)
-                );
-                setDistricts(districtNames);
-            } catch (error) {
-                console.error("Failed to fetch districts", error);
+        // Use setTimeout to defer non-critical data loading
+        const timer = setTimeout(() => {
+            // Check cache first for instant load
+            const cached = sessionStorage.getItem('camera_map_data');
+            if (cached) {
+                const { data, timestamp } = JSON.parse(cached);
+                if (Date.now() - timestamp < 5 * 60 * 1000) {
+                    setCameraMap(data);
+                    return;
+                }
             }
-        };
-        fetchDistricts();
+            
+            fetch('/camera_api.json')
+                .then(res => res.json())
+                .then(data => {
+                    const map: Record<string, string> = {}
+                    data.forEach((cam: any) => {
+                        if (cam.id && cam.liveviewUrl) {
+                            map[cam.id] = cam.liveviewUrl
+                        }
+                    })
+                    setCameraMap(map);
+                    // Cache the result
+                    sessionStorage.setItem('camera_map_data', JSON.stringify({
+                        data: map,
+                        timestamp: Date.now()
+                    }));
+                })
+                .catch(err => console.error("Failed to load camera map", err))
+        }, 100); // Defer by 100ms
+        
+        return () => clearTimeout(timer);
     }, [])
 
-    const handleApiComplete = () => {
+    // Defer districts loading to not block initial render
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            startTransition(() => {
+                const fetchDistricts = async () => {
+                    try {
+                        const data = await trafficApi.getAllDistricts();
+                        const districtNames = data.map((item: any) =>
+                            typeof item === 'object' && item.districtName ? item.districtName : String(item)
+                        );
+                        setDistricts(districtNames);
+                    } catch (error) {
+                        console.error("Failed to fetch districts", error);
+                    }
+                };
+                fetchDistricts();
+            });
+        }, 150); // Defer by 150ms
+        
+        return () => clearTimeout(timer);
+    }, [])
+
+    const handleApiComplete = useCallback(() => {
         setCompletedCount(prev => {
             const newCount = prev + 1;
             if (newCount >= 2) {
@@ -74,28 +100,32 @@ export default function CityStatisticsPage() {
             }
             return newCount;
         });
-    };
+    }, []);
 
-    const handleRefresh = () => {
+    const handleRefresh = useCallback(() => {
         if (isRefreshing) return;
-        console.log('Refreshing all city stats...');
         setIsRefreshing(true);
         setCompletedCount(0);
         setRefreshKey(prev => prev + 1);
-    };
+    }, [isRefreshing]);
 
+    const handleAlertSelect = useCallback((alert: TrafficAlert | null) => {
+        setSelectedAlert(alert);
+    }, []);
+
+    // Defer WebSocket subscription to not block initial render
     useEffect(() => {
-        console.log('Setting up city stats WebSocket subscription...');
+        const timer = setTimeout(() => {
+            const unsubscribe = trafficApi.subscribeCityStats((data) => {
+                setCityStatsData(data);
+            });
 
-        const unsubscribe = trafficApi.subscribeCityStats((data) => {
-            console.log('City stats data received in component:', data);
-            setCityStatsData(data);
-        });
-
-        return () => {
-            console.log('Cleaning up city stats subscription');
-            unsubscribe();
-        };
+            return () => {
+                unsubscribe();
+            };
+        }, 200); // Defer by 200ms
+        
+        return () => clearTimeout(timer);
     }, []);
 
     return (
@@ -105,7 +135,7 @@ export default function CityStatisticsPage() {
                     <TrafficAlertsPanel
                         refreshTrigger={refreshKey}
                         districts={districts}
-                        onAlertSelect={setSelectedAlert}
+                        onAlertSelect={handleAlertSelect}
                         selectedAlert={selectedAlert}
                         liveviewUrl={selectedAlert ? cameraMap[selectedAlert.cameraId] : undefined}
                     />

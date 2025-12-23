@@ -157,14 +157,22 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 setTrafficData(data);
                 setLastUpdateTime(new Date());
                 
-                // ⭐ Update history cho flow rate calculation (keep 2 minutes)
+                // ⭐ Update history cho flow rate calculation
                 setCountHistory(prev => {
                     const now = Date.now();
-                    const twoMinutesAgo = now - 2 * 60 * 1000;
+                    // Giữ lại tối đa 10 mẫu gần nhất HOẶC dữ liệu trong 5 phút
+                    // Điều này giúp thuật toán hoạt động tốt cả khi update nhanh (vài giây) hoặc chậm (vài phút)
+                    const MAX_SAMPLES = 10;
+                    const MAX_TIME_WINDOW = 5 * 60 * 1000; // 5 minutes
                     
-                    // Filter data trong 2 phút gần nhất + add new data
-                    const filtered = prev.filter(item => item.timestamp > twoMinutesAgo);
-                    return [...filtered, { count: data.totalCount, timestamp: now }];
+                    const newHistory = [...prev, { count: data.totalCount, timestamp: now }];
+                    
+                    // Filter quá cũ
+                    const timeFiltered = newHistory.filter(item => item.timestamp > now - MAX_TIME_WINDOW);
+                    
+                    // Nếu ít mẫu (do update chậm), giữ lại hết (đã filter time). 
+                    // Nếu nhiều mẫu (update nhanh), chỉ lấy N mẫu cuối.
+                    return timeFiltered.slice(-MAX_SAMPLES);
                 });
             }
         });
@@ -178,17 +186,20 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
 
     // ⭐ Calculate flow rate từ history (xe/phút)
     const calculateFlowRate = (): number => {
-        if (countHistory.length < 2) return 0;
+        // Nếu chưa có history, dùng data hiện tại
+        if (countHistory.length === 0) {
+            return trafficData ? Math.round(trafficData.totalCount * 1.8) : 0;
+        }
         
-        const latest = countHistory[countHistory.length - 1];
-        const oldest = countHistory[0];
+        // Tính trung bình mật độ xe trong history để làm mượt dữ liệu
+        const avgDensity = countHistory.reduce((sum, item) => sum + item.count, 0) / countHistory.length;
         
-        const countDiff = latest.count - oldest.count;
-        const timeDiff = (latest.timestamp - oldest.timestamp) / 1000 / 60; // convert to minutes
+        // Heuristic: Ước tính lưu lượng = Mật độ * Hệ số luân chuyển
+        // Giả sử xe lưu thông qua khung hình với tốc độ trung bình, thay thế toàn bộ xe trong khoảng 30-40s
+        // => Hệ số nhân khoảng 1.5 - 2.0
+        const TURNOVER_RATE = 1.8;
         
-        if (timeDiff === 0) return 0;
-        
-        return Math.max(0, Math.round(countDiff / timeDiff)); // Không âm
+        return Math.round(avgDensity * TURNOVER_RATE);
     };
 
     // ⭐ Calculate congestion status dựa trên totalCount
@@ -205,10 +216,10 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     const congestionStatus = getCongestionStatus();
 
     const vehicleConfig = {
-        car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-        motorcycle: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
-        bus: { label: 'Xe buýt', icon: FaBus, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
-        truck: { label: 'Xe tải', icon: FaTruck, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
+        Car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+        Motorcycle: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+        Bus: { label: 'Xe buýt', icon: FaBus, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
+        Truck: { label: 'Xe tải', icon: FaTruck, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
         person: { label: 'Người đi bộ', icon: FaPersonWalking, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-100' }
     };
 

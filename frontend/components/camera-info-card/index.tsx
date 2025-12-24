@@ -207,6 +207,7 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     const vehicleConfig = {
         car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
         motorcycle: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+        motorbike: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
         bus: { label: 'Xe buýt', icon: FaBus, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
         truck: { label: 'Xe tải', icon: FaTruck, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
         person: { label: 'Người đi bộ', icon: FaPersonWalking, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-100' }
@@ -381,22 +382,6 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                             })}
                         </div>
                     )}
-
-                    {/* ⭐ Timestamps - Minimalist */}
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-100 text-[10px]">
-                        {trafficData.timestamp && (
-                            <div className="flex items-center gap-1 text-gray-400">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                <span>{new Date(trafficData.timestamp).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
-                            </div>
-                        )}
-                        {lastUpdateTime && (
-                            <span className="text-green-600 flex items-center gap-1 font-medium bg-green-50 px-2 py-0.5 rounded-full">
-                                <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                Cập nhật thời gian thực
-                            </span>
-                        )}
-                    </div>
                 </div>
             ) : (
                 <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">

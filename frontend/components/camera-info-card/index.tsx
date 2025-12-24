@@ -17,7 +17,7 @@ import { IoClose } from 'react-icons/io5';
 interface CameraInfoCardProps {
     camera: Camera;
     onClose: () => void;
-    onImageClick: (url: string) => void;
+    onImageClick: (url: string, isAI: boolean) => void;
     imageRefreshKey?: number;
 }
 
@@ -53,6 +53,9 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     
     // ⭐ AI Toggle State
     const [showAI, setShowAI] = useState(false);
+    
+    // ⭐ AI Image availability check
+    const [aiImageReady, setAiImageReady] = useState(false);
 
     // ⭐ Fetch initial traffic data from API
     useEffect(() => {
@@ -104,11 +107,20 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
 
     // --- LOGIC XỬ LÝ ẢNH MƯỢT MÀ (SMOOTH TRANSITION) ---
     
+    // Live URL luôn có sẵn
+    const liveUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    
+    // AI URL - có thể không có
+    const aiUrl = trafficData?.annotatedImageUrl || null;
+    
+    // ⭐ Kiểm tra xem AI có sẵn sàng không
+    const hasValidAiImage = Boolean(aiUrl && aiUrl !== liveUrl);
+    
     // 1. Xác định URL mục tiêu (Target URL) dựa trên chế độ AI/Live
-    // Nếu bật AI và có link ảnh từ backend thì dùng nó, ngược lại dùng Live
-    const targetSrc = (showAI && trafficData?.annotatedImageUrl) 
-        ? trafficData.annotatedImageUrl 
-        : `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    // Nếu bật AI nhưng không có ảnh AI hợp lệ -> vẫn giữ Live nhưng hiện loading overlay
+    const targetSrc = (showAI && hasValidAiImage) 
+        ? aiUrl! 
+        : liveUrl;
 
     // 2. Effect để Preload ảnh trước khi hiển thị
     useEffect(() => {
@@ -125,6 +137,10 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
             // Khi tải xong: Cập nhật ảnh hiển thị và tắt loading
             setCurrentSrc(targetSrc);
             setLoadingImage(false);
+            // Mark AI image as ready if we successfully loaded it
+            if (showAI && hasValidAiImage) {
+                setAiImageReady(true);
+            }
         };
 
         img.onerror = () => {
@@ -244,19 +260,33 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
 
             {/* --- 1. PHẦN HÌNH ẢNH --- */}
             <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-900 shadow-lg group ring-1 ring-black/5">
-                <img
-                    ref={(el) => { imgRef.current = el; }}
-                    src={currentSrc}
-                    alt={camera.name}
-                    className={`w-full h-full object-cover transition-all duration-500 cursor-pointer 
-                        ${showAI ? 'scale-105 saturate-125' : 'scale-100'} 
-                        ${loadingImage ? 'blur-sm opacity-80' : 'blur-0 opacity-100'}
-                    `}
-                    onClick={() => onImageClick(currentSrc)}
-                    onError={(e) => {
-                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="340" height="200"%3E%3Crect width="340" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="Arial" font-size="14"%3EKhông có hình ảnh%3C/text%3E%3C/svg%3E';
-                    }}
-                />
+                {/* Khi ở chế độ AI nhưng chưa có ảnh AI hợp lệ -> hiện màn đen với loading */}
+                {showAI && !hasValidAiImage ? (
+                    <div className="w-full h-full bg-gray-900 flex flex-col items-center justify-center">
+                        <div className="relative">
+                            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <RiRobot2Fill className="w-5 h-5 text-purple-400" />
+                            </div>
+                        </div>
+                        <span className="text-sm font-medium text-gray-400 mt-3">Đang chờ phân tích AI...</span>
+                        <span className="text-xs text-gray-500 mt-1">Hình ảnh AI sẽ xuất hiện khi sẵn sàng</span>
+                    </div>
+                ) : (
+                    <img
+                        ref={(el) => { imgRef.current = el; }}
+                        src={currentSrc}
+                        alt={camera.name}
+                        className={`w-full h-full object-cover transition-all duration-500 cursor-pointer 
+                            ${showAI ? 'scale-105 saturate-125' : 'scale-100'} 
+                            ${loadingImage ? 'blur-sm opacity-80' : 'blur-0 opacity-100'}
+                        `}
+                        onClick={() => onImageClick(currentSrc, showAI && hasValidAiImage)}
+                        onError={(e) => {
+                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="340" height="200"%3E%3Crect width="340" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="Arial" font-size="14"%3EKhông có hình ảnh%3C/text%3E%3C/svg%3E';
+                        }}
+                    />
+                )}
 
                 {/* Spinner overlay - Hiện ra khi đang chuyển đổi ảnh */}
                 {loadingImage && (

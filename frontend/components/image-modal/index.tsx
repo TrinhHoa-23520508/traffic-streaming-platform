@@ -5,10 +5,11 @@ import { useEffect } from 'react';
 
 interface ImageModalProps {
     imageUrl: string;
+    isAI?: boolean;
     onClose: () => void;
 }
 
-export default function ImageModal({ imageUrl, onClose }: ImageModalProps) {
+export default function ImageModal({ imageUrl, isAI = false, onClose }: ImageModalProps) {
     // Bonus: Thêm chức năng đóng modal khi nhấn phím "Escape"
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -27,40 +28,54 @@ export default function ImageModal({ imageUrl, onClose }: ImageModalProps) {
     }, [onClose]); // Dependency là onClose để đảm bảo hàm luôn mới nhất
 
     return (
-        // Lớp phủ (backdrop) - Tăng z-index lên cao nhất và làm tối nền hơn
+        // Lớp phủ (backdrop) - Làm mờ map phía sau thay vì đen
         <div 
-            className="fixed inset-0 bg-black/95 backdrop-blur-xl flex justify-center items-center z-[9999]"
-            onClick={onClose} // Click vào nền đen để đóng
+            className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-[9999]"
+            onClick={onClose} // Click vào nền để đóng
         >
             <div 
                 className="relative w-full h-full flex items-center justify-center p-4"
                 // Ngăn việc click vào ảnh làm modal bị đóng
                 onClick={(e) => e.stopPropagation()} 
             >
-                {/* 
-                    ⭐ HƯỚNG DẪN CHỈNH SIZE ẢNH:
-                    Bạn có thể thay đổi các class trong className dưới đây để chỉnh kích thước:
-                    - max-w-[85vw]: Chiều rộng tối đa là 85% chiều rộng màn hình. (Muốn nhỏ hơn thì giảm số 85 xuống, ví dụ 60vw)
-                    - max-h-[85vh]: Chiều cao tối đa là 85% chiều cao màn hình.
-                    - w-auto h-auto: Giữ nguyên tỉ lệ ảnh.
-                    - rounded-lg: Bo tròn góc ảnh.
-                */}
-                <img 
-                    src={imageUrl} 
-                    alt="Phóng to hình ảnh camera" 
-                    className="max-w-[85vw] max-h-[85vh] w-auto h-auto object-contain animate-in zoom-in-95 duration-300 rounded-lg shadow-2xl"
-                />
-                
-                {/* Nút đóng - Làm to và nổi bật hơn */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-6 right-6 bg-white/10 hover:bg-white/20 text-white rounded-full p-3 backdrop-blur-md transition-all hover:scale-110 hover:rotate-90 border border-white/20"
-                    aria-label="Đóng"
-                >
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+                {/* Container cho ảnh với nút đóng bên trong */}
+                <div className="relative">
+                    {/* Ảnh phóng to */}
+                    <img 
+                        src={imageUrl} 
+                        alt="Phóng to hình ảnh camera" 
+                        className="max-w-[85vw] max-h-[85vh] w-auto h-auto object-contain animate-in zoom-in-95 duration-300 rounded-lg shadow-2xl"
+                    />
+                    
+                    {/* Badge hiển thị AI hay Live */}
+                    <div className={`absolute top-3 left-3 px-3 py-1.5 rounded-lg text-xs font-bold text-white flex items-center gap-1.5 shadow-lg backdrop-blur-md ${isAI ? 'bg-purple-600/90' : 'bg-red-600/90'}`}>
+                        {isAI ? (
+                            <>
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2M7.5 13A2.5 2.5 0 005 15.5A2.5 2.5 0 007.5 18a2.5 2.5 0 002.5-2.5A2.5 2.5 0 007.5 13m9 0a2.5 2.5 0 00-2.5 2.5a2.5 2.5 0 002.5 2.5a2.5 2.5 0 002.5-2.5a2.5 2.5 0 00-2.5-2.5z"/></svg>
+                                PHÂN TÍCH AI
+                            </>
+                        ) : (
+                            <>
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                                </span>
+                                TRỰC TIẾP
+                            </>
+                        )}
+                    </div>
+                    
+                    {/* Nút đóng - Nằm trên ảnh (góc phải trên của ảnh) */}
+                    <button
+                        onClick={onClose}
+                        className="absolute top-3 right-3 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 backdrop-blur-md transition-all hover:scale-110 hover:rotate-90 border border-white/20"
+                        aria-label="Đóng"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
     );

@@ -272,9 +272,9 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
             className="bg-white w-full h-full flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
             role="dialog" aria-modal="true"
         >
-            <div className="flex items-center justify-center py-4 px-6 border-b border-gray-200 relative flex-none bg-white">
+            <div className="flex items-center justify-center py-4 px-6 border-b border-gray-200 relative flex-none bg-gradient-to-r from-blue-50 via-white to-purple-50">
                 <div className="text-center">
-                    <h1 className="text-black text-2xl font-bold">Báo Cáo Giao Thông</h1>
+                    <h1 className="text-gray-800 text-2xl font-bold">Báo Cáo Giao Thông</h1>
                     <p className="text-gray-500 text-sm">Quản lý và xuất báo cáo thống kê.</p>
                 </div>
             </div>
@@ -294,7 +294,10 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                             <div className="space-y-6">
                                 {/* Cấu hình báo cáo */}
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">Cấu hình báo cáo</h3>
+                                    <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                        <span className="w-1 h-5 bg-blue-500 rounded-full"></span>
+                                        Cấu hình báo cáo
+                                    </h3>
                                     
                                     <div className="grid gap-2 max-w-md">
                                         <Label>Tên báo cáo</Label>
@@ -353,8 +356,11 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
 
                                 {/* Quận/Huyện - NO scroll, display full */}
                                 <div className="space-y-3">
-                                    <Label className="text-lg font-semibold text-gray-900">Chọn Quận / Huyện ({selectedDistricts.length})</Label>
-                                    <div className="border rounded-lg p-4 bg-slate-50/50">
+                                    <Label className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                        <span className="w-1 h-5 bg-purple-500 rounded-full"></span>
+                                        Chọn Quận / Huyện ({selectedDistricts.length})
+                                    </Label>
+                                    <div className="border rounded-lg p-4 bg-gradient-to-br from-slate-50 to-white">
                                         {isLoadingDistricts ? (
                                             <div className="flex items-center justify-center py-8">
                                                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -467,7 +473,8 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
 
                             {/* Right Column: Camera List - WITH scroll */}
                             <div className="space-y-3">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                    <span className="w-1 h-5 bg-green-500 rounded-full"></span>
                                     Danh sách Camera {selectedDistricts.length > 0 ? `(${cameras.length})` : ''}
                                 </h3>
                                 
@@ -477,7 +484,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                       Ví dụ: h-[500px], h-[800px], h-[90vh] (90% chiều cao màn hình)
                                     - Để thay đổi chiều rộng: thêm class như w-full, w-[400px], max-w-lg, etc.
                                 */}
-                                <div className="border rounded-lg bg-slate-50/50 h-[700px] overflow-hidden flex flex-col">
+                                <div className="border rounded-lg bg-gradient-to-br from-slate-50 to-white h-[700px] overflow-hidden flex flex-col shadow-sm">
                                     {selectedDistricts.length === 0 ? (
                                         <div className="flex-1 flex items-center justify-center text-sm text-gray-400 italic">
                                             Vui lòng chọn Quận/Huyện trước
@@ -564,9 +571,9 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                         </div>
 
                         {/* Footer buttons - sticky at bottom */}
-                        <div className="pt-6 flex justify-end gap-4 border-t mt-8 sticky bottom-0 bg-white py-4 -mx-6 px-6">
+                        <div className="pt-6 flex justify-end gap-4 border-t mt-8 sticky bottom-0 bg-gradient-to-r from-white via-white to-blue-50/50 py-4 -mx-6 px-6">
                             <Button variant="outline" size="lg" onClick={() => onOpenChange(false)}>Hủy</Button>
-                            <Button size="lg" onClick={handleGenerate} disabled={isGenerating || selectedDistricts.length === 0}>
+                            <Button size="lg" className="bg-blue-600 hover:bg-blue-700" onClick={handleGenerate} disabled={isGenerating || selectedDistricts.length === 0}>
                                 {isGenerating ? (
                                     <>
                                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -583,11 +590,14 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                     </TabsContent>
 
                     <TabsContent value="list" className="flex-1 overflow-hidden p-6 pl-20 data-[state=inactive]:hidden">
-                        <div className="grid grid-cols-12 gap-4 h-full">
-                            {/* List Column - narrower */}
-                            <div className="col-span-3 flex flex-col h-full border rounded-lg bg-white overflow-hidden min-h-0">
-                                <div className="p-4 border-b flex justify-between items-center bg-gray-50 flex-none">
-                                    <h3 className="font-semibold text-gray-700">Danh sách báo cáo</h3>
+                        <div className="grid grid-cols-12 gap-6 h-full">
+                            {/* List Column */}
+                            <div className="col-span-4 flex flex-col h-full border rounded-lg bg-white overflow-hidden min-h-0 shadow-sm">
+                                <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-gray-50 to-blue-50/50 flex-none">
+                                    <h3 className="font-semibold text-gray-700 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
+                                        Danh sách báo cáo
+                                    </h3>
                                     <Button variant="ghost" size="sm" onClick={fetchReports} disabled={isLoadingReports}>
                                         <RefreshCw className={`h-4 w-4 ${isLoadingReports ? 'animate-spin' : ''}`} />
                                     </Button>
@@ -650,51 +660,51 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                 </div>
                             </div>
 
-                            {/* Preview Column - wider */}
-                            <div className="col-span-9 flex flex-col h-full border rounded-lg bg-gray-50 overflow-hidden min-h-0">
+                            {/* Preview Column */}
+                            <div className="col-span-8 flex flex-col h-full border rounded-lg bg-gradient-to-br from-gray-50 to-blue-50/30 overflow-hidden min-h-0 shadow-sm">
                                 {selectedReport ? (
                                     <div className="flex flex-col h-full">
-                                        <div className="p-3 border-b bg-white flex justify-between items-center shadow-sm flex-none">
+                                        <div className="p-4 border-b bg-gradient-to-r from-white to-blue-50/50 flex justify-between items-center shadow-sm flex-none">
                                             <div>
-                                                <h3 className="font-bold text-base text-gray-900">{selectedReport.fileName}</h3>
-                                                <p className="text-xs text-gray-500">
+                                                <h3 className="font-bold text-lg text-gray-800">{selectedReport.fileName}</h3>
+                                                <p className="text-sm text-gray-500">
                                                     Tạo lúc: {format(new Date(selectedReport.createdAt), "HH:mm dd/MM/yyyy")}
                                                 </p>
                                             </div>
-                                            <div className="flex gap-2">
+                                            <div className="flex gap-3">
                                                 <Button 
                                                     variant="destructive" 
-                                                    size="sm"
+                                                    size="default"
                                                     onClick={() => handleDelete(selectedReport.id)}
                                                 >
-                                                    <Trash2 className="mr-1 h-3 w-3" />
+                                                    <Trash2 className="mr-2 h-4 w-4" />
                                                     Xóa
                                                 </Button>
                                                 <Button 
                                                     variant="default" 
-                                                    size="sm"
+                                                    size="default"
                                                     onClick={() => handleDownload(selectedReport)}
                                                     disabled={selectedReport.status !== 'COMPLETED'}
                                                 >
-                                                    <Download className="mr-1 h-3 w-3" />
+                                                    <Download className="mr-2 h-4 w-4" />
                                                     Tải xuống
                                                 </Button>
                                             </div>
                                         </div>
-                                        <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                                        <div className="flex-1 min-h-0 overflow-y-auto p-6">
                                             {isLoadingDetail ? (
                                                 <div className="flex flex-col items-center justify-center h-40">
-                                                    <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-2" />
-                                                    <p className="text-gray-500 text-sm">Đang tải thông tin chi tiết...</p>
+                                                    <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-3" />
+                                                    <p className="text-gray-500">Đang tải thông tin chi tiết...</p>
                                                 </div>
                                             ) : (
-                                                <div className="space-y-3 bg-white p-4 rounded-lg shadow-sm border">
-                                                    {/* Status Header */}
-                                                    <div className="flex items-center justify-between pb-3 border-b">
-                                                        <div>
-                                                            <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Trạng thái</h4>
+                                                <div className="space-y-5 bg-white p-6 rounded-xl shadow-sm border max-w-2xl mx-auto">
+                                                    {/* Status & ID Header */}
+                                                    <div className="flex items-center justify-between pb-4 border-b">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-sm font-medium text-gray-600">Trạng thái:</span>
                                                             <div className={cn(
-                                                                "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                                                                "inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold",
                                                                 selectedReport.status === 'COMPLETED' ? "bg-green-100 text-green-700" :
                                                                 selectedReport.status === 'PENDING' ? "bg-yellow-100 text-yellow-700" :
                                                                 "bg-red-100 text-red-700"
@@ -702,73 +712,82 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                                                 {selectedReport.status === 'COMPLETED' ? 'Sẵn sàng' : selectedReport.status === 'PENDING' ? 'Đang xử lý' : 'Lỗi'}
                                                             </div>
                                                         </div>
-                                                        <div className="text-right">
-                                                            <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">ID</h4>
-                                                            <p className="font-mono text-xs text-gray-700">{selectedReport.id}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm font-medium text-gray-600">ID:</span>
+                                                            <code className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-700">{selectedReport.id}</code>
                                                         </div>
                                                     </div>
 
                                                     {/* Time Range */}
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div>
-                                                            <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Bắt đầu</h4>
-                                                            <p className="text-sm font-semibold text-gray-900">
-                                                                {selectedReport.startTime ? format(new Date(selectedReport.startTime), "HH:mm dd/MM/yyyy") : "N/A"}
+                                                    <div className="grid grid-cols-2 gap-6">
+                                                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                                                            <h4 className="text-sm font-medium text-blue-600 uppercase tracking-wider mb-2">Bắt đầu</h4>
+                                                            <p className="text-lg font-bold text-gray-800">
+                                                                {selectedReport.startTime ? format(new Date(selectedReport.startTime), "HH:mm") : "N/A"}
+                                                            </p>
+                                                            <p className="text-sm text-gray-600">
+                                                                {selectedReport.startTime ? format(new Date(selectedReport.startTime), "dd/MM/yyyy") : ""}
                                                             </p>
                                                         </div>
-                                                        <div>
-                                                            <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Kết thúc</h4>
-                                                            <p className="text-sm font-semibold text-gray-900">
-                                                                {selectedReport.endTime ? format(new Date(selectedReport.endTime), "HH:mm dd/MM/yyyy") : "N/A"}
+                                                        <div className="bg-purple-50/50 p-4 rounded-lg border border-purple-100">
+                                                            <h4 className="text-sm font-medium text-purple-600 uppercase tracking-wider mb-2">Kết thúc</h4>
+                                                            <p className="text-lg font-bold text-gray-800">
+                                                                {selectedReport.endTime ? format(new Date(selectedReport.endTime), "HH:mm") : "N/A"}
+                                                            </p>
+                                                            <p className="text-sm text-gray-600">
+                                                                {selectedReport.endTime ? format(new Date(selectedReport.endTime), "dd/MM/yyyy") : ""}
                                                             </p>
                                                         </div>
                                                     </div>
 
                                                     {/* Configuration */}
-                                                    <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-md">
-                                                        <div>
-                                                            <span className="text-xs text-gray-500">Interval:</span>
-                                                            <p className="font-medium text-sm text-gray-900">{selectedReport.interval ? `${selectedReport.interval} phút` : "N/A"}</p>
+                                                    <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-sm text-gray-600">Interval:</span>
+                                                            <p className="font-semibold text-gray-800">{selectedReport.interval ? `${selectedReport.interval} phút` : "N/A"}</p>
                                                         </div>
-                                                        <div>
-                                                            <span className="text-xs text-gray-500">Loại:</span>
-                                                            <p className="font-medium text-sm text-gray-900">{selectedReport.type || "PDF"}</p>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-sm text-gray-600">Loại:</span>
+                                                            <p className="font-semibold text-gray-800">{selectedReport.type || "PDF"}</p>
                                                         </div>
                                                     </div>
 
-                                                    {/* Scope */}
-                                                    <div className="space-y-2">
-                                                        <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider border-b pb-1">Phạm vi</h4>
-                                                        
-                                                        <div>
-                                                            <span className="text-xs font-medium text-gray-700">Quận/Huyện ({selectedReport.districts?.length || 0})</span>
-                                                            <div className="flex flex-wrap gap-1 mt-1">
-                                                                {selectedReport.districts && selectedReport.districts.length > 0 ? (
-                                                                    selectedReport.districts.map((d, i) => (
-                                                                        <span key={i} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-medium border border-blue-100">
-                                                                            {d}
-                                                                        </span>
-                                                                    ))
-                                                                ) : (
-                                                                    <span className="text-xs text-gray-400 italic">Toàn thành phố</span>
-                                                                )}
-                                                            </div>
+                                                    {/* Scope - Districts */}
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-2 pb-2 border-b">
+                                                            <span className="w-1.5 h-5 bg-blue-500 rounded-full"></span>
+                                                            <h4 className="text-base font-semibold text-gray-800">Quận/Huyện ({selectedReport.districts?.length || 0})</h4>
                                                         </div>
-
-                                                        <div>
-                                                            <span className="text-xs font-medium text-gray-700">Camera ({selectedReport.cameras?.length || 0})</span>
-                                                            {selectedReport.cameras && selectedReport.cameras.length > 0 ? (
-                                                                <div className="max-h-24 overflow-y-auto border rounded p-1.5 bg-gray-50 text-xs text-gray-600 mt-1">
-                                                                    <div className="flex flex-wrap gap-1">
-                                                                        {selectedReport.cameras.map((c, i) => (
-                                                                            <span key={i} className="px-1.5 py-0.5 bg-white border rounded text-[10px]">{c}</span>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {selectedReport.districts && selectedReport.districts.length > 0 ? (
+                                                                selectedReport.districts.map((d, i) => (
+                                                                    <span key={i} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200">
+                                                                        {d}
+                                                                    </span>
+                                                                ))
                                                             ) : (
-                                                                <p className="text-xs text-gray-400 italic mt-1">Tất cả camera</p>
+                                                                <span className="text-sm text-gray-500 italic">Toàn thành phố</span>
                                                             )}
                                                         </div>
+                                                    </div>
+
+                                                    {/* Scope - Cameras */}
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-2 pb-2 border-b">
+                                                            <span className="w-1.5 h-5 bg-green-500 rounded-full"></span>
+                                                            <h4 className="text-base font-semibold text-gray-800">Camera ({selectedReport.cameras?.length || 0})</h4>
+                                                        </div>
+                                                        {selectedReport.cameras && selectedReport.cameras.length > 0 ? (
+                                                            <div className="max-h-40 overflow-y-auto border rounded-lg p-3 bg-gray-50">
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {selectedReport.cameras.map((c, i) => (
+                                                                        <span key={i} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700">{c}</span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm text-gray-500 italic">Tất cả camera</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}

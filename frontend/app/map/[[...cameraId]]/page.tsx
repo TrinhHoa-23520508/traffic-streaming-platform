@@ -40,6 +40,7 @@ export default function MapPage() {
     const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lon: number, name: string } | null>(null);
     const [imageRefreshKey, setImageRefreshKey] = useState<number>(() => Date.now());
     const [modalImageUrl, setModalImageUrl] = useState<string | null>(null);
+    const [isModalAI, setIsModalAI] = useState<boolean>(false);
     const [cameras, setCameras] = useState<Camera[]>([]);
 
     // Load cameras data - use cache for instant reload
@@ -101,12 +102,13 @@ export default function MapPage() {
     }, [selectedCamera]);
 
     useEffect(() => {
-        // Chỉ chạy khi modal đang mở và có camera được chọn
-        if (modalImageUrl && selectedCamera) {
+        // Chỉ chạy khi modal đang mở Live image và có camera được chọn
+        // Không refresh nếu đang xem AI image
+        if (modalImageUrl && selectedCamera && !isModalAI) {
             const newImageUrl = `https://api.notis.vn/v4/${selectedCamera.liveviewUrl}?t=${imageRefreshKey}`;
             setModalImageUrl(newImageUrl);
         }
-    }, [imageRefreshKey, modalImageUrl, selectedCamera]);
+    }, [imageRefreshKey, modalImageUrl, selectedCamera, isModalAI]);
 
     // Memoized handlers to prevent unnecessary re-renders
     const handleLocationSelect = useCallback((lat: number, lon: number, name: string) => {
@@ -141,12 +143,14 @@ export default function MapPage() {
         window.history.replaceState(null, '', '/map');
     }, []);
 
-    const handleImageClick = useCallback((imageUrl: string) => {
+    const handleImageClick = useCallback((imageUrl: string, isAI: boolean = false) => {
         setModalImageUrl(imageUrl);
+        setIsModalAI(isAI);
     }, []);
 
     const handleCloseModal = useCallback(() => {
         setModalImageUrl(null);
+        setIsModalAI(false);
     }, []);
 
     // Handlers for navigation to stats and report pages - use startTransition for smooth navigation
@@ -259,6 +263,7 @@ export default function MapPage() {
                 <ImageModal
                     key={modalImageUrl}
                     imageUrl={modalImageUrl}
+                    isAI={isModalAI}
                     onClose={handleCloseModal}
                 />
             )}

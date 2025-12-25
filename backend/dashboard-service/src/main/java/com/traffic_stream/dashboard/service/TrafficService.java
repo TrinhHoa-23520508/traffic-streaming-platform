@@ -7,6 +7,7 @@ import com.traffic_stream.dashboard.repository.TrafficMetricRepository;
 import org.springframework.stereotype.Service;
 import com.traffic_stream.dashboard.dto.HourlyDistrictSummaryDTO;
 import java.time.ZonedDateTime;
+import java.time.Duration;
 import java.util.*;
 
 import com.traffic_stream.dashboard.dto.DistrictDailySummaryDTO;
@@ -265,6 +266,54 @@ public class TrafficService {
                         .build()
                 )
                 .toList();
+    }
+
+    /**
+     * FEATURE lấy số lượng xe tối đa (Peak Traffic)
+     * Trả về thông tin bản ghi có lượng xe cao nhất từng ghi nhận
+     */
+    public Map<String, Object> getMaxTrafficCount(String cameraId) {
+        Optional<TrafficMetric> maxMetricOpt = repository.findTopByCameraIdOrderByTotalCountDesc(cameraId);
+
+        Map<String, Object> result = new HashMap<>();
+        if (maxMetricOpt.isPresent()) {
+            TrafficMetric m = maxMetricOpt.get();
+            result.put("cameraId", m.getCameraId());
+            result.put("maxVehicleCount", m.getTotalCount());
+            result.put("timestamp", m.getTimestamp());
+            result.put("district", m.getDistrict());
+        } else {
+            result.put("message", "No data found for this camera");
+        }
+        return result;
+    }
+
+    /**
+     * FEATURE tính lưu lượng xe/phút (Traffic Flow Rate)
+     * Logic: Tổng số xe đếm được trong khoảng thời gian / Tổng số phút của khoảng thời gian đó
+     */
+    public Map<String, Object> calculateTrafficFlow(String cameraId, String startStr, String endStr) {
+        Instant now = Instant.now();
+        Instant end = (endStr != null && !endStr.isEmpty()) ? parseToInstant(endStr, false) : now;
+        Instant start = (startStr != null && !startStr.isEmpty()) ? parseToInstant(startStr, true) : now.minus(1, ChronoUnit.HOURS);
+
+        Long totalVehicles = repository.sumTotalCountByCameraIdAndTimestamp(cameraId, start, end);
+        if (totalVehicles == null) totalVehicles = 0L;
+
+        long durationInMinutes = Duration.between(start, end).toMinutes();
+        if (durationInMinutes <= 0) durationInMinutes = 1;
+
+        double flowRate = (double) totalVehicles / durationInMinutes;
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("cameraId", cameraId);
+        response.put("totalVehiclesDetected", totalVehicles);
+        response.put("durationMinutes", durationInMinutes);
+        response.put("flowRatePerMinute", Math.round(flowRate * 100.0) / 100.0);
+        response.put("periodStart", start);
+        response.put("periodEnd", end);
+
+        return response;
     }
 
 }

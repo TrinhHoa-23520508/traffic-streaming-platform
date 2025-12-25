@@ -127,4 +127,29 @@ public class TrafficController {
         return ResponseEntity.ok(cameras);
     }
 
+    /**
+     * API 8: Lấy số lượng xe kỷ lục (Max Count)
+     * Endpoint: GET /api/traffic/camera/{cameraId}/max-count
+     */
+    @GetMapping("/camera/{cameraId}/max-count")
+    public ResponseEntity<Map<String, Object>> getMaxTrafficCount(@PathVariable String cameraId) {
+        Map<String, Object> result = trafficService.getMaxTrafficCount(cameraId);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * API 9: Tính lưu lượng xe trung bình mỗi phút (Flow Rate)
+     * Endpoint: GET /api/traffic/camera/{cameraId}/flow-rate
+     * Optional: ?start=2025-12-01T08:00:00&end=2025-12-01T09:00:00
+     */
+    @GetMapping("/camera/{cameraId}/flow-rate")
+    public ResponseEntity<Map<String, Object>> getTrafficFlowRate(
+            @PathVariable String cameraId,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+
+        Map<String, Object> result = trafficService.calculateTrafficFlow(cameraId, start, end);
+        return ResponseEntity.ok(result);
+    }
+
 }

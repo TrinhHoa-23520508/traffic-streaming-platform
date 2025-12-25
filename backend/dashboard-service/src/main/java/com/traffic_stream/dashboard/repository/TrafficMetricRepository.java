@@ -108,4 +108,21 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
     @Query("SELECT DISTINCT t.cameraId, t.district FROM TrafficMetric t WHERE t.cameraId IN :cameraIds")
     List<Object[]> findCameraDistrictMappingsByCameraIds(@Param("cameraIds") List<String> cameraIds);
 
+    /**
+     * API Max Count: Lấy bản ghi có lượng xe lớn nhất của 1 camera
+     * Spring Data JPA sẽ tự động tạo query: ORDER BY totalCount DESC LIMIT 1
+     */
+    Optional<TrafficMetric> findTopByCameraIdOrderByTotalCountDesc(String cameraId);
+
+    /**
+     * API Flow Rate: Tính tổng số lượng xe đã đếm được trong khoảng thời gian
+     * Dùng để tính toán: (Tổng xe) / (Số phút)
+     */
+    @Query("SELECT SUM(t.totalCount) FROM TrafficMetric t " +
+            "WHERE t.cameraId = :cameraId AND t.timestamp BETWEEN :start AND :end")
+    Long sumTotalCountByCameraIdAndTimestamp(
+            @Param("cameraId") String cameraId,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
 }

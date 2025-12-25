@@ -6,7 +6,8 @@ import type { Camera } from '@/types/camera';
 import StatCardWithProgress from '@/components/stat-card-progress'; // Đảm bảo đường dẫn đúng
 import StatCardWithBadge from '@/components/stat-card-badge';
 import { trafficApi } from '@/lib/api/trafficApi';
-import type { TrafficMetricsDTO } from '@/types/traffic';
+import type { TrafficMetricsDTO, CameraFlowRate, CameraMaxCount } from '@/types/traffic';
+import { calculateTrafficLevel, getTrafficLevelInfo } from '@/types/traffic';
 import { FaCar, FaMotorcycle, FaBus, FaTruck, FaPersonWalking } from 'react-icons/fa6';
 import { RiRobot2Fill, RiLiveFill } from 'react-icons/ri';
 import { IoClose } from 'react-icons/io5';
@@ -48,8 +49,17 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     // ⭐ Real-time traffic data states
     const [trafficData, setTrafficData] = useState<TrafficMetricsDTO | null>(null);
     const [loading, setLoading] = useState(true);
-    const [countHistory, setCountHistory] = useState<Array<{count: number, timestamp: number}>>([]);
     const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+    
+    // ⭐ Flow Rate - từ API hoặc tính local
+    const [flowRateData, setFlowRateData] = useState<CameraFlowRate | null>(null);
+    const [flowRateLoading, setFlowRateLoading] = useState(false);
+    const [flowRateError, setFlowRateError] = useState<string | null>(null);
+    const [useLocalFlowRate, setUseLocalFlowRate] = useState(false);
+    const [countHistory, setCountHistory] = useState<Array<{count: number, timestamp: number}>>([]);
+    
+    // ⭐ Max Count - từ API (cho traffic level calculation)
+    const [maxCountData, setMaxCountData] = useState<CameraMaxCount | null>(null);
     
     // ⭐ AI Toggle State
     const [showAI, setShowAI] = useState(false);
@@ -71,12 +81,6 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 
                 setTrafficData(data);
                 setLastUpdateTime(new Date());
-                
-                // Initialize history with first data point
-                setCountHistory([{
-                    count: data.totalCount,
-                    timestamp: Date.now()
-                }]);
             } catch (error) {
                 console.error('⚠️ Error fetching camera data from API:', error);
                 
@@ -88,14 +92,8 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                     console.log('✅ Using cached data from trafficApi:', cachedData);
                     setTrafficData(cachedData);
                     setLastUpdateTime(new Date());
-                    
-                    setCountHistory([{
-                        count: cachedData.totalCount,
-                        timestamp: Date.now()
-                    }]);
                 } else {
                     console.warn('⚠️ No cached data available for camera:', cameraId);
-                    // Keep loading = false, trafficData = null sẽ hiện "Không có dữ liệu"
                 }
             } finally {
                 setLoading(false);
@@ -103,6 +101,58 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
         };
         
         fetchInitialData();
+    }, [camera]);
+
+    // ⭐ Fetch flow rate from API when camera changes
+    useEffect(() => {
+        const fetchFlowRate = async () => {
+            const cameraId = camera.id || (camera as any)._id || camera.name;
+            
+            setFlowRateLoading(true);
+            setFlowRateError(null);
+            
+            try {
+                console.log('📊 Fetching flow rate for camera:', cameraId);
+                const data = await trafficApi.getCameraFlowRate(cameraId);
+                console.log('✅ Flow rate API response:', data);
+                setFlowRateData(data);
+                setUseLocalFlowRate(false);
+            } catch (error: any) {
+                console.warn('⚠️ Flow rate API unavailable (404), switching to local calculation');
+                console.log('📊 Using local flow rate calculation instead');
+                setFlowRateError(null); // Không hiện lỗi, dùng local thay thế
+                setFlowRateData(null);
+                setUseLocalFlowRate(true);
+            } finally {
+                setFlowRateLoading(false);
+            }
+        };
+        
+        const fetchMaxCount = async () => {
+            const cameraId = camera.id || (camera as any)._id || camera.name;
+            
+            try {
+                console.log('📈 Fetching max count for camera:', cameraId);
+                const data = await trafficApi.getCameraMaxCount(cameraId);
+                console.log('✅ Max count API response:', data);
+                setMaxCountData(data);
+            } catch (error) {
+                console.warn('⚠️ Max count API unavailable, using fallback');
+                setMaxCountData(null);
+            }
+        };
+        
+        fetchFlowRate();
+        fetchMaxCount();
+        
+        // ⭐ Chỉ refresh nếu API khả dụng
+        const intervalId = setInterval(() => {
+            if (!useLocalFlowRate) {
+                fetchFlowRate();
+            }
+        }, 30000);
+        
+        return () => clearInterval(intervalId);
     }, [camera]);
 
     // --- LOGIC XỬ LÝ ẢNH MƯỢT MÀ (SMOOTH TRANSITION) ---
@@ -173,15 +223,36 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 setTrafficData(data);
                 setLastUpdateTime(new Date());
                 
-                // ⭐ Update history cho flow rate calculation (keep 2 minutes)
-                setCountHistory(prev => {
-                    const now = Date.now();
-                    const twoMinutesAgo = now - 2 * 60 * 1000;
-                    
-                    // Filter data trong 2 phút gần nhất + add new data
-                    const filtered = prev.filter(item => item.timestamp > twoMinutesAgo);
-                    return [...filtered, { count: data.totalCount, timestamp: now }];
-                });
+                // ⭐ Update history cho local flow rate calculation (keep 2 minutes)
+                if (useLocalFlowRate) {
+                    setCountHistory(prev => {
+                        const now = Date.now();
+                        const twoMinutesAgo = now - 2 * 60 * 1000;
+                        
+                        // Filter data trong 2 phút gần nhất + add new data
+                        const filtered = prev.filter(item => item.timestamp > twoMinutesAgo);
+                        const newHistory = [...filtered, { count: data.totalCount, timestamp: now }];
+                        
+                        // Log flow rate calculation
+                        if (newHistory.length >= 2) {
+                            const latest = newHistory[newHistory.length - 1];
+                            const oldest = newHistory[0];
+                            const countDiff = latest.count - oldest.count;
+                            const timeDiff = (latest.timestamp - oldest.timestamp) / 1000 / 60;
+                            const calculatedRate = timeDiff > 0 ? Math.max(0, Math.round(countDiff / timeDiff)) : 0;
+                            console.log('📊 Local flow rate calculation:', {
+                                historyLength: newHistory.length,
+                                oldestCount: oldest.count,
+                                latestCount: latest.count,
+                                countDiff,
+                                timeDiffMinutes: timeDiff.toFixed(2),
+                                flowRate: calculatedRate
+                            });
+                        }
+                        
+                        return newHistory;
+                    });
+                }
             }
         });
         
@@ -190,10 +261,10 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
             console.log('🚪 Unsubscribing from camera:', cameraId);
             unsubscribe();
         };
-    }, [camera]);
+    }, [camera, useLocalFlowRate]);
 
-    // ⭐ Calculate flow rate từ history (xe/phút)
-    const calculateFlowRate = (): number => {
+    // ⭐ Calculate local flow rate từ history (xe/phút) - FALLBACK khi API không có
+    const calculateLocalFlowRate = (): number => {
         if (countHistory.length < 2) return 0;
         
         const latest = countHistory[countHistory.length - 1];
@@ -207,18 +278,50 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
         return Math.max(0, Math.round(countDiff / timeDiff)); // Không âm
     };
 
-    // ⭐ Calculate congestion status dựa trên totalCount
-    const getCongestionStatus = (): 'CAO' | 'TRUNG BÌNH' | 'THẤP' => {
-        if (!trafficData) return 'THẤP';
-        
-        const count = trafficData.totalCount;
-        if (count > 50) return 'CAO';
-        if (count > 20) return 'TRUNG BÌNH';
-        return 'THẤP';
+    // ⭐ Get flow rate - từ API hoặc tính local
+    const flowRate = useLocalFlowRate 
+        ? calculateLocalFlowRate() 
+        : (flowRateData?.flowRatePerMinute ?? 0);
+    
+    // Log current flow rate value
+    console.log('📊 Current flow rate:', {
+        useLocalFlowRate,
+        flowRateFromAPI: flowRateData?.flowRatePerMinute,
+        localFlowRate: calculateLocalFlowRate(),
+        displayedFlowRate: flowRate,
+        historyLength: countHistory.length
+    });
+    
+    // ⭐ Format flow rate period for display
+    const getFlowRatePeriod = (): string => {
+        if (useLocalFlowRate) {
+            if (countHistory.length < 2) return 'đang thu thập...';
+            const timeDiff = (countHistory[countHistory.length - 1].timestamp - countHistory[0].timestamp) / 1000;
+            if (timeDiff < 60) return `${Math.round(timeDiff)} giây`;
+            return `${Math.round(timeDiff / 60)} phút`;
+        }
+        if (!flowRateData) return '';
+        const duration = flowRateData.durationMinutes;
+        if (duration < 60) return `${duration} phút`;
+        return `${Math.round(duration / 60)} giờ`;
     };
 
-    const flowRate = calculateFlowRate();
-    const congestionStatus = getCongestionStatus();
+    // ⭐ Calculate Traffic Level: So sánh số xe hiện tại với peak (maxVehicleCount)
+    const currentCount = trafficData?.totalCount || 0;
+    const trafficLevel = calculateTrafficLevel(
+        currentCount,
+        maxCountData?.maxVehicleCount
+    );
+    const trafficLevelInfo = getTrafficLevelInfo(trafficLevel);
+    
+    // Log traffic level calculation
+    console.log('🚦 Traffic Level:', {
+        currentCount,
+        maxVehicleCount: maxCountData?.maxVehicleCount,
+        ratio: maxCountData?.maxVehicleCount ? (currentCount / maxCountData.maxVehicleCount * 100).toFixed(1) + '%' : 'N/A',
+        calculatedLevel: trafficLevel,
+        levelInfo: trafficLevelInfo
+    });
 
     const vehicleConfig = {
         car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
@@ -359,40 +462,43 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                             </div>
                         </div>
 
-                        {/* Flow Rate */}
+                        {/* Flow Rate - with loading and error states */}
                         <div className="bg-gradient-to-br from-purple-50 to-white p-3 rounded-xl border border-purple-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
                             <div className="absolute top-0 right-0 w-16 h-16 bg-purple-100 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
                             <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider relative z-10">Lưu lượng</span>
-                            <div className="flex items-end gap-1 mt-1 relative z-10">
-                                <span className="text-2xl font-black text-gray-800">{flowRate}</span>
-                                <span className="text-xs font-medium text-gray-500 mb-1">xe/phút</span>
-                            </div>
+                            {flowRateLoading ? (
+                                <div className="flex items-center gap-2 mt-1 relative z-10">
+                                    <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin"></div>
+                                    <span className="text-xs text-gray-500">Đang tải...</span>
+                                </div>
+                            ) : flowRateError ? (
+                                <div className="mt-1 relative z-10">
+                                    <span className="text-xs text-red-500">{flowRateError}</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex items-end gap-1 mt-1 relative z-10">
+                                        <span className="text-2xl font-black text-gray-800">{Math.round(flowRate)}</span>
+                                        <span className="text-xs font-medium text-gray-500 mb-1">xe/phút</span>
+                                    </div>
+                                    {flowRateData && (
+                                        <div className="text-[9px] text-purple-500 mt-1 relative z-10">
+                                            Trong {getFlowRatePeriod()}
+                                        </div>
+                                    )}
+                                </>
+                            )}
                             <div className="w-full bg-purple-100 h-1.5 rounded-full mt-2 overflow-hidden">
                                 <div className="bg-purple-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(flowRate * 1.5, 100)}%` }}></div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Congestion Status - Enhanced */}
-                    <div className={`flex items-center justify-between p-3 rounded-xl border shadow-sm transition-colors duration-300 ${
-                        congestionStatus === 'CAO' ? 'bg-red-50 border-red-100' : 
-                        congestionStatus === 'TRUNG BÌNH' ? 'bg-yellow-50 border-yellow-100' : 
-                        'bg-green-50 border-green-100'
-                    }`}>
-                        <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full animate-pulse ${
-                                congestionStatus === 'CAO' ? 'bg-red-500' : 
-                                congestionStatus === 'TRUNG BÌNH' ? 'bg-yellow-500' : 
-                                'bg-green-500'
-                            }`}></div>
-                            <span className="text-xs font-semibold text-gray-700">Tình trạng giao thông</span>
-                        </div>
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full shadow-sm ${
-                            congestionStatus === 'CAO' ? 'bg-red-500 text-white' : 
-                            congestionStatus === 'TRUNG BÌNH' ? 'bg-yellow-500 text-white' : 
-                            'bg-green-500 text-white'
-                        }`}>
-                            {congestionStatus}
+                    {/* Traffic Level Status - So sánh số xe hiện tại với peak */}
+                    <div className={`flex items-center justify-between p-3 rounded-xl border shadow-sm transition-colors duration-300 ${trafficLevelInfo.bgColor} ${trafficLevelInfo.borderColor}`}>
+                        <span className="text-xs font-semibold text-gray-700">Tình trạng giao thông</span>
+                        <span className={`text-xs font-bold px-3 py-1 rounded-full shadow-sm ${trafficLevelInfo.color} text-white`}>
+                            {trafficLevelInfo.labelVi}
                         </span>
                     </div>
 

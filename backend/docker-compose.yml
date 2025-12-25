@@ -117,7 +117,6 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    # ============ CẤU HÌNH GPU ============
     deploy:
       replicas: 1
       resources:
@@ -125,7 +124,6 @@ services:
           devices:
             - driver: nvidia
               capabilities: [ gpu ]
-    # Tăng tài nguyên khi dùng GPU
     cpus: '2'
     mem_limit: 4G
     logging:
@@ -136,7 +134,6 @@ services:
         mode: "non-blocking" 
         max-buffer-size: "4m"
 
-    # ======================================
   dashboard-service:
     build: ./dashboard-service
     ports:
@@ -161,6 +158,32 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # image-retrieval-service:
+  #   build: ./image-retrieval-service
+  #   ports:
+  #     - "1810:1810"
+  #   environment:
+  #     MINIO_ENDPOINT: http://minio:9000
+  #     MINIO_PUBLIC_ENDPOINT: http://localhost:9000
+  #     MINIO_ACCESS_KEY: minioadmin
+  #     MINIO_SECRET_KEY: minioadmin
+  #     MINIO_BUCKET_NAME: traffic-analyzed-images
+  #     SERVER_PORT: 1810
+  #   depends_on:
+  #     minio:
+  #       condition: service_healthy
 
 volumes:
   postgres_data:

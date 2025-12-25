@@ -50,6 +50,38 @@ html, body {
   overflow: hidden;
 }
 
+/* Performance optimizations for smoother UI */
+* {
+  /* Enable GPU acceleration for transforms */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Optimize map container for smooth dragging */
+.leaflet-container {
+  will-change: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.leaflet-tile-container {
+  will-change: transform;
+}
+
+.leaflet-marker-pane {
+  will-change: transform;
+}
+
+/* Reduce paint operations during map interactions */
+.leaflet-zoom-animated {
+  will-change: transform;
+}
+
+/* Optimize popups and UI overlays */
+.leaflet-popup,
+.leaflet-control {
+  will-change: auto;
+}
+
 .recharts-wrapper,
 .recharts-wrapper * {
   outline: none !important;
@@ -151,8 +183,8 @@ html, body {
 
 .camera-marker-content {
   position: relative;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,8 +197,8 @@ html, body {
 }
 
 .camera-marker-content svg {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   color: white;
   z-index: 2;
   pointer-events: none;

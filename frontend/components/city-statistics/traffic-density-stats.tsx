@@ -9,6 +9,7 @@ import type { CityStatsHourlyWS } from "@/types/city-stats";
 import { CHART_COLORS } from "./color";
 import { DateRange } from "react-day-picker";
 import { subHours, format, addHours, differenceInHours } from "date-fns";
+import { FiActivity } from "react-icons/fi";
 
 interface HourlyData {
     time: Date;
@@ -52,13 +53,15 @@ const generateRandomHourlyData = (range?: DateRange): HourlyData[] => {
 };
 
 export default function TrafficDensityStatisticsAreaChart({ data: wsData, refreshTrigger, onLoadComplete, districts = [] }: TrafficDensityStatsProps) {
-    const [areaDistrict, setAreaDistrict] = useState<string>("Bình Dương");
+    const [areaDistrict, setAreaDistrict] = useState<string>(() => {
+        return districts && districts.length > 0 ? districts[0] : "Bình Dương";
+    });
 
     useEffect(() => {
-        if (districts.length > 0 && !districts.includes(areaDistrict) && areaDistrict === "Bình Dương") {
+        if (districts.length > 0 && !districts.includes(areaDistrict)) {
             setAreaDistrict(districts[0]);
         }
-    }, [districts]);
+    }, [districts, areaDistrict]);
 
     const [dateRange, setDateRange] = useState<DateRange>(() => {
         const now = new Date();
@@ -92,8 +95,8 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 setCameraOptions([]);
             }
         };
-        fetchCameras();
-    }, [areaDistrict]);
+        if (areaDistrict) fetchCameras();
+    }, [areaDistrict, districts]);
 
     useEffect(() => {
         const fetchHourlyData = async () => {
@@ -207,7 +210,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
             const box = chartRef.current.getBoundingClientRect();
             let leftPos = box.left + coordinate.x - tooltipWidth - 20;
             if (leftPos < 8) {
-                leftPos = box.left + coordinate.x + 20; // fallback to right side
+                leftPos = box.left + coordinate.x + 20;
             }
             style = {
                 ...style,
@@ -255,6 +258,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         return (
             <InforPanel
                 title="Thống kê lưu lượng xe theo giờ"
+                icon={<FiActivity className="w-4 h-4" />}
                 filterValue={areaDistrict}
                 onFilterChange={setAreaDistrict}
                 districts={districts}
@@ -274,6 +278,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
     return (
         <InforPanel
             title="Thống kê lưu lượng xe theo giờ"
+            icon={<FiActivity className="w-4 h-4" />}
             filterValue={areaDistrict}
             onFilterChange={setAreaDistrict}
             districts={districts}

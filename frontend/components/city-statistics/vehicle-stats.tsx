@@ -9,6 +9,7 @@ import type { CityStatsByDistrict } from "@/types/city-stats";
 import { CHART_COLORS } from "./color";
 import { DateRange } from "react-day-picker";
 import { startOfDay, format } from "date-fns";
+import { FiBarChart2 } from "react-icons/fi";
 
 interface VehicleChartData {
     district: string;
@@ -205,6 +206,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
             <InforPanel
                 title="Thống kê phương tiện theo quận"
                 lastUpdated={lastUpdated}
+                icon={<FiBarChart2 className="w-4 h-4" />}
                 showFilter={false}
                 useDateRange={true}
                 dateRangeValue={dateRange}
@@ -220,6 +222,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
         <InforPanel
             title="Thống kê phương tiện theo quận"
             lastUpdated={lastUpdated}
+            icon={<FiBarChart2 className="w-4 h-4" />}
             showFilter={false}
             useDateRange={true}
             dateRangeValue={dateRange}

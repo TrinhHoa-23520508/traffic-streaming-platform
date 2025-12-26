@@ -16,6 +16,8 @@ export const API_CONFIG = {
       BY_DATE: '/api/traffic/by-date',
       HOURLY_SUMMARY: '/api/traffic/hourly-summary',
       CAMERA_LATEST: '/api/traffic/camera',
+      CAMERA_FLOW_RATE: '/api/traffic/camera', // /{cameraId}/flow-rate
+      CAMERA_MAX_COUNT: '/api/traffic/camera', // /{cameraId}/max-count
       CAMERAS: '/api/traffic/cameras',
       DISTRICTS: '/api/traffic/districts',
     },

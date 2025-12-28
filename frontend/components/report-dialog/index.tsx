@@ -55,6 +55,10 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
   const [isLoadingReports, setIsLoadingReports] = React.useState(false)
   const [selectedReport, setSelectedReport] = React.useState<ReportDetail | null>(null)
   const [isLoadingDetail, setIsLoadingDetail] = React.useState(false)
+  
+  // Success Popup State
+  const [showSuccessPopup, setShowSuccessPopup] = React.useState(false)
+  const [successMessage, setSuccessMessage] = React.useState("")
 
   const handleViewReport = async (report: Report) => {
     // Initialize with basic info and empty details
@@ -225,9 +229,12 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
             cameraIds: selectedCameras,
             scheduledTime: scheduledTimeIso
         })
-        alert("Báo cáo đang được tạo. Vui lòng kiểm tra tab 'Danh sách báo cáo' sau ít phút.")
-        // Switch to list tab to show progress/result if applicable
-        setActiveTab("list")
+        // Show success popup instead of alert
+        setSuccessMessage(isScheduled 
+            ? "Báo cáo đã được lên lịch thành công!" 
+            : "Báo cáo đang được tạo. Vui lòng kiểm tra danh sách báo cáo sau ít phút."
+        )
+        setShowSuccessPopup(true)
         fetchReports()
     } catch (error) {
         console.error("Failed to generate report:", error)
@@ -266,8 +273,57 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
 
   if (!open) return null;
 
+  // Success Popup Component
+  const SuccessPopup = () => {
+    if (!showSuccessPopup) return null;
+    
+    return (
+      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-green-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800">Thành công!</h3>
+            </div>
+          </div>
+          
+          {/* Content */}
+          <div className="px-6 py-5">
+            <p className="text-gray-600 text-sm leading-relaxed">{successMessage}</p>
+          </div>
+          
+          {/* Actions */}
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
+            <button
+              onClick={() => setShowSuccessPopup(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Đóng
+            </button>
+            <button
+              onClick={() => {
+                setShowSuccessPopup(false)
+                setActiveTab("list")
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors shadow-sm"
+            >
+              Danh sách báo cáo
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
+    <>
+      <SuccessPopup />
+      <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
         <div
             className="bg-white w-full h-full flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
             role="dialog" aria-modal="true"
@@ -805,7 +861,8 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                 </Tabs>
             </div>
         </div>
-    </div>
+      </div>
+    </>
   )
 }
 

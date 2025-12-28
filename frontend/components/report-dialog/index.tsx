@@ -59,6 +59,14 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
   // Success Popup State
   const [showSuccessPopup, setShowSuccessPopup] = React.useState(false)
   const [successMessage, setSuccessMessage] = React.useState("")
+  
+  // Warning Popup State (for validation errors)
+  const [showWarningPopup, setShowWarningPopup] = React.useState(false)
+  const [warningMessage, setWarningMessage] = React.useState("")
+  
+  // Delete Confirmation Popup State
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false)
+  const [reportToDelete, setReportToDelete] = React.useState<string | null>(null)
 
   const handleViewReport = async (report: Report) => {
     // Initialize with basic info and empty details
@@ -176,27 +184,48 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
   }
 
   const handleDelete = async (reportId: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa báo cáo này không?")) {
-        try {
-            await reportApi.deleteReport(reportId);
-            if (selectedReport?.id === reportId) {
-                setSelectedReport(null);
-            }
-            fetchReports(); // Refresh list
-        } catch (error) {
-            console.error("Failed to delete report:", error);
+    // Show confirmation popup instead of browser confirm
+    setReportToDelete(reportId)
+    setShowDeleteConfirm(true)
+  }
+  
+  const confirmDelete = async () => {
+    if (!reportToDelete) return
+    
+    try {
+        await reportApi.deleteReport(reportToDelete);
+        if (selectedReport?.id === reportToDelete) {
+            setSelectedReport(null);
         }
+        fetchReports(); // Refresh list
+        setShowDeleteConfirm(false)
+        setReportToDelete(null)
+    } catch (error) {
+        console.error("Failed to delete report:", error);
+        setShowDeleteConfirm(false)
+        setReportToDelete(null)
     }
   }
 
   const handleGenerate = async () => {
+    // Validation 1: Check date range
     if (!startDate || !endDate) {
-        alert("Vui lòng chọn khoảng thời gian")
+        setWarningMessage("Vui lòng chọn khoảng thời gian báo cáo.")
+        setShowWarningPopup(true)
         return
     }
 
+    // Validation 2: Check districts
     if (selectedDistricts.length === 0) {
-        alert("Vui lòng chọn ít nhất một Quận/Huyện")
+        setWarningMessage("Vui lòng chọn ít nhất một Quận/Huyện.")
+        setShowWarningPopup(true)
+        return
+    }
+    
+    // Validation 3: Check cameras - MUST select at least one camera
+    if (selectedCameras.length === 0) {
+        setWarningMessage("Vui lòng chọn ít nhất một Camera trước khi xuất báo cáo.")
+        setShowWarningPopup(true)
         return
     }
 
@@ -208,6 +237,13 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
     const endDateTime = new Date(endDate)
     const [endHours, endMinutes] = endTime.split(':').map(Number)
     endDateTime.setHours(endHours, endMinutes, 0)
+    
+    // Validation 4: Check start < end
+    if (startDateTime >= endDateTime) {
+        setWarningMessage("Thời gian bắt đầu phải sớm hơn thời gian kết thúc.")
+        setShowWarningPopup(true)
+        return
+    }
 
     // Calculate scheduled time
     let scheduledTimeIso: string | undefined = undefined
@@ -215,7 +251,24 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
         const schedDateTime = new Date(scheduledDate)
         const [schedHours, schedMinutes] = scheduledTimeStr.split(':').map(Number)
         schedDateTime.setHours(schedHours, schedMinutes, 0)
+        
+        // Validation 5: Scheduled time must be AFTER end time
+        if (schedDateTime <= endDateTime) {
+            setWarningMessage("Thời gian thực thi phải sau thời gian kết thúc của báo cáo.")
+            setShowWarningPopup(true)
+            return
+        }
+        
+        // Validation 6: Scheduled time should be in the future (at least)
+        const now = new Date()
+        if (schedDateTime <= now) {
+            setWarningMessage("Thời gian thực thi phải trong tương lai.")
+            setShowWarningPopup(true)
+            return
+        }
+        
         scheduledTimeIso = schedDateTime.toISOString()
+        console.log('📅 Scheduled time to send to backend:', scheduledTimeIso)
     }
 
     setIsGenerating(true)
@@ -238,7 +291,8 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
         fetchReports()
     } catch (error) {
         console.error("Failed to generate report:", error)
-        alert("Có lỗi xảy ra khi tạo báo cáo.")
+        setWarningMessage("Có lỗi xảy ra khi tạo báo cáo. Vui lòng thử lại.")
+        setShowWarningPopup(true)
     } finally {
         setIsGenerating(false)
     }
@@ -319,10 +373,95 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
       </div>
     );
   };
+  
+  // Warning Popup Component (for validation errors)
+  const WarningPopup = () => {
+    if (!showWarningPopup) return null;
+    
+    return (
+      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-amber-50 to-yellow-50 px-6 py-4 border-b border-amber-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800">Lưu ý</h3>
+            </div>
+          </div>
+          
+          {/* Content */}
+          <div className="px-6 py-5">
+            <p className="text-gray-600 text-sm leading-relaxed">{warningMessage}</p>
+          </div>
+          
+          {/* Actions */}
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
+            <button
+              onClick={() => setShowWarningPopup(false)}
+              className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors shadow-sm"
+            >
+              Đã hiểu
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  // Delete Confirmation Popup Component
+  const DeleteConfirmPopup = () => {
+    if (!showDeleteConfirm) return null;
+    
+    return (
+      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-red-50 to-pink-50 px-6 py-4 border-b border-red-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800">Xác nhận xóa</h3>
+            </div>
+          </div>
+          
+          {/* Content */}
+          <div className="px-6 py-5">
+            <p className="text-gray-600 text-sm leading-relaxed">Bạn có chắc chắn muốn xóa báo cáo này không? Hành động này không thể hoàn tác.</p>
+          </div>
+          
+          {/* Actions */}
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
+            <button
+              onClick={() => {
+                setShowDeleteConfirm(false)
+                setReportToDelete(null)
+              }}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors shadow-sm"
+            >
+              Xóa báo cáo
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
       <SuccessPopup />
+      <WarningPopup />
+      <DeleteConfirmPopup />
       <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
         <div
             className="bg-white w-full h-full flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"

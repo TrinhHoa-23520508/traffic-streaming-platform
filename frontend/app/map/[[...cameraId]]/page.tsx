@@ -7,6 +7,7 @@ import SearchBox from "@/components/search";
 import CameraInfoCard from "@/components/camera-info-card";
 import ImageModal from "@/components/image-modal";
 import type { Camera } from "@/types/camera";
+import { API_CONFIG } from "@/lib/api/config";
 import { FiMap, FiBarChart2, FiFileText } from "react-icons/fi";
 import Link from "next/link";
 
@@ -105,7 +106,7 @@ export default function MapPage() {
         // Chỉ chạy khi modal đang mở Live image và có camera được chọn
         // Không refresh nếu đang xem AI image
         if (modalImageUrl && selectedCamera && !isModalAI) {
-            const newImageUrl = `https://api.notis.vn/v4/${selectedCamera.liveviewUrl}?t=${imageRefreshKey}`;
+            const newImageUrl = `${API_CONFIG.CAMERA_API_URL}/${selectedCamera.liveviewUrl}?t=${imageRefreshKey}`;
             setModalImageUrl(newImageUrl);
         }
     }, [imageRefreshKey, modalImageUrl, selectedCamera, isModalAI]);

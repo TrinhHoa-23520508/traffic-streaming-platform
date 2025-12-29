@@ -14,7 +14,20 @@ interface CameraMarkersProps {
     routingMode?: boolean;
     onRoutingCameraClick?: ((camera: any) => void) | null;
     heatEnabled?: boolean;
+    routeCoordinates?: number[][] | null; // When set, only show cameras near this route
 }
+
+// Haversine formula to calculate distance between two points in meters
+const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
 
 // Custom camera icon using DivIcon for CSS styling
 const createCameraIcon = (isSelected: boolean) => divIcon({
@@ -39,7 +52,7 @@ const createCameraIcon = (isSelected: boolean) => divIcon({
     popupAnchor: [0, -24]
 });
 
-export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate, routingMode, onRoutingCameraClick, heatEnabled }: CameraMarkersProps) {
+export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate, routingMode, onRoutingCameraClick, heatEnabled, routeCoordinates }: CameraMarkersProps) {
     const [visibleCameras, setVisibleCameras] = useState<Camera[]>([]);
     const [loading, setLoading] = useState(true);
     const map = useMap();
@@ -47,6 +60,23 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
     const trafficDataRef = useRef<Map<string, number>>(new Map());
 
     const updateVisibleMarkersRef = useRef<NodeJS.Timeout | null>(null);
+    
+    // Helper function to check if a camera is near any point on the route
+    const isCameraNearRoute = useCallback((camera: Camera, routeCoords: number[][]): boolean => {
+        const PROXIMITY_THRESHOLD = 500; // 500 meters
+        const cameraLat = camera.loc.coordinates[1];
+        const cameraLng = camera.loc.coordinates[0];
+        
+        // Check distance to route points (sample every 5th point for performance)
+        for (let i = 0; i < routeCoords.length; i += 5) {
+            const [lng, lat] = routeCoords[i];
+            const distance = getDistanceInMeters(cameraLat, cameraLng, lat, lng);
+            if (distance <= PROXIMITY_THRESHOLD) {
+                return true;
+            }
+        }
+        return false;
+    }, []);
     
     const updateVisibleMarkers = useCallback(() => {
         // Clear any pending updates
@@ -265,13 +295,22 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
     const defaultIcon = useMemo(() => createCameraIcon(false), []);
     const selectedIcon = useMemo(() => createCameraIcon(true), []);
 
+    // Filter cameras based on route if routeCoordinates is provided
+    const displayCameras = useMemo(() => {
+        if (!routeCoordinates || routeCoordinates.length === 0) {
+            return visibleCameras;
+        }
+        // Only show cameras that are near the route
+        return visibleCameras.filter(camera => isCameraNearRoute(camera, routeCoordinates));
+    }, [visibleCameras, routeCoordinates, isCameraNearRoute]);
+
     if (loading || heatEnabled) {
         return null;
     }
 
     return (
         <>
-            {visibleCameras.map((camera) => {
+            {displayCameras.map((camera) => {
                 // GeoJSON uses [longitude, latitude], Leaflet uses [latitude, longitude]
                 const position: [number, number] = [
                     camera.loc.coordinates[1],
@@ -288,12 +327,13 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                         zIndexOffset={isSelected ? 1000 : 0}
                         eventHandlers={{
                             click: (e) => {
-                                // In routing mode, use routing handler instead
+                                // In routing mode with handler, use routing handler for route selection
+                                // But still allow showing camera info
                                 if (routingMode && onRoutingCameraClick) {
                                     onRoutingCameraClick(camera);
-                                    return;
                                 }
                                 
+                                // Always show camera info on click (even in routing mode)
                                 // Bring marker to front on click
                                 const marker = e.target;
                                 if (marker && marker._icon) {

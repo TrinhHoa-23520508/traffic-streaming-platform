@@ -6,6 +6,7 @@ import type { Camera } from '@/types/camera';
 import StatCardWithProgress from '@/components/stat-card-progress'; // Đảm bảo đường dẫn đúng
 import StatCardWithBadge from '@/components/stat-card-badge';
 import { trafficApi } from '@/lib/api/trafficApi';
+import { API_CONFIG } from '@/lib/api/config';
 import type { TrafficMetricsDTO, CameraFlowRate, CameraMaxCount } from '@/types/traffic';
 import { calculateTrafficLevel, getTrafficLevelInfo } from '@/types/traffic';
 import { FaCar, FaMotorcycle, FaBus, FaTruck, FaPersonWalking } from 'react-icons/fa6';
@@ -41,7 +42,7 @@ const getCongestionColor = (status: 'CAO' | 'TRUNG BÌNH' | 'THẤP') => {
 
 
 export default function CameraInfoCard({ camera, onClose, onImageClick, imageRefreshKey }: CameraInfoCardProps) {
-    const initialUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    const initialUrl = `${API_CONFIG.CAMERA_API_URL}/${camera.liveviewUrl}?t=${imageRefreshKey}`;
     const [currentSrc, setCurrentSrc] = useState<string>(initialUrl);
     const [loadingImage, setLoadingImage] = useState<boolean>(false);
     const imgRef = useRef<HTMLImageElement | null>(null);
@@ -158,7 +159,7 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     // --- LOGIC XỬ LÝ ẢNH MƯỢT MÀ (SMOOTH TRANSITION) ---
     
     // Live URL luôn có sẵn
-    const liveUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    const liveUrl = `${API_CONFIG.CAMERA_API_URL}/${camera.liveviewUrl}?t=${imageRefreshKey}`;
     
     // AI URL - có thể không có
     const aiUrl = trafficData?.annotatedImageUrl || null;

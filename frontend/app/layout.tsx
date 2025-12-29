@@ -36,9 +36,9 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <head>
         {/* Preconnect to external resources for faster loading */}
-        <link rel="preconnect" href="https://api.notis.vn" />
+        <link rel="preconnect" href={process.env.NEXT_PUBLIC_CAMERA_API_URL?.replace('/v4', '') || "https://api.notis.vn"} />
         <link rel="preconnect" href="https://tile.openstreetmap.org" />
-        <link rel="dns-prefetch" href="https://api.notis.vn" />
+        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_CAMERA_API_URL?.replace('/v4', '') || "https://api.notis.vn"} />
         <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
       </head>
       <body

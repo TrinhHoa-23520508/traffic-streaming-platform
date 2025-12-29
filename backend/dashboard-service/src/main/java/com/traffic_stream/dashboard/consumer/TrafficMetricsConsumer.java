@@ -40,6 +40,11 @@ public class TrafficMetricsConsumer {
 
             repo.save(entity);
 
+            Integer dbMax = repo.findMaxCountByCameraId(dto.getCameraId());
+            if (dbMax == null) dbMax = 0;
+            int finalMax = Math.max(dbMax, dto.getTotalCount());
+            dto.setMaxCount(finalMax);
+            dto.setTimestamp(System.currentTimeMillis());
             ws.convertAndSend("/topic/traffic", dto);
 
         } catch (Exception ex) {

@@ -1,5 +1,6 @@
 package com.traffic_stream.dashboard.service;
 
+import com.traffic_stream.dashboard.dto.TopTrafficDTO;
 import com.traffic_stream.dashboard.dto.CameraDTO;
 import com.traffic_stream.dashboard.dto.DistrictDTO;
 import com.traffic_stream.dashboard.entity.TrafficMetric;
@@ -11,6 +12,8 @@ import java.time.Duration;
 import java.util.*;
 
 import com.traffic_stream.dashboard.dto.DistrictDailySummaryDTO;
+import com.traffic_stream.dashboard.dto.DistrictGrowthDTO;
+import com.traffic_stream.dashboard.dto.VehicleTypeRatioDTO;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -41,22 +44,49 @@ public class TrafficService {
      * - Nếu không có date: Lấy 100 bản ghi mới nhất TÍNH ĐẾN HIỆN TẠI (Real-time).
      */
     public List<TrafficMetric> getLatestTrafficMetrics(String district, String dateStr) {
+        List<TrafficMetric> metrics;
+
         if (dateStr != null && !dateStr.isEmpty()) {
             LocalDate date = parseDateOrDefault(dateStr);
             Instant startOfDay = date.atStartOfDay(VIETNAM_ZONE).toInstant();
             Instant endOfDay = date.plusDays(1).atStartOfDay(VIETNAM_ZONE).toInstant();
 
             if (district != null && !district.isEmpty()) {
-                return repository.findFirst100ByDistrictAndTimestampBetweenOrderByTimestampDesc(district, startOfDay, endOfDay);
+                metrics = repository.findFirst100ByDistrictAndTimestampBetweenOrderByTimestampDesc(district, startOfDay, endOfDay);
             } else {
-                return repository.findFirst100ByTimestampBetweenOrderByTimestampDesc(startOfDay, endOfDay);
+                metrics = repository.findFirst100ByTimestampBetweenOrderByTimestampDesc(startOfDay, endOfDay);
+            }
+        } else {
+            if (district != null && !district.isEmpty()) {
+                metrics = repository.findFirst100ByDistrictOrderByTimestampDesc(district);
+            } else {
+                metrics = repository.findFirst100ByOrderByTimestampDesc();
             }
         }
 
-        if (district != null && !district.isEmpty()) {
-            return repository.findFirst100ByDistrictOrderByTimestampDesc(district);
+        if (!metrics.isEmpty()) {
+            List<String> cameraIds = metrics.stream()
+                    .map(TrafficMetric::getCameraId)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            List<Object[]> maxCounts = repository.findMaxCountsByCameraIds(cameraIds);
+
+            Map<String, Integer> maxCountMap = new HashMap<>();
+            for (Object[] row : maxCounts) {
+                String camId = (String) row[0];
+                Integer max = (Integer) row[1];
+                if (camId != null && max != null) {
+                    maxCountMap.put(camId, max);
+                }
+            }
+
+            for (TrafficMetric m : metrics) {
+                m.setMaxCount(maxCountMap.getOrDefault(m.getCameraId(), 0));
+            }
         }
-        return repository.findFirst100ByOrderByTimestampDesc();
+
+        return metrics;
     }
 
     /**
@@ -214,15 +244,15 @@ public class TrafficService {
     }
 
     /**
-     * HÀM dùng cho Scheduled Task (WebSocket Push)
-     * Tổng hợp chi tiết theo quận cho một khoảng thời gian (1 giờ)
+     * Tổng hợp chi tiết theo QUẬN và PHÚT (Real-time)
+     * - Dữ liệu trả về sẽ có format time là: yyyy-MM-dd'T'HH:mm:00
+     * - Key Map bây giờ là: District + Time (để tách các phút ra)
      */
     public List<HourlyDistrictSummaryDTO> getDetailedHourlySummaryByDistrict(Instant startTime, Instant endTime) {
         List<TrafficMetric> metrics = repository.findByTimestampBetween(startTime, endTime);
         Map<String, HourlyDistrictSummaryDTO> summaryMap = new HashMap<>();
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:00:00");
-        String timeString = formatter.format(startTime.atZone(VIETNAM_ZONE));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:00").withZone(VIETNAM_ZONE);
 
         for (TrafficMetric metric : metrics) {
             String district = metric.getDistrict();
@@ -230,12 +260,17 @@ public class TrafficService {
                 continue;
             }
 
+            String timeBucket = formatter.format(metric.getTimestamp());
+
+            String key = district + "_" + timeBucket;
+
             HourlyDistrictSummaryDTO summaryDTO = summaryMap.computeIfAbsent(
-                    district,
-                    d -> new HourlyDistrictSummaryDTO(d, timeString)
+                    key,
+                    k -> new HourlyDistrictSummaryDTO(district, timeBucket)
             );
             summaryDTO.addMetric(metric);
         }
+
         return new ArrayList<>(summaryMap.values());
     }
 
@@ -316,4 +351,178 @@ public class TrafficService {
         return response;
     }
 
+    /**
+     * FEATURE 2: Top 5 Khu vực tăng trưởng (Sliding Window 5 Phút)
+     * - Khắc phục triệt để lỗi -100% / +100% do độ trễ xử lý.
+     * - Dữ liệu luôn được "lấp đầy" bởi các phút lân cận.
+     */
+    public List<DistrictGrowthDTO> getTop5FastestGrowingDistricts() {
+        Instant now = Instant.now();
+
+        Instant currentEnd = now;
+        Instant currentStart = now.minus(5, ChronoUnit.MINUTES);
+
+        Instant prevEnd = currentStart;
+        Instant prevStart = currentStart.minus(5, ChronoUnit.MINUTES);
+
+        Map<String, Long> currentData = getDistrictCountMap(currentStart, currentEnd);
+        Map<String, Long> prevData = getDistrictCountMap(prevStart, prevEnd);
+
+        List<DistrictGrowthDTO> growthList = new ArrayList<>();
+
+        Set<String> allDistricts = new HashSet<>();
+        allDistricts.addAll(currentData.keySet());
+        allDistricts.addAll(prevData.keySet());
+
+        for (String district : allDistricts) {
+            long currentTotal = currentData.getOrDefault(district, 0L);
+            long prevTotal = prevData.getOrDefault(district, 0L);
+
+            long currentAvg = Math.round(currentTotal / 5.0);
+            long prevAvg = Math.round(prevTotal / 5.0);
+
+            if (currentAvg == 0 && prevAvg == 0) continue;
+
+            double growthRate;
+            if (prevAvg == 0) {
+                growthRate = 100.0;
+            } else {
+                growthRate = ((double) (currentAvg - prevAvg) / prevAvg) * 100;
+            }
+
+            growthList.add(new DistrictGrowthDTO(
+                    district,
+                    Math.round(growthRate * 100.0) / 100.0,
+                    currentAvg,
+                    prevAvg
+            ));
+        }
+
+        growthList.sort((a, b) -> Double.compare(b.getGrowthRate(), a.getGrowthRate()));
+
+        return growthList.stream().limit(5).collect(Collectors.toList());
+    }
+
+    /**
+     * FEATURE (4): Tỷ lệ loại phương tiện toàn thành phố (Vehicle Type Ratio)
+     * - Logic: Lấy dữ liệu 5 phút gần nhất (Sliding Window) để đảm bảo độ chính xác.
+     * - Tính tổng số lượng từng loại xe từ field 'detectionDetails' JSONB.
+     * - Loại bỏ "person" vì không phải là xe.
+     */
+    public List<VehicleTypeRatioDTO> getCityWideVehicleTypeRatio() {
+        Instant now = Instant.now();
+        Instant end = now;
+        Instant start = now.minus(5, ChronoUnit.MINUTES);
+
+        List<TrafficMetric> metrics = repository.findByTimestampBetween(start, end);
+
+        Map<String, Long> typeCountMap = new HashMap<>();
+        long totalVehicles = 0;
+
+        for (TrafficMetric metric : metrics) {
+            Map<String, Integer> details = metric.getDetectionDetails();
+            if (details != null) {
+                for (Map.Entry<String, Integer> entry : details.entrySet()) {
+                    String type = entry.getKey();
+                    int count = entry.getValue();
+
+                    if ("person".equalsIgnoreCase(type)) continue;
+
+                    typeCountMap.put(type, typeCountMap.getOrDefault(type, 0L) + count);
+                    totalVehicles += count;
+                }
+            }
+        }
+
+        List<VehicleTypeRatioDTO> result = new ArrayList<>();
+        if (totalVehicles == 0) {
+            return result;
+        }
+
+        for (Map.Entry<String, Long> entry : typeCountMap.entrySet()) {
+            double percentage = (double) entry.getValue() / totalVehicles * 100.0;
+            result.add(new VehicleTypeRatioDTO(
+                    entry.getKey(),
+                    entry.getValue(),
+                    Math.round(percentage * 100.0) / 100.0
+            ));
+        }
+
+        result.sort((a, b) -> Double.compare(b.getPercentage(), a.getPercentage()));
+
+        return result;
+    }
+
+    /**
+     * FEATURE (6a): Top 5 Quận đông nhất (Busiest Districts)
+     * Logic: Trung bình cộng 5 phút (Sliding Window)
+     */
+    public List<TopTrafficDTO> getTop5BusiestDistricts() {
+        return getTopBusiestEntities(true);
+    }
+
+    /**
+     * FEATURE (6b): Top 5 Camera đông nhất (Busiest Cameras)
+     * Logic: Trung bình cộng 5 phút (Sliding Window)
+     */
+    public List<TopTrafficDTO> getTop5BusiestCameras() {
+        return getTopBusiestEntities(false);
+    }
+
+    private List<TopTrafficDTO> getTopBusiestEntities(boolean isDistrict) {
+        Instant now = Instant.now();
+        Instant end = now;
+        Instant start = now.minus(5, ChronoUnit.MINUTES);
+
+        List<Object[]> rows = isDistrict
+                ? repository.sumTotalCountByDistrictBetween(start, end)
+                : repository.sumTotalCountByCameraBetween(start, end);
+
+        List<TopTrafficDTO> result = new ArrayList<>();
+        for (Object[] row : rows) {
+            String name = (String) row[0];
+            Long totalCount = (Long) row[1];
+
+            if (name == null || totalCount == null) continue;
+
+            long avgCount = Math.round(totalCount / 5.0);
+
+            if (avgCount > 0) {
+                result.add(new TopTrafficDTO(name, avgCount));
+            }
+        }
+
+        return result.stream()
+                .sorted((a, b) -> Long.compare(b.getCount(), a.getCount()))
+                .limit(5)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Helper 1: Query DB để lấy tổng xe theo quận trong khoảng thời gian
+     */
+    private Map<String, Long> getDistrictCountMap(Instant start, Instant end) {
+        List<Object[]> rows = repository.sumTotalCountByDistrictBetween(start, end);
+        Map<String, Long> result = new HashMap<>();
+        for (Object[] row : rows) {
+            String district = (String) row[0];
+            Long count = (Long) row[1];
+            if (district != null) {
+                result.put(district, count);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Helper 2: Fallback lấy Top 5 đông nhất khi không có tăng trưởng
+     */
+    private List<DistrictGrowthDTO> getTop5BusiestDistrictsFallback(Instant start, Instant end) {
+        Map<String, Long> data = getDistrictCountMap(start, end);
+        return data.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                .limit(5)
+                .map(e -> new DistrictGrowthDTO(e.getKey(), 0.0, e.getValue(), 0L))
+                .collect(Collectors.toList());
+    }
 }

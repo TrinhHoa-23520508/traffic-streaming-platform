@@ -12,6 +12,7 @@ interface CameraMarkersProps {
     selectedCameraId?: string;
     onCamerasUpdate?: (cameras: any[]) => void;
     routingMode?: boolean;
+    routingState?: 'selecting' | 'viewing' | 'idle';
     onRoutingCameraClick?: ((camera: any) => void) | null;
     heatEnabled?: boolean;
     routeCoordinates?: number[][] | null; // When set, only show cameras near this route
@@ -52,7 +53,7 @@ const createCameraIcon = (isSelected: boolean) => divIcon({
     popupAnchor: [0, -24]
 });
 
-export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate, routingMode, onRoutingCameraClick, heatEnabled, routeCoordinates }: CameraMarkersProps) {
+export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamerasUpdate, routingMode, routingState, onRoutingCameraClick, heatEnabled, routeCoordinates }: CameraMarkersProps) {
     const [visibleCameras, setVisibleCameras] = useState<Camera[]>([]);
     const [loading, setLoading] = useState(true);
     const map = useMap();
@@ -327,19 +328,38 @@ export default function CameraMarkers({ onCameraClick, selectedCameraId, onCamer
                         zIndexOffset={isSelected ? 1000 : 0}
                         eventHandlers={{
                             click: (e) => {
-                                // In routing mode with handler, use routing handler for route selection
-                                // But still allow showing camera info
-                                if (routingMode && onRoutingCameraClick) {
-                                    onRoutingCameraClick(camera);
-                                }
-                                
-                                // Always show camera info on click (even in routing mode)
                                 // Bring marker to front on click
                                 const marker = e.target;
                                 if (marker && marker._icon) {
                                     marker._icon.style.zIndex = '1000';
                                 }
 
+                                console.log('📹 Camera marker clicked:', {
+                                    cameraName: camera.name,
+                                    routingMode,
+                                    routingState,
+                                    hasRoutingHandler: !!onRoutingCameraClick
+                                });
+
+                                // Routing mode behavior depends on routing state
+                                if (routingMode && routingState === 'selecting' && onRoutingCameraClick) {
+                                    // During point selection: only use for routing, don't show info card
+                                    console.log('   → Using camera for routing point selection');
+                                    onRoutingCameraClick(camera);
+                                    return; // Don't trigger onCameraClick
+                                }
+                                
+                                if (routingMode && routingState === 'viewing') {
+                                    // During route viewing: allow clicking to see camera info card (to verify density)
+                                    console.log('   → Showing camera info card (viewing mode)');
+                                    if (onCameraClick) {
+                                        onCameraClick(camera);
+                                    }
+                                    return;
+                                }
+
+                                // Normal mode: show camera info card
+                                console.log('   → Showing camera info card (normal mode)');
                                 if (onCameraClick) {
                                     onCameraClick(camera);
                                 }

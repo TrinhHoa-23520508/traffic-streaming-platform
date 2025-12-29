@@ -7,6 +7,7 @@ import com.traffic_stream.dashboard.service.TrafficService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.traffic_stream.dashboard.dto.DistrictDailySummaryDTO;
+import com.traffic_stream.dashboard.dto.VehicleTypeRatioDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -149,6 +150,16 @@ public class TrafficController {
             @RequestParam(required = false) String end) {
 
         Map<String, Object> result = trafficService.calculateTrafficFlow(cameraId, start, end);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * API 10: Lấy tỷ lệ các loại xe (Pie Chart Data)
+     * Endpoint: GET /api/traffic/vehicle-ratio
+     */
+    @GetMapping("/vehicle-ratio")
+    public ResponseEntity<List<VehicleTypeRatioDTO>> getVehicleTypeRatio() {
+        List<VehicleTypeRatioDTO> result = trafficService.getCityWideVehicleTypeRatio();
         return ResponseEntity.ok(result);
     }
 

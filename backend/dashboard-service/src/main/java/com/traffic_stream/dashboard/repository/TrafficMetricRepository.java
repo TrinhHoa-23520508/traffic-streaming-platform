@@ -125,4 +125,44 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
             @Param("start") Instant start,
             @Param("end") Instant end);
 
+    /**
+     * API Growth Rate: Tính tổng số xe theo từng quận trong khoảng thời gian
+     * Trả về List Object[]: [0] = district (String), [1] = totalCount (Long)
+     */
+    @Query("SELECT t.district, SUM(t.totalCount) " +
+            "FROM TrafficMetric t " +
+            "WHERE t.timestamp >= :start AND t.timestamp < :end " +
+            "GROUP BY t.district")
+    List<Object[]> sumTotalCountByDistrictBetween(
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+    /**
+     * API Busiest Camera: Tính tổng số xe theo từng Camera trong khoảng thời gian
+     * Trả về List Object[]: [0] = cameraName (String), [1] = totalCount (Long)
+     */
+    @Query("SELECT t.cameraName, SUM(t.totalCount) " +
+            "FROM TrafficMetric t " +
+            "WHERE t.timestamp >= :start AND t.timestamp < :end " +
+            "GROUP BY t.cameraName")
+    List<Object[]> sumTotalCountByCameraBetween(
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+    /**
+     * Lấy Max Count của danh sách camera (Dùng cho API /latest để tối ưu hiệu năng)
+     * Trả về: [cameraId, maxCount]
+     */
+    @Query("SELECT t.cameraId, MAX(t.totalCount) " +
+            "FROM TrafficMetric t " +
+            "WHERE t.cameraId IN :cameraIds " +
+            "GROUP BY t.cameraId")
+    List<Object[]> findMaxCountsByCameraIds(@Param("cameraIds") List<String> cameraIds);
+
+    /**
+     * Lấy Max Count của 1 camera cụ thể (Dùng cho Consumer)
+     */
+    @Query("SELECT MAX(t.totalCount) FROM TrafficMetric t WHERE t.cameraId = :cameraId")
+    Integer findMaxCountByCameraId(@Param("cameraId") String cameraId);
+
 }

@@ -3,6 +3,7 @@ package com.traffic_stream.dashboard.entity;
 import com.vladmihalcea.hibernate.type.json.JsonType;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
+import jakarta.persistence.Transient;
 import lombok.Data;
 import org.hibernate.annotations.Type;
 
@@ -41,6 +42,9 @@ public class TrafficMetric {
 
     @Column(name = "total_count")
     private int totalCount;
+
+    @Transient
+    private int maxCount;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "Asia/Ho_Chi_Minh")
     @Column(name = "timestamp")

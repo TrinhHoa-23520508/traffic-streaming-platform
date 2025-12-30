@@ -127,16 +127,12 @@ const Map = (props: MapProps) => {
             zoomControl={false}
             // Performance optimizations for smoother map interactions
             preferCanvas={true}
-            updateWhenZooming={false}
-            updateWhenIdle={true}
         >
             <ZoomControl position="bottomright" />
             <ChangeMapView center={posix} zoom={zoom} />
             <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 // Tile layer performance optimizations
-                updateWhenZooming={false}
-                updateWhenIdle={true}
                 keepBuffer={4}
             />
 
@@ -157,8 +153,8 @@ const Map = (props: MapProps) => {
                 heatEnabled={heatEnabled}
             />
 
-            <div className="absolute top-4 right-4 z-[1000] pointer-events-auto transition-all duration-300 ease-in-out">
-                <div className="flex items-center gap-2">
+            <div className="absolute top-4 right-4 sm:right-6 md:right-8 z-[1000] pointer-events-auto transition-all duration-300 ease-in-out">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                     <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2">
                         <label className="flex items-center gap-2 select-none cursor-pointer">
                             <input type="checkbox" checked={heatEnabled} onChange={(e) => setHeatEnabled(e.target.checked)} />

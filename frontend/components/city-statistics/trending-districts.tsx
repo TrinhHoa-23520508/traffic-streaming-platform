@@ -1,17 +1,30 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell, LabelList } from 'recharts';
-import { DistrictStats } from './use-city-mock-data';
+import { FastestGrowingDistrict } from '@/types/traffic';
 import { FiTrendingUp } from 'react-icons/fi';
 import { CHART_COLORS } from './color';
 
 interface TrendingDistrictsProps {
-    data: DistrictStats[];
+    data: FastestGrowingDistrict[] | null;
 }
 
 import InforPanel from "./infor-panel";
 
 export default function TrendingDistricts({ data }: TrendingDistrictsProps) {
     const chartRef = useRef<HTMLDivElement>(null);
+
+    const chartData = useMemo(() => {
+        if (!data) return [];
+        return data.map(item => {
+            if ('district' in item) {
+                return {
+                    name: item.district,
+                    trend: item.growthRate
+                };
+            }
+            return item;
+        });
+    }, [data]);
 
     return (
         <InforPanel
@@ -26,7 +39,7 @@ export default function TrendingDistricts({ data }: TrendingDistrictsProps) {
                 <div className="flex-1 w-full min-h-[100px]" ref={chartRef}>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
-                            data={data}
+                            data={chartData}
                             margin={{ top: 25, right: 10, left: 10, bottom: 40 }}
                         >
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -50,9 +63,9 @@ export default function TrendingDistricts({ data }: TrendingDistrictsProps) {
                                     formatter={(value: any) => `+${value}%`}
                                     style={{ fill: '#059669', fontSize: '11px', fontWeight: 600 }}
                                 />
-                                {data.map((_, index) => (
+                                {chartData.map((_, index) => (
                                     <Cell
-                                        key={`cell - ${index} `}
+                                        key={`cell-${index}`}
                                         fill={CHART_COLORS.quaternary}
                                     />
                                 ))}

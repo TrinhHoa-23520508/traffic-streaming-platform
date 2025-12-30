@@ -1,10 +1,12 @@
 "use client"
 
-import { useRef } from "react";
+import { useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import InforPanel from "./infor-panel";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { FiPieChart } from "react-icons/fi";
+import { CHART_COLORS, VEHICLE_TYPE_COLORS } from "./color";
+import { VehicleRatioItem } from "@/types/traffic";
 
 interface VehicleTypeData {
     name: string;
@@ -14,18 +16,41 @@ interface VehicleTypeData {
 }
 
 interface VehicleTypeDistributionProps {
-    data: VehicleTypeData[];
+    data: VehicleTypeData[] | VehicleRatioItem[] | null;
 }
 
 export default function VehicleTypeDistribution({ data }: VehicleTypeDistributionProps) {
 
     const chartRef = useRef<HTMLDivElement>(null);
 
+    const chartData = useMemo(() => {
+        if (!data) return [];
+        return data.map(item => {
+            if ('vehicleType' in item) {
+                // Map vehicle type to user-friendly name and color
+                const nameMap: Record<string, string> = {
+                    'motorcycle': 'Xe máy',
+                    'car': 'Xe ô tô',
+                    'truck': 'Xe tải',
+                    'bus': 'Xe buýt',
+                    'bicycle': 'Xe đạp',
+                    'other': 'Xe khác'
+                };
+                return {
+                    name: nameMap[item.vehicleType] || item.vehicleType,
+                    value: item.count,
+                    color: VEHICLE_TYPE_COLORS[item.vehicleType as keyof typeof VEHICLE_TYPE_COLORS] || '#cbd5e1'
+                };
+            }
+            return item;
+        });
+    }, [data]);
+
     const CustomTooltip = ({ active, payload, coordinate }: any) => {
         if (!active || !payload || !payload.length) return null;
 
         const item = payload[0].payload;
-        const total = data.reduce((sum, d) => sum + d.value, 0);
+        const total = chartData.reduce((sum, d) => sum + d.value, 0);
         const percent = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
 
         const tooltipWidth = 200;
@@ -86,7 +111,7 @@ export default function VehicleTypeDistribution({ data }: VehicleTypeDistributio
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie
-                                data={data}
+                                data={chartData}
                                 cx="50%"
                                 cy="50%"
                                 innerRadius={50}
@@ -94,7 +119,7 @@ export default function VehicleTypeDistribution({ data }: VehicleTypeDistributio
                                 paddingAngle={2}
                                 dataKey="value"
                             >
-                                {data.map((entry, index) => (
+                                {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
                                 ))}
                             </Pie>

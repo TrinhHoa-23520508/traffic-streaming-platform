@@ -21,3 +21,37 @@ export interface DistrictSummary {
 export interface CityStatsByDistrict {
     [district: string]: DistrictSummary;
 }
+
+export interface FastestGrowingDistrict {
+    district: string;
+    growthRate: number;
+    currentCount: number;
+    previousCount: number;
+}
+
+export interface VehicleRatio {
+    vehicleType: string;
+    count: number;
+    percentage: number;
+}
+
+export interface BusiestEntity {
+    name: string;
+    count: number;
+}
+
+export interface CityStatsHourlyRaw {
+    district: string;
+    hour: string;
+    totalCount: number;
+    detectionDetailsSummary: DetectionDetailsSummary;
+}
+
+export interface CityStatsData {
+    hourlySummary: CityStatsHourlyRaw[];
+    fastestGrowing: FastestGrowingDistrict[];
+    vehicleRatio: VehicleRatio[];
+    busiestDistricts: BusiestEntity[];
+    busiestCameras: BusiestEntity[];
+    timestamp: number;
+}

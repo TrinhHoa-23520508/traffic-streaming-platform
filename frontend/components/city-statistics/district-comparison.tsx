@@ -1,15 +1,16 @@
 import { useState, useMemo, useRef } from 'react';
 import { createPortal } from "react-dom";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { DistrictHistoryPoint } from './use-city-mock-data';
 import { CHART_COLORS } from './color';
 import { FiMinimize2, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import InforPanel from "./infor-panel";
 
+import { DashboardUpdate, HourlySummaryItem } from '@/types/traffic';
+
 interface DistrictComparisonProps {
     districts: string[];
     onSelectionChange: (selected: string[]) => void;
-    dataGenerator: (selected: string[]) => DistrictHistoryPoint[];
+    liveData?: HourlySummaryItem[] | null;
 }
 
 const LINE_COLORS = [
@@ -18,13 +19,28 @@ const LINE_COLORS = [
     CHART_COLORS.senary
 ];
 
-export default function DistrictComparison({ districts, onSelectionChange, dataGenerator }: DistrictComparisonProps) {
+export default function DistrictComparison({ districts, onSelectionChange, liveData }: DistrictComparisonProps) {
     const [selected, setSelected] = useState<string[]>(['Bình Thạnh', 'Quận 1']);
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<HTMLDivElement>(null);
 
-    const chartData = useMemo(() => dataGenerator(selected), [selected, dataGenerator]);
+    const chartData = useMemo(() => {
+        if (liveData && liveData.length > 0) {
+            const points: Record<string, any> = {};
+
+            liveData.forEach(item => {
+                const time = new Date(item.hour).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                if (!points[time]) {
+                    points[time] = { time };
+                }
+                points[time][item.district] = item.totalCount;
+            });
+
+            return Object.values(points).sort((a, b) => a.time.localeCompare(b.time));
+        }
+        return [];
+    }, [selected, liveData]);
 
     const handleToggle = (district: string) => {
         if (selected.includes(district)) {

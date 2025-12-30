@@ -26,7 +26,7 @@ export const API_CONFIG = {
   },
 
   WS_TOPIC: '/topic/traffic',
-  WS_CITY_STATS_TOPIC: '/topic/hourly-summary-by-district',
+  WS_CITY_STATS_TOPIC: '/topic/dashboard-update',
 
   DEFAULT_TIMEOUT: 10000,
   MAX_RECONNECT_ATTEMPTS: 10,

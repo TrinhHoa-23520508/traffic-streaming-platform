@@ -1,6 +1,6 @@
 // lib/api/trafficApi.ts
 
-import type { TrafficMetricsDTO } from '@/types/traffic';
+import type { TrafficMetricsDTO, DashboardUpdate } from '@/types/traffic';
 import { API_CONFIG, getBaseUrl, getWsUrl } from './config';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -118,7 +118,7 @@ function transformTrafficData(data: BackendTrafficDataRaw): TrafficMetricsDTO {
     district: data.district,
     annotatedImageUrl: imgUrl,
     coordinates: data.coordinates,
-    detectionDetails: details,
+    detectionDetails: details as any,
     totalCount: total,
     timestamp: timeStr
   };
@@ -132,7 +132,7 @@ export type TrafficUpdateCallback = (data: TrafficMetricsDTO) => void;
 /**
  * City stats update callback
  */
-export type CityStatsUpdateCallback = (data: any) => void;
+export type CityStatsUpdateCallback = (data: DashboardUpdate) => void;
 
 class TrafficApiService {
   private baseUrl: string;

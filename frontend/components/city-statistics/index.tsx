@@ -11,7 +11,6 @@ import TopCameras from "./top-cameras"
 import TopDistricts from "./top-districts"
 import DistrictComparison from "./district-comparison"
 import TrendingDistricts from "./trending-districts"
-import { useCityMockData } from "./use-city-mock-data"
 import VehicleTypeDistribution from "./vehicle-type-distribution"
 
 type AlertSeverity = "high" | "medium" | "low"
@@ -36,9 +35,7 @@ export default function CityStatisticsPage() {
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [completedCount, setCompletedCount] = useState(0)
     const [selectedAlert, setSelectedAlert] = useState<TrafficAlert | null>(null)
-    const [cameraMap, setCameraMap] = useState<Record<string, string>>({})
-
-    const { topCameras, topDistricts, trendingDistricts, vehicleDistribution, generateHistory, allDistricts } = useCityMockData();
+    const [cameraMap, setCameraMap] = useState<Record<string, string>>({});
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -163,20 +160,20 @@ export default function CityStatisticsPage() {
                                 />
                             </div>
                             <div className="w-1/3 h-full">
-                                <TrendingDistricts data={trendingDistricts} />
+                                <TrendingDistricts data={cityStatsData?.fastestGrowing} />
                             </div>
                         </div>
 
                         <div className="flex gap-4 items-start">
                             <div className="w-2/3 h-[350px]">
                                 <DistrictComparison
-                                    districts={allDistricts}
                                     onSelectionChange={() => { }}
-                                    dataGenerator={generateHistory}
+                                    liveData={cityStatsData?.hourlySummary}
+                                    districts={districts}
                                 />
                             </div>
-                            <div className="w-1/3 h-[350px]">
-                                <VehicleTypeDistribution data={vehicleDistribution} />
+                            <div className="w-1/3 h-full">
+                                <VehicleTypeDistribution data={cityStatsData?.vehicleRatio} />
                             </div>
                         </div>
 
@@ -189,8 +186,8 @@ export default function CityStatisticsPage() {
                                 />
                             </div>
                             <div className="w-1/3 flex flex-col gap-4">
-                                <TopDistricts data={topDistricts} />
-                                <TopCameras data={topCameras} />
+                                <TopDistricts data={cityStatsData?.busiestDistricts} />
+                                <TopCameras data={cityStatsData?.busiestCameras} />
                             </div>
                         </div>
 

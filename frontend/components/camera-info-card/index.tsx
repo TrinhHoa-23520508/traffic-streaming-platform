@@ -271,12 +271,15 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
         const latest = countHistory[countHistory.length - 1];
         const oldest = countHistory[0];
         
-        const countDiff = latest.count - oldest.count;
-        const timeDiff = (latest.timestamp - oldest.timestamp) / 1000 / 60; // convert to minutes
+        // Tính trung bình mật độ xe trong history để làm mượt dữ liệu
+        const avgDensity = countHistory.reduce((sum, item) => sum + item.count, 0) / countHistory.length;
         
-        if (timeDiff === 0) return 0;
+        // Heuristic: Ước tính lưu lượng = Mật độ * Hệ số luân chuyển
+        // Giả sử xe lưu thông qua khung hình với tốc độ trung bình, thay thế toàn bộ xe trong khoảng 30-40s
+        // => Hệ số nhân khoảng 1.5 - 2.0
+        const TURNOVER_RATE = 1.8;
         
-        return Math.max(0, Math.round(countDiff / timeDiff)); // Không âm
+        return Math.round(avgDensity * TURNOVER_RATE);
     };
 
     // ⭐ Get flow rate - từ API hoặc tính local
@@ -325,11 +328,10 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     });
 
     const vehicleConfig = {
-        car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-        motorcycle: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
-        motorbike: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
-        bus: { label: 'Xe buýt', icon: FaBus, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
-        truck: { label: 'Xe tải', icon: FaTruck, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
+        Car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+        Motorcycle: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+        Bus: { label: 'Xe buýt', icon: FaBus, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
+        Truck: { label: 'Xe tải', icon: FaTruck, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
         person: { label: 'Người đi bộ', icon: FaPersonWalking, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-100' }
     };
 

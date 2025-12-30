@@ -21,14 +21,7 @@ class YOLOModel:
         self.model.to(self.device)
 
         # Các loại phương tiện và đối tượng cần phát hiện
-        self.detection_classes = {
-            0: 'person',
-            1: 'bicycle',
-            2: 'car',
-            3: 'motorcycle',
-            5: 'bus',
-            7: 'truck'
-        }
+        self.detection_classes = self.model.names
         
         logger.info(f"Đã tải model YOLO thành công trên {self.device}")
         logger.info(f"Các đối tượng sẽ được phát hiện: {list(self.detection_classes.values())}")
@@ -54,6 +47,9 @@ class YOLOModel:
                 if cls_id in self.detection_classes:
                     total_count += 1
                     object_type = self.detection_classes[cls_id]
+                    if object_type.lower() in ['motorbike', 'motobike', 'motorcycle']:
+                        object_type = 'Motorcycle'
+                        
                     object_types[object_type] = object_types.get(object_type, 0) + 1
         
         logger.info(f"Phát hiện tổng cộng {total_count} đối tượng:")
@@ -66,27 +62,24 @@ class YOLOModel:
         }
     
     def count_vehicles_only(self, results):
-        """
-        Chỉ đếm phương tiện (không bao gồm người và xe đạp)
-        
-        Args:
-            results: Kết quả từ YOLO model
-            
-        Returns:
-            dict: Thống kê phương tiện
-        """
-        vehicle_classes = {2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck'}
         vehicle_count = 0
         vehicle_types = {}
+        
+        target_names = ['car', 'motorcycle', 'motorbike', 'motobike', 'bus', 'truck'] 
         
         for r in results:
             boxes = r.boxes
             for box in boxes:
                 cls_id = int(box.cls[0].item())
-                if cls_id in vehicle_classes:
+                
+                class_name = self.detection_classes[cls_id].lower() # .lower() để chuyển về chữ thường
+                
+                if class_name in target_names:
+                    if class_name in ['motorbike', 'motobike', 'Motobike']: 
+                        class_name = 'motorcycle'
+                        
                     vehicle_count += 1
-                    vehicle_type = vehicle_classes[cls_id]
-                    vehicle_types[vehicle_type] = vehicle_types.get(vehicle_type, 0) + 1
+                    vehicle_types[class_name] = vehicle_types.get(class_name, 0) + 1
         
         return {
             'total': vehicle_count,

@@ -5,7 +5,7 @@ KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'broker:29092')
 KAFKA_INPUT_TOPIC = 'hcm_traffic_data'
 KAFKA_OUTPUT_TOPIC = 'traffic_metrics_topic'
 
-YOLO_MODEL_PATH = '/app/models/yolo11n.pt' 
+YOLO_MODEL_PATH = '/app/models/best.pt'
 
 
 # Image fetching configuration

@@ -168,7 +168,6 @@ export default function MapPage() {
                         <Link
                             href="/statistic"
                             prefetch={true}
-                            onClick={handleOpenStats}
                             className="p-1.5 sm:p-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
                             title="Statistic"
                         >
@@ -177,7 +176,6 @@ export default function MapPage() {
                         <Link
                             href="/report"
                             prefetch={true}
-                            onClick={handleOpenReport}
                             className="p-1.5 sm:p-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
                             title="Report"
                         >

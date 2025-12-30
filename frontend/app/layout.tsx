@@ -37,10 +37,19 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <head>
         {/* Preconnect to external resources for faster loading */}
-        <link rel="preconnect" href={process.env.NEXT_PUBLIC_CAMERA_API_URL?.replace('/v4', '') || "https://api.notis.vn"} />
-        <link rel="preconnect" href="https://tile.openstreetmap.org" />
-        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_CAMERA_API_URL?.replace('/v4', '') || "https://api.notis.vn"} />
-        <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
+        {/* SECURITY: All URLs configured via environment variables - no hardcoded URLs */}
+        {process.env.NEXT_PUBLIC_CAMERA_API_URL && (
+          <link rel="preconnect" href={process.env.NEXT_PUBLIC_CAMERA_API_URL.replace('/v4', '')} />
+        )}
+        {process.env.NEXT_PUBLIC_OPENSTREETMAP_TILE_URL && (
+          <link rel="preconnect" href={new URL(process.env.NEXT_PUBLIC_OPENSTREETMAP_TILE_URL.replace('{s}', 'a')).origin} />
+        )}
+        {process.env.NEXT_PUBLIC_CAMERA_API_URL && (
+          <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_CAMERA_API_URL.replace('/v4', '')} />
+        )}
+        {process.env.NEXT_PUBLIC_OPENSTREETMAP_TILE_URL && (
+          <link rel="dns-prefetch" href={new URL(process.env.NEXT_PUBLIC_OPENSTREETMAP_TILE_URL.replace('{s}', 'a')).origin} />
+        )}
         {/* Prefetch camera data for faster map load */}
         <link rel="prefetch" href="/camera_api.json" as="fetch" crossOrigin="anonymous" />
       </head>

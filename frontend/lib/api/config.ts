@@ -3,17 +3,31 @@
 /**
  * API Configuration
  * Central configuration for all API endpoints and WebSocket connections
+ * 
+ * SECURITY: All URLs must be configured via environment variables.
+ * No hardcoded URLs are allowed in the codebase.
+ * See .env.example for required environment variables.
  */
 
-export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6677',
-  WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:6677/ws',
+// Validate required environment variables
+const validateEnvVar = (name: string, value: string | undefined): string => {
+  if (!value) {
+    console.warn(`⚠️ Environment variable ${name} is not set. Please configure it in your .env.local file.`);
+    return '';
+  }
+  return value;
+};
 
-  // External API URLs
-  CAMERA_API_URL: process.env.NEXT_PUBLIC_CAMERA_API_URL || 'https://api.notis.vn/v4',
-  OPENSTREETMAP_TILE_URL: process.env.NEXT_PUBLIC_OPENSTREETMAP_TILE_URL || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  OVERPASS_API_URL: process.env.NEXT_PUBLIC_OVERPASS_API_URL || 'https://overpass-api.de/api/interpreter',
-  OSRM_API_URL: process.env.NEXT_PUBLIC_OSRM_API_URL || 'https://router.project-osrm.org',
+export const API_CONFIG = {
+  BASE_URL: validateEnvVar('NEXT_PUBLIC_API_URL', process.env.NEXT_PUBLIC_API_URL),
+  WS_URL: validateEnvVar('NEXT_PUBLIC_WS_URL', process.env.NEXT_PUBLIC_WS_URL),
+
+  // External API URLs - All must be configured via environment variables
+  CAMERA_API_URL: validateEnvVar('NEXT_PUBLIC_CAMERA_API_URL', process.env.NEXT_PUBLIC_CAMERA_API_URL),
+  OPENSTREETMAP_TILE_URL: validateEnvVar('NEXT_PUBLIC_OPENSTREETMAP_TILE_URL', process.env.NEXT_PUBLIC_OPENSTREETMAP_TILE_URL),
+  OVERPASS_API_URL: validateEnvVar('NEXT_PUBLIC_OVERPASS_API_URL', process.env.NEXT_PUBLIC_OVERPASS_API_URL),
+  OSRM_API_URL: validateEnvVar('NEXT_PUBLIC_OSRM_API_URL', process.env.NEXT_PUBLIC_OSRM_API_URL),
+  PHOTON_API_URL: validateEnvVar('NEXT_PUBLIC_PHOTON_API_URL', process.env.NEXT_PUBLIC_PHOTON_API_URL),
 
   ENDPOINTS: {
     TRAFFIC: {
@@ -82,4 +96,11 @@ export const getOverpassApiUrl = (): string => {
  */
 export const getOsrmApiUrl = (): string => {
   return API_CONFIG.OSRM_API_URL;
+};
+
+/**
+ * Get Photon Geocoding API URL
+ */
+export const getPhotonApiUrl = (): string => {
+  return API_CONFIG.PHOTON_API_URL;
 };

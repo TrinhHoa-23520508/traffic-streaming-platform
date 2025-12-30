@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from 'react';
+import { API_CONFIG } from '@/lib/api/config';
 
 interface SearchResult {
     place_id: number;
@@ -55,9 +56,9 @@ export default function SearchBox({ onSelectLocation }: SearchProps) {
             const lat = 10.8231;
             const lon = 106.6297;
             
-            // Using Photon API
+            // Using Photon API - URL from environment config
             const response = await fetch(
-                `https://photon.komoot.io/api/?q=${encodeURIComponent(
+                `${API_CONFIG.PHOTON_API_URL}?q=${encodeURIComponent(
                     searchQuery
                 )}&lat=${lat}&lon=${lon}&limit=20`,
                 {

@@ -1,13 +1,21 @@
 import type { NextConfig } from "next";
 
-// Extract hostname from NEXT_PUBLIC_CAMERA_API_URL for image configuration
+/**
+ * Extract hostname from NEXT_PUBLIC_CAMERA_API_URL for image configuration
+ * SECURITY: No hardcoded URLs - environment variable must be configured
+ */
 const getCameraApiHostname = (): string => {
-  const apiUrl = process.env.NEXT_PUBLIC_CAMERA_API_URL || 'https://api.notis.vn/v4';
+  const apiUrl = process.env.NEXT_PUBLIC_CAMERA_API_URL;
+  if (!apiUrl) {
+    console.warn('⚠️ NEXT_PUBLIC_CAMERA_API_URL is not set. Images from camera API may not load.');
+    return '';
+  }
   try {
     const url = new URL(apiUrl);
     return url.hostname;
   } catch {
-    return 'api.notis.vn';
+    console.error('❌ Invalid NEXT_PUBLIC_CAMERA_API_URL format');
+    return '';
   }
 };
 

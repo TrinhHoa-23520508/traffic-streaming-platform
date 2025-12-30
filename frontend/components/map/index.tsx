@@ -331,22 +331,28 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
             const DEFAULT_MAX_COUNT = 50;
 
             // build points with [lat, lon, weight] using cameras from props
-            const points = cameras.map((c: any) => {
-                const lat = c.loc.coordinates[1];
-                const lon = c.loc.coordinates[0];
-                const cameraId = c.id || c._id || c.name;
-                
-                // ⭐ Get individual max count for this camera (or use fallback)
-                const cameraMaxCount = maxCounts[cameraId] || DEFAULT_MAX_COUNT;
-                
-                // Normalize weight: 0 to 1 based on camera's own max count
-                // We clamp it at 1.0 so extremely high traffic doesn't break the visual
-                let weight = (c.density || 0) / cameraMaxCount;
-                if (weight > 1) weight = 1;
-                if (weight < 0) weight = 0;
-                
-                return [lat, lon, weight];
-            });
+            // ⭐ IMPORTANT: Filter out cameras with 0 density to avoid showing faint green
+            // when multiple zero-density cameras merge together at lower zoom levels
+            const points = cameras
+                .filter((c: any) => (c.density || 0) > 0) // Only include cameras with actual traffic
+                .map((c: any) => {
+                    const lat = c.loc.coordinates[1];
+                    const lon = c.loc.coordinates[0];
+                    const cameraId = c.id || c._id || c.name;
+                    
+                    // ⭐ Get individual max count for this camera (or use fallback)
+                    const cameraMaxCount = maxCounts[cameraId] || DEFAULT_MAX_COUNT;
+                    
+                    // Normalize weight: 0 to 1 based on camera's own max count
+                    // We clamp it at 1.0 so extremely high traffic doesn't break the visual
+                    let weight = (c.density || 0) / cameraMaxCount;
+                    if (weight > 1) weight = 1;
+                    // ⭐ Set minimum weight threshold for visible cameras
+                    // This ensures cameras with traffic show at least light green
+                    if (weight < 0.1) weight = 0.1;
+                    
+                    return [lat, lon, weight];
+                });
 
             // Dynamic configuration based on zoom
             const currentZoom = map.getZoom();
@@ -366,14 +372,17 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
                 blur: 20,   // Smooth blur for better visual appeal
                 maxZoom: currentZoom, // CRITICAL: Set maxZoom to current zoom to prevent fading when zooming out
                 max: dynamicMax,   // Dynamic maximum intensity
-                minOpacity: 0.3, // Ensure even low traffic is slightly visible
+                minOpacity: 0.3, // Minimum opacity for visible traffic areas
                 gradient: {
-                    0.0: 'blue',
+                    // ⭐ Traffic-focused gradient: Green (low) -> Yellow -> Orange -> Red (high)
+                    // No blue/cyan at the start to avoid confusion with "no data"
+                    0.0: 'transparent', // No color for zero weight (shouldn't happen due to filtering)
+                    0.1: 'blue',   // Minimum visible weight
                     0.2: 'cyan',
                     0.4: 'lime',
                     0.6: 'yellow',
                     0.8: 'orange',
-                    1.0: 'red'
+                    1.0: 'red',
                 }
             };
 

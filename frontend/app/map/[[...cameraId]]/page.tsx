@@ -152,45 +152,47 @@ export default function MapPage() {
     }, []);
 
     return (
-        <div className="fixed inset-0 h-screen w-screen overflow-visible">
+        <div className="fixed inset-0 h-screen w-screen min-w-[320px] min-h-[500px] overflow-auto">
             {/* Navigation Sidebar - Use Link for prefetching */}
             {!modalImageUrl && (
-                <div className="fixed top-6 left-2 z-[1001] pointer-events-auto">
-                    <div className="bg-white rounded-lg shadow-lg p-1.5 flex flex-col gap-1.5">
+                <div className="fixed top-4 sm:top-6 left-2 z-[1001] pointer-events-auto">
+                    <div className="bg-white rounded-lg shadow-lg p-1 sm:p-1.5 flex flex-col gap-1 sm:gap-1.5">
                         <Link
                             href="/map"
                             prefetch={true}
-                            className="p-2 rounded-md transition-colors bg-blue-500 text-white hover:bg-blue-600"
+                            className="p-1.5 sm:p-2 rounded-md transition-colors bg-blue-500 text-white hover:bg-blue-600"
                             title="Map"
                         >
-                            <FiMap size={16} />
+                            <FiMap size={14} className="sm:w-4 sm:h-4" />
                         </Link>
                         <Link
                             href="/statistic"
                             prefetch={true}
-                            className="p-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
+                            onClick={handleOpenStats}
+                            className="p-1.5 sm:p-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
                             title="Statistic"
                         >
-                            <FiBarChart2 size={16} />
+                            <FiBarChart2 size={14} className="sm:w-4 sm:h-4" />
                         </Link>
                         <Link
                             href="/report"
                             prefetch={true}
-                            className="p-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
+                            onClick={handleOpenReport}
+                            className="p-1.5 sm:p-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
                             title="Report"
                         >
-                            <FiFileText size={16} />
+                            <FiFileText size={14} className="sm:w-4 sm:h-4" />
                         </Link>
                     </div>
                 </div>
             )}
 
-            <div className={`fixed top-6 left-16 z-[1000] flex flex-col gap-2 pointer-events-none ${modalImageUrl ? 'hidden' : ''}`}>
-                <div className="w-[600px] max-w-full pointer-events-auto">
+            <div className={`fixed top-4 sm:top-6 left-12 sm:left-16 z-[1000] flex flex-col gap-2 pointer-events-none ${modalImageUrl ? 'hidden' : ''}`}>
+                <div className="w-full max-w-[95vw] sm:max-w-[380px] md:max-w-[400px] lg:max-w-[420px] pointer-events-auto">
                     <SearchBox onSelectLocation={handleLocationSelect} />
                 </div>
                 {selectedCamera && (
-                    <div className="w-[420px] pointer-events-auto">
+                    <div className="w-full max-w-[95vw] sm:max-w-[380px] md:max-w-[400px] lg:max-w-[420px] pointer-events-auto">
                         <CameraInfoCard
                             camera={selectedCamera}
                             onClose={handleCameraClose}
@@ -200,17 +202,17 @@ export default function MapPage() {
                     </div>
                 )}
                 {selectedLocation && !selectedCamera && (
-                    <div className="w-[600px] pointer-events-auto bg-white rounded-lg shadow-lg p-4 mt-2">
+                    <div className="w-full max-w-[95vw] sm:max-w-[380px] md:max-w-[400px] lg:max-w-[420px] pointer-events-auto bg-white rounded-lg shadow-lg p-3 sm:p-4 mt-2">
                         <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-base font-semibold text-gray-700">Địa điểm</h3>
+                            <h3 className="text-sm sm:text-base font-semibold text-gray-700">Địa điểm</h3>
                             <button onClick={() => setSelectedLocation(null)} className="text-gray-400 hover:text-gray-600">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
                         </div>
-                        <div className="font-medium text-gray-800 mb-2">{selectedLocation.name}</div>
-                        <div className="space-y-1 text-xs text-gray-600">
+                        <div className="font-medium text-gray-800 mb-2 text-sm sm:text-base">{selectedLocation.name}</div>
+                        <div className="space-y-1 text-[10px] sm:text-xs text-gray-600">
                             <p><strong>Tọa độ:</strong> {selectedLocation.lat.toFixed(6)}, {selectedLocation.lon.toFixed(6)}</p>
                         </div>
                     </div>

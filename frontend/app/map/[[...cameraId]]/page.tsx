@@ -2,11 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect, useRef, useCallback, memo, startTransition } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import SearchBox from "@/components/search";
 import CameraInfoCard from "@/components/camera-info-card";
 import ImageModal from "@/components/image-modal";
 import type { Camera } from "@/types/camera";
+import { API_CONFIG } from "@/lib/api/config";
 import { FiMap, FiBarChart2, FiFileText } from "react-icons/fi";
 import Link from "next/link";
 
@@ -25,7 +26,6 @@ const Map = dynamic(
 
 export default function MapPage() {
     const params = useParams();
-    const router = useRouter();
     
     // Extract cameraId from optional catch-all route - only used for initial load
     const initialCameraIdRef = useRef<string | null>(params.cameraId ? (params.cameraId as string[])[0] : null);
@@ -34,8 +34,6 @@ export default function MapPage() {
     const [mapCenter, setMapCenter] = useState<[number, number]>([10.8231, 106.6297]);
     const [locationName, setLocationName] = useState<string>("Ho Chi Minh City");
     const [mapZoom, setMapZoom] = useState<number>(13);
-    const [isStatsOpen, setIsStatsOpen] = useState<boolean>(false);
-    const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
     const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lon: number, name: string } | null>(null);
     const [imageRefreshKey, setImageRefreshKey] = useState<number>(() => Date.now());
@@ -105,7 +103,7 @@ export default function MapPage() {
         // Chỉ chạy khi modal đang mở Live image và có camera được chọn
         // Không refresh nếu đang xem AI image
         if (modalImageUrl && selectedCamera && !isModalAI) {
-            const newImageUrl = `https://api.notis.vn/v4/${selectedCamera.liveviewUrl}?t=${imageRefreshKey}`;
+            const newImageUrl = `${API_CONFIG.CAMERA_API_URL}/${selectedCamera.liveviewUrl}?t=${imageRefreshKey}`;
             setModalImageUrl(newImageUrl);
         }
     }, [imageRefreshKey, modalImageUrl, selectedCamera, isModalAI]);
@@ -152,29 +150,6 @@ export default function MapPage() {
         setModalImageUrl(null);
         setIsModalAI(false);
     }, []);
-
-    // Handlers for navigation to stats and report pages - use startTransition for smooth navigation
-    const handleOpenStats = useCallback(() => {
-        startTransition(() => {
-            // Close any selected camera before navigating
-            if (selectedCamera) {
-                setSelectedCamera(null);
-            }
-        });
-        // Navigate to stats page
-        router.push('/statistic');
-    }, [selectedCamera, router]);
-
-    const handleOpenReport = useCallback(() => {
-        startTransition(() => {
-            // Close any selected camera before navigating
-            if (selectedCamera) {
-                setSelectedCamera(null);
-            }
-        });
-        // Navigate to report page
-        router.push('/report');
-    }, [selectedCamera, router]);
 
     return (
         <div className="fixed inset-0 h-screen w-screen min-w-[320px] min-h-[500px] overflow-auto">
@@ -253,9 +228,7 @@ export default function MapPage() {
                     selectedLocation={selectedLocation}
                     imageRefreshKey={imageRefreshKey}
                     isDrawerOpen={false}
-                    onOpenDrawer={handleOpenStats}
                     isReportOpen={false}
-                    onOpenReport={handleOpenReport}
                     isModalOpen={!!modalImageUrl}
                 />
             </div>

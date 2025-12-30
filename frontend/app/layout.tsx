@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import ComponentPreloader from "@/components/preloader";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,15 +37,18 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <head>
         {/* Preconnect to external resources for faster loading */}
-        <link rel="preconnect" href="https://api.notis.vn" />
+        <link rel="preconnect" href={process.env.NEXT_PUBLIC_CAMERA_API_URL?.replace('/v4', '') || "https://api.notis.vn"} />
         <link rel="preconnect" href="https://tile.openstreetmap.org" />
-        <link rel="dns-prefetch" href="https://api.notis.vn" />
+        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_CAMERA_API_URL?.replace('/v4', '') || "https://api.notis.vn"} />
         <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
+        {/* Prefetch camera data for faster map load */}
+        <link rel="prefetch" href="/camera_api.json" as="fetch" crossOrigin="anonymous" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-full m-0 p-0`}
       >
         {children}
+        <ComponentPreloader />
       </body>
     </html>
   );

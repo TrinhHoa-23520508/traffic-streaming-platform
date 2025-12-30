@@ -6,7 +6,9 @@ import type { Camera } from '@/types/camera';
 import StatCardWithProgress from '@/components/stat-card-progress'; // Đảm bảo đường dẫn đúng
 import StatCardWithBadge from '@/components/stat-card-badge';
 import { trafficApi } from '@/lib/api/trafficApi';
-import type { TrafficMetricsDTO } from '@/types/traffic';
+import { API_CONFIG } from '@/lib/api/config';
+import type { TrafficMetricsDTO, CameraFlowRate, CameraMaxCount } from '@/types/traffic';
+import { calculateTrafficLevel, getTrafficLevelInfo } from '@/types/traffic';
 import { FaCar, FaMotorcycle, FaBus, FaTruck, FaPersonWalking } from 'react-icons/fa6';
 import { RiRobot2Fill, RiLiveFill } from 'react-icons/ri';
 import { IoClose } from 'react-icons/io5';
@@ -17,7 +19,7 @@ import { IoClose } from 'react-icons/io5';
 interface CameraInfoCardProps {
     camera: Camera;
     onClose: () => void;
-    onImageClick: (url: string) => void;
+    onImageClick: (url: string, isAI: boolean) => void;
     imageRefreshKey?: number;
 }
 
@@ -40,7 +42,7 @@ const getCongestionColor = (status: 'CAO' | 'TRUNG BÌNH' | 'THẤP') => {
 
 
 export default function CameraInfoCard({ camera, onClose, onImageClick, imageRefreshKey }: CameraInfoCardProps) {
-    const initialUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    const initialUrl = `${API_CONFIG.CAMERA_API_URL}/${camera.liveviewUrl}?t=${imageRefreshKey}`;
     const [currentSrc, setCurrentSrc] = useState<string>(initialUrl);
     const [loadingImage, setLoadingImage] = useState<boolean>(false);
     const imgRef = useRef<HTMLImageElement | null>(null);
@@ -48,11 +50,23 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     // ⭐ Real-time traffic data states
     const [trafficData, setTrafficData] = useState<TrafficMetricsDTO | null>(null);
     const [loading, setLoading] = useState(true);
-    const [countHistory, setCountHistory] = useState<Array<{count: number, timestamp: number}>>([]);
     const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+    
+    // ⭐ Flow Rate - từ API hoặc tính local
+    const [flowRateData, setFlowRateData] = useState<CameraFlowRate | null>(null);
+    const [flowRateLoading, setFlowRateLoading] = useState(false);
+    const [flowRateError, setFlowRateError] = useState<string | null>(null);
+    const [useLocalFlowRate, setUseLocalFlowRate] = useState(false);
+    const [countHistory, setCountHistory] = useState<Array<{count: number, timestamp: number}>>([]);
+    
+    // ⭐ Max Count - từ API (cho traffic level calculation)
+    const [maxCountData, setMaxCountData] = useState<CameraMaxCount | null>(null);
     
     // ⭐ AI Toggle State
     const [showAI, setShowAI] = useState(false);
+    
+    // ⭐ AI Image availability check
+    const [aiImageReady, setAiImageReady] = useState(false);
 
     // ⭐ Fetch initial traffic data from API
     useEffect(() => {
@@ -68,12 +82,6 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 
                 setTrafficData(data);
                 setLastUpdateTime(new Date());
-                
-                // Initialize history with first data point
-                setCountHistory([{
-                    count: data.totalCount,
-                    timestamp: Date.now()
-                }]);
             } catch (error) {
                 console.error('⚠️ Error fetching camera data from API:', error);
                 
@@ -85,14 +93,8 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                     console.log('✅ Using cached data from trafficApi:', cachedData);
                     setTrafficData(cachedData);
                     setLastUpdateTime(new Date());
-                    
-                    setCountHistory([{
-                        count: cachedData.totalCount,
-                        timestamp: Date.now()
-                    }]);
                 } else {
                     console.warn('⚠️ No cached data available for camera:', cameraId);
-                    // Keep loading = false, trafficData = null sẽ hiện "Không có dữ liệu"
                 }
             } finally {
                 setLoading(false);
@@ -102,13 +104,74 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
         fetchInitialData();
     }, [camera]);
 
+    // ⭐ Fetch flow rate from API when camera changes
+    useEffect(() => {
+        const fetchFlowRate = async () => {
+            const cameraId = camera.id || (camera as any)._id || camera.name;
+            
+            setFlowRateLoading(true);
+            setFlowRateError(null);
+            
+            try {
+                console.log('📊 Fetching flow rate for camera:', cameraId);
+                const data = await trafficApi.getCameraFlowRate(cameraId);
+                console.log('✅ Flow rate API response:', data);
+                setFlowRateData(data);
+                setUseLocalFlowRate(false);
+            } catch (error: any) {
+                console.warn('⚠️ Flow rate API unavailable (404), switching to local calculation');
+                console.log('📊 Using local flow rate calculation instead');
+                setFlowRateError(null); // Không hiện lỗi, dùng local thay thế
+                setFlowRateData(null);
+                setUseLocalFlowRate(true);
+            } finally {
+                setFlowRateLoading(false);
+            }
+        };
+        
+        const fetchMaxCount = async () => {
+            const cameraId = camera.id || (camera as any)._id || camera.name;
+            
+            try {
+                console.log('📈 Fetching max count for camera:', cameraId);
+                const data = await trafficApi.getCameraMaxCount(cameraId);
+                console.log('✅ Max count API response:', data);
+                setMaxCountData(data);
+            } catch (error) {
+                console.warn('⚠️ Max count API unavailable, using fallback');
+                setMaxCountData(null);
+            }
+        };
+        
+        fetchFlowRate();
+        fetchMaxCount();
+        
+        // ⭐ Chỉ refresh nếu API khả dụng
+        const intervalId = setInterval(() => {
+            if (!useLocalFlowRate) {
+                fetchFlowRate();
+            }
+        }, 30000);
+        
+        return () => clearInterval(intervalId);
+    }, [camera]);
+
     // --- LOGIC XỬ LÝ ẢNH MƯỢT MÀ (SMOOTH TRANSITION) ---
     
+    // Live URL luôn có sẵn
+    const liveUrl = `${API_CONFIG.CAMERA_API_URL}/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    
+    // AI URL - có thể không có
+    const aiUrl = trafficData?.annotatedImageUrl || null;
+    
+    // ⭐ Kiểm tra xem AI có sẵn sàng không
+    const hasValidAiImage = Boolean(aiUrl && aiUrl !== liveUrl);
+    
     // 1. Xác định URL mục tiêu (Target URL) dựa trên chế độ AI/Live
-    // Nếu bật AI và có link ảnh từ backend thì dùng nó, ngược lại dùng Live
-    const targetSrc = (showAI && trafficData?.annotatedImageUrl) 
-        ? trafficData.annotatedImageUrl 
-        : `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    // Nếu bật AI nhưng không có ảnh AI hợp lệ -> vẫn giữ Live nhưng hiện loading overlay
+    const targetSrc = (showAI && hasValidAiImage) 
+        ? aiUrl! 
+        : liveUrl;
 
     // 2. Effect để Preload ảnh trước khi hiển thị
     useEffect(() => {
@@ -125,6 +188,10 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
             // Khi tải xong: Cập nhật ảnh hiển thị và tắt loading
             setCurrentSrc(targetSrc);
             setLoadingImage(false);
+            // Mark AI image as ready if we successfully loaded it
+            if (showAI && hasValidAiImage) {
+                setAiImageReady(true);
+            }
         };
 
         img.onerror = () => {
@@ -157,23 +224,36 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 setTrafficData(data);
                 setLastUpdateTime(new Date());
                 
-                // ⭐ Update history cho flow rate calculation
-                setCountHistory(prev => {
-                    const now = Date.now();
-                    // Giữ lại tối đa 10 mẫu gần nhất HOẶC dữ liệu trong 5 phút
-                    // Điều này giúp thuật toán hoạt động tốt cả khi update nhanh (vài giây) hoặc chậm (vài phút)
-                    const MAX_SAMPLES = 10;
-                    const MAX_TIME_WINDOW = 5 * 60 * 1000; // 5 minutes
-                    
-                    const newHistory = [...prev, { count: data.totalCount, timestamp: now }];
-                    
-                    // Filter quá cũ
-                    const timeFiltered = newHistory.filter(item => item.timestamp > now - MAX_TIME_WINDOW);
-                    
-                    // Nếu ít mẫu (do update chậm), giữ lại hết (đã filter time). 
-                    // Nếu nhiều mẫu (update nhanh), chỉ lấy N mẫu cuối.
-                    return timeFiltered.slice(-MAX_SAMPLES);
-                });
+                // ⭐ Update history cho local flow rate calculation (keep 2 minutes)
+                if (useLocalFlowRate) {
+                    setCountHistory(prev => {
+                        const now = Date.now();
+                        const twoMinutesAgo = now - 2 * 60 * 1000;
+                        
+                        // Filter data trong 2 phút gần nhất + add new data
+                        const filtered = prev.filter(item => item.timestamp > twoMinutesAgo);
+                        const newHistory = [...filtered, { count: data.totalCount, timestamp: now }];
+                        
+                        // Log flow rate calculation
+                        if (newHistory.length >= 2) {
+                            const latest = newHistory[newHistory.length - 1];
+                            const oldest = newHistory[0];
+                            const countDiff = latest.count - oldest.count;
+                            const timeDiff = (latest.timestamp - oldest.timestamp) / 1000 / 60;
+                            const calculatedRate = timeDiff > 0 ? Math.max(0, Math.round(countDiff / timeDiff)) : 0;
+                            console.log('📊 Local flow rate calculation:', {
+                                historyLength: newHistory.length,
+                                oldestCount: oldest.count,
+                                latestCount: latest.count,
+                                countDiff,
+                                timeDiffMinutes: timeDiff.toFixed(2),
+                                flowRate: calculatedRate
+                            });
+                        }
+                        
+                        return newHistory;
+                    });
+                }
             }
         });
         
@@ -182,14 +262,14 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
             console.log('🚪 Unsubscribing from camera:', cameraId);
             unsubscribe();
         };
-    }, [camera]);
+    }, [camera, useLocalFlowRate]);
 
-    // ⭐ Calculate flow rate từ history (xe/phút)
-    const calculateFlowRate = (): number => {
-        // Nếu chưa có history, dùng data hiện tại
-        if (countHistory.length === 0) {
-            return trafficData ? Math.round(trafficData.totalCount * 1.8) : 0;
-        }
+    // ⭐ Calculate local flow rate từ history (xe/phút) - FALLBACK khi API không có
+    const calculateLocalFlowRate = (): number => {
+        if (countHistory.length < 2) return 0;
+        
+        const latest = countHistory[countHistory.length - 1];
+        const oldest = countHistory[0];
         
         // Tính trung bình mật độ xe trong history để làm mượt dữ liệu
         const avgDensity = countHistory.reduce((sum, item) => sum + item.count, 0) / countHistory.length;
@@ -202,18 +282,50 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
         return Math.round(avgDensity * TURNOVER_RATE);
     };
 
-    // ⭐ Calculate congestion status dựa trên totalCount
-    const getCongestionStatus = (): 'CAO' | 'TRUNG BÌNH' | 'THẤP' => {
-        if (!trafficData) return 'THẤP';
-        
-        const count = trafficData.totalCount;
-        if (count > 50) return 'CAO';
-        if (count > 20) return 'TRUNG BÌNH';
-        return 'THẤP';
+    // ⭐ Get flow rate - từ API hoặc tính local
+    const flowRate = useLocalFlowRate 
+        ? calculateLocalFlowRate() 
+        : (flowRateData?.flowRatePerMinute ?? 0);
+    
+    // Log current flow rate value
+    console.log('📊 Current flow rate:', {
+        useLocalFlowRate,
+        flowRateFromAPI: flowRateData?.flowRatePerMinute,
+        localFlowRate: calculateLocalFlowRate(),
+        displayedFlowRate: flowRate,
+        historyLength: countHistory.length
+    });
+    
+    // ⭐ Format flow rate period for display
+    const getFlowRatePeriod = (): string => {
+        if (useLocalFlowRate) {
+            if (countHistory.length < 2) return 'đang thu thập...';
+            const timeDiff = (countHistory[countHistory.length - 1].timestamp - countHistory[0].timestamp) / 1000;
+            if (timeDiff < 60) return `${Math.round(timeDiff)} giây`;
+            return `${Math.round(timeDiff / 60)} phút`;
+        }
+        if (!flowRateData) return '';
+        const duration = flowRateData.durationMinutes;
+        if (duration < 60) return `${duration} phút`;
+        return `${Math.round(duration / 60)} giờ`;
     };
 
-    const flowRate = calculateFlowRate();
-    const congestionStatus = getCongestionStatus();
+    // ⭐ Calculate Traffic Level: So sánh số xe hiện tại với peak (maxVehicleCount)
+    const currentCount = trafficData?.totalCount || 0;
+    const trafficLevel = calculateTrafficLevel(
+        currentCount,
+        maxCountData?.maxVehicleCount
+    );
+    const trafficLevelInfo = getTrafficLevelInfo(trafficLevel);
+    
+    // Log traffic level calculation
+    console.log('🚦 Traffic Level:', {
+        currentCount,
+        maxVehicleCount: maxCountData?.maxVehicleCount,
+        ratio: maxCountData?.maxVehicleCount ? (currentCount / maxCountData.maxVehicleCount * 100).toFixed(1) + '%' : 'N/A',
+        calculatedLevel: trafficLevel,
+        levelInfo: trafficLevelInfo
+    });
 
     const vehicleConfig = {
         Car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
@@ -224,21 +336,21 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     };
 
     return (
-        // Container chính - w-[420px] để chỉnh kích thước
-        <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl space-y-4 w-[420px] border border-white/20 transition-all duration-500 animate-in slide-in-from-bottom-4 fade-in zoom-in-95">
+        // Container chính - responsive width
+        <div className="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl shadow-2xl space-y-3 sm:space-y-4 w-full max-w-[95vw] sm:max-w-[380px] md:max-w-[400px] lg:max-w-[420px] min-w-[280px] border border-white/20 transition-all duration-500 animate-in slide-in-from-bottom-4 fade-in zoom-in-95">
 
             {/* --- PHẦN TIÊU ĐỀ (Tên & Quận) --- */}
-            <div className="flex justify-between items-start">
-                <div className="flex-1 pr-2">
-                    <h3 className="text-lg font-bold text-gray-800 leading-tight line-clamp-2">{camera.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase tracking-wider rounded-full">
+            <div className="flex justify-between items-start gap-2">
+                <div className="flex-1 min-w-0">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-800 leading-tight line-clamp-2 break-words">{camera.name}</h3>
+                    <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
+                        <span className="px-1.5 sm:px-2 py-0.5 bg-gray-100 text-gray-600 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-full truncate max-w-[120px] sm:max-w-none">
                             {camera.dist}
                         </span>
-                        <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium">
-                            <span className="relative flex h-2 w-2">
+                        <span className="flex items-center gap-1 text-[9px] sm:text-[10px] text-green-600 font-medium">
+                            <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-green-500"></span>
                             </span>
                             Online
                         </span>
@@ -246,64 +358,79 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 </div>
                 <button 
                     onClick={onClose} 
-                    className="group bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 p-2 rounded-full transition-all duration-300 shadow-sm hover:shadow"
+                    className="group flex-shrink-0 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 p-1.5 sm:p-2 rounded-full transition-all duration-300 shadow-sm hover:shadow"
                 >
-                    <IoClose className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                    <IoClose className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:rotate-90" />
                 </button>
             </div>
 
             {/* --- 1. PHẦN HÌNH ẢNH --- */}
             <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-900 shadow-lg group ring-1 ring-black/5">
-                <img
-                    ref={(el) => { imgRef.current = el; }}
-                    src={currentSrc}
-                    alt={camera.name}
-                    className={`w-full h-full object-cover transition-all duration-500 cursor-pointer 
-                        ${showAI ? 'scale-105 saturate-125' : 'scale-100'} 
-                        ${loadingImage ? 'blur-sm opacity-80' : 'blur-0 opacity-100'}
-                    `}
-                    onClick={() => onImageClick(currentSrc)}
-                    onError={(e) => {
-                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="340" height="200"%3E%3Crect width="340" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="Arial" font-size="14"%3EKhông có hình ảnh%3C/text%3E%3C/svg%3E';
-                    }}
-                />
+                {/* Khi ở chế độ AI nhưng chưa có ảnh AI hợp lệ -> hiện màn đen với loading */}
+                {showAI && !hasValidAiImage ? (
+                    <div className="w-full h-full bg-gray-900 flex flex-col items-center justify-center px-4">
+                        <div className="relative">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <RiRobot2Fill className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                            </div>
+                        </div>
+                        <span className="text-xs sm:text-sm font-medium text-gray-400 mt-2 sm:mt-3 text-center">Đang chờ phân tích AI...</span>
+                        <span className="text-[10px] sm:text-xs text-gray-500 mt-1 text-center">Hình ảnh AI sẽ xuất hiện khi sẵn sàng</span>
+                    </div>
+                ) : (
+                    <img
+                        ref={(el) => { imgRef.current = el; }}
+                        src={currentSrc}
+                        alt={camera.name}
+                        className={`w-full h-full object-cover transition-all duration-500 cursor-pointer 
+                            ${showAI ? 'scale-105 saturate-125' : 'scale-100'} 
+                            ${loadingImage ? 'blur-sm opacity-80' : 'blur-0 opacity-100'}
+                        `}
+                        onClick={() => onImageClick(currentSrc, showAI && hasValidAiImage)}
+                        onError={(e) => {
+                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="340" height="200"%3E%3Crect width="340" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="Arial" font-size="14"%3EKhông có hình ảnh%3C/text%3E%3C/svg%3E';
+                        }}
+                    />
+                )}
 
                 {/* Spinner overlay - Hiện ra khi đang chuyển đổi ảnh */}
                 {loadingImage && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 backdrop-blur-[2px] transition-all duration-300">
                         <div className="relative">
-                            <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 border-3 sm:border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <div className={`w-2 h-2 rounded-full ${showAI ? 'bg-purple-500' : 'bg-red-500'}`}></div>
+                                <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${showAI ? 'bg-purple-500' : 'bg-red-500'}`}></div>
                             </div>
                         </div>
-                        <span className="text-[10px] font-bold text-white mt-2 shadow-black drop-shadow-md">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-white mt-1.5 sm:mt-2 drop-shadow-md">
                             {showAI ? 'Đang phân tích...' : 'Đang tải Live...'}
                         </span>
                     </div>
                 )}
 
                 {/* Live / AI Badge */}
-                <div className={`absolute top-3 left-3 px-2.5 py-1 rounded-md text-[10px] font-bold text-white flex items-center gap-1.5 shadow-lg backdrop-blur-md transition-colors duration-300 ${showAI ? 'bg-purple-600/90' : 'bg-red-600/90'}`}>
-                    {showAI ? <RiRobot2Fill className="w-3.5 h-3.5" /> : <RiLiveFill className="w-3.5 h-3.5 animate-pulse" />}
-                    {showAI ? 'PHÂN TÍCH AI' : 'TRỰC TIẾP'}
+                <div className={`absolute top-2 left-2 sm:top-3 sm:left-3 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[9px] sm:text-[10px] font-bold text-white flex items-center gap-1 sm:gap-1.5 shadow-lg backdrop-blur-md transition-colors duration-300 ${showAI ? 'bg-purple-600/90' : 'bg-red-600/90'}`}>
+                    {showAI ? <RiRobot2Fill className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <RiLiveFill className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-pulse" />}
+                    <span className="hidden xs:inline">{showAI ? 'PHÂN TÍCH AI' : 'TRỰC TIẾP'}</span>
+                    <span className="xs:hidden">{showAI ? 'AI' : 'LIVE'}</span>
                 </div>
 
                 {/* Toggle Switch Overlay - Redesigned */}
-                <div className="absolute bottom-3 right-3">
-                    <div className="bg-black/60 backdrop-blur-md p-1 rounded-full border border-white/10 flex items-center shadow-xl">
+                <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3">
+                    <div className="bg-black/60 backdrop-blur-md p-0.5 sm:p-1 rounded-full border border-white/10 flex items-center shadow-xl">
                         <button 
                             onClick={() => setShowAI(false)}
-                            className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all duration-300 flex items-center gap-1 ${!showAI ? 'bg-red-500 text-white shadow-md' : 'text-gray-300 hover:text-white'}`}
+                            className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold transition-all duration-300 flex items-center gap-0.5 sm:gap-1 ${!showAI ? 'bg-red-500 text-white shadow-md' : 'text-gray-300 hover:text-white'}`}
                         >
-                            <RiLiveFill className="w-3 h-3" />
+                            <RiLiveFill className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                             Live
                         </button>
                         <button 
                             onClick={() => setShowAI(true)}
-                            className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all duration-300 flex items-center gap-1 ${showAI ? 'bg-purple-600 text-white shadow-md' : 'text-gray-300 hover:text-white'}`}
+                            className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold transition-all duration-300 flex items-center gap-0.5 sm:gap-1 ${showAI ? 'bg-purple-600 text-white shadow-md' : 'text-gray-300 hover:text-white'}`}
                         >
-                            <RiRobot2Fill className="w-3 h-3" />
+                            <RiRobot2Fill className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                             AI
                         </button>
                     </div>
@@ -312,107 +439,94 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
 
             {/* ⭐ Loading state */}
             {loading ? (
-                <div className="py-8 flex flex-col items-center justify-center text-gray-400 space-y-3">
+                <div className="py-6 sm:py-8 flex flex-col items-center justify-center text-gray-400 space-y-2 sm:space-y-3">
                     <div className="relative">
-                        <div className="w-10 h-10 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 border-3 sm:border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
                         <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full"></div>
                         </div>
                     </div>
-                    <p className="text-xs font-medium animate-pulse">Đang đồng bộ dữ liệu...</p>
+                    <p className="text-[10px] sm:text-xs font-medium animate-pulse">Đang đồng bộ dữ liệu...</p>
                 </div>
             ) : trafficData ? (
-                <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500">
+                <div className="space-y-3 sm:space-y-4 animate-in slide-in-from-bottom-2 duration-500">
                     
                     {/* Stats Grid - Enhanced */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         {/* Vehicle Count */}
-                        <div className="bg-gradient-to-br from-blue-50 to-white p-3 rounded-xl border border-blue-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
-                            <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider relative z-10">Số lượng xe</span>
-                            <div className="flex items-end gap-1 mt-1 relative z-10">
-                                <span className="text-2xl font-black text-gray-800">{trafficData.totalCount}</span>
-                                <span className="text-xs font-medium text-gray-500 mb-1">xe</span>
+                        <div className="bg-gradient-to-br from-blue-50 to-white p-2 sm:p-3 rounded-lg sm:rounded-xl border border-blue-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                            <div className="absolute top-0 right-0 w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-bl-full -mr-6 -mt-6 sm:-mr-8 sm:-mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+                            <span className="text-[9px] sm:text-[10px] text-blue-600 font-bold uppercase tracking-wider relative z-10">Số lượng xe</span>
+                            <div className="flex items-end gap-1 mt-0.5 sm:mt-1 relative z-10">
+                                <span className="text-xl sm:text-2xl font-black text-gray-800">{trafficData.totalCount}</span>
+                                <span className="text-[10px] sm:text-xs font-medium text-gray-500 mb-0.5 sm:mb-1">xe</span>
                             </div>
-                            <div className="w-full bg-blue-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div className="w-full bg-blue-100 h-1 sm:h-1.5 rounded-full mt-1.5 sm:mt-2 overflow-hidden">
                                 <div className="bg-blue-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(trafficData.totalCount, 100)}%` }}></div>
                             </div>
                         </div>
 
-                        {/* Flow Rate */}
-                        <div className="bg-gradient-to-br from-purple-50 to-white p-3 rounded-xl border border-purple-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-purple-100 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
-                            <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider relative z-10">Lưu lượng</span>
-                            <div className="flex items-end gap-1 mt-1 relative z-10">
-                                <span className="text-2xl font-black text-gray-800">{flowRate}</span>
-                                <span className="text-xs font-medium text-gray-500 mb-1">xe/phút</span>
-                            </div>
-                            <div className="w-full bg-purple-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                        {/* Flow Rate - with loading and error states */}
+                        <div className="bg-gradient-to-br from-purple-50 to-white p-2 sm:p-3 rounded-lg sm:rounded-xl border border-purple-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                            <div className="absolute top-0 right-0 w-12 h-12 sm:w-16 sm:h-16 bg-purple-100 rounded-bl-full -mr-6 -mt-6 sm:-mr-8 sm:-mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+                            <span className="text-[9px] sm:text-[10px] text-purple-600 font-bold uppercase tracking-wider relative z-10">Lưu lượng</span>
+                            {flowRateLoading ? (
+                                <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 relative z-10">
+                                    <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin"></div>
+                                    <span className="text-[10px] sm:text-xs text-gray-500">Đang tải...</span>
+                                </div>
+                            ) : flowRateError ? (
+                                <div className="mt-0.5 sm:mt-1 relative z-10">
+                                    <span className="text-[10px] sm:text-xs text-red-500">{flowRateError}</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex items-end gap-1 mt-0.5 sm:mt-1 relative z-10">
+                                        <span className="text-xl sm:text-2xl font-black text-gray-800">{Math.round(flowRate)}</span>
+                                        <span className="text-[10px] sm:text-xs font-medium text-gray-500 mb-0.5 sm:mb-1">xe/phút</span>
+                                    </div>
+                                    {flowRateData && (
+                                        <div className="text-[8px] sm:text-[9px] text-purple-500 mt-0.5 sm:mt-1 relative z-10">
+                                            Trong {getFlowRatePeriod()}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                            <div className="w-full bg-purple-100 h-1 sm:h-1.5 rounded-full mt-1.5 sm:mt-2 overflow-hidden">
                                 <div className="bg-purple-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(flowRate * 1.5, 100)}%` }}></div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Congestion Status - Enhanced */}
-                    <div className={`flex items-center justify-between p-3 rounded-xl border shadow-sm transition-colors duration-300 ${
-                        congestionStatus === 'CAO' ? 'bg-red-50 border-red-100' : 
-                        congestionStatus === 'TRUNG BÌNH' ? 'bg-yellow-50 border-yellow-100' : 
-                        'bg-green-50 border-green-100'
-                    }`}>
-                        <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full animate-pulse ${
-                                congestionStatus === 'CAO' ? 'bg-red-500' : 
-                                congestionStatus === 'TRUNG BÌNH' ? 'bg-yellow-500' : 
-                                'bg-green-500'
-                            }`}></div>
-                            <span className="text-xs font-semibold text-gray-700">Tình trạng giao thông</span>
-                        </div>
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full shadow-sm ${
-                            congestionStatus === 'CAO' ? 'bg-red-500 text-white' : 
-                            congestionStatus === 'TRUNG BÌNH' ? 'bg-yellow-500 text-white' : 
-                            'bg-green-500 text-white'
-                        }`}>
-                            {congestionStatus}
+                    {/* Traffic Level Status - So sánh số xe hiện tại với peak */}
+                    <div className={`flex items-center justify-between p-2 sm:p-3 rounded-lg sm:rounded-xl border shadow-sm transition-colors duration-300 ${trafficLevelInfo.bgColor} ${trafficLevelInfo.borderColor}`}>
+                        <span className="text-[10px] sm:text-xs font-semibold text-gray-700">Tình trạng giao thông</span>
+                        <span className={`text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-0.5 sm:py-1 rounded-full shadow-sm ${trafficLevelInfo.color} text-white`}>
+                            {trafficLevelInfo.labelVi}
                         </span>
                     </div>
 
                     {/* ⭐ Detection Details - With Icons & Vietnamese */}
                     {trafficData.detectionDetails && Object.keys(trafficData.detectionDetails).length > 0 && (
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2">
                             {Object.entries(trafficData.detectionDetails).map(([type, count]) => {
                                 const config = vehicleConfig[type as keyof typeof vehicleConfig] || { label: type, icon: FaCar, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-100' };
                                 const Icon = config.icon;
                                 return (
-                                    <div key={type} className={`flex flex-col items-center justify-center p-2 rounded-lg border ${config.bg} ${config.border} transition-transform hover:-translate-y-1 duration-300`}>
-                                        <Icon className={`w-5 h-5 mb-1 ${config.color}`} />
-                                        <span className="text-[10px] font-medium text-gray-500">{config.label}</span>
-                                        <span className={`text-sm font-bold ${config.color}`}>{count}</span>
+                                    <div key={type} className={`flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-md sm:rounded-lg border ${config.bg} ${config.border} transition-transform hover:-translate-y-1 duration-300`}>
+                                        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-1 ${config.color}`} />
+                                        <span className="text-[8px] sm:text-[10px] font-medium text-gray-500 truncate max-w-full">{config.label}</span>
+                                        <span className={`text-xs sm:text-sm font-bold ${config.color}`}>{count}</span>
                                     </div>
                                 );
                             })}
                         </div>
                     )}
-
-                    {/* ⭐ Timestamps - Minimalist */}
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-100 text-[10px]">
-                        {trafficData.timestamp && (
-                            <div className="flex items-center gap-1 text-gray-400">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                <span>{new Date(trafficData.timestamp).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
-                            </div>
-                        )}
-                        {lastUpdateTime && (
-                            <span className="text-green-600 flex items-center gap-1 font-medium bg-green-50 px-2 py-0.5 rounded-full">
-                                <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                Cập nhật thời gian thực
-                            </span>
-                        )}
-                    </div>
                 </div>
             ) : (
-                <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                    <svg className="w-10 h-10 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                    <p className="text-xs font-medium">Không có dữ liệu giao thông</p>
+                <div className="text-center py-6 sm:py-8 text-gray-400 bg-gray-50 rounded-lg sm:rounded-xl border border-dashed border-gray-200">
+                    <svg className="w-8 h-8 sm:w-10 sm:h-10 mx-auto mb-1.5 sm:mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                    <p className="text-[10px] sm:text-xs font-medium">Không có dữ liệu giao thông</p>
                 </div>
             )}
         </div>

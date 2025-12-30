@@ -229,6 +229,107 @@ curl http://localhost:8085/api/traffic/camera/TTH-29.4/latest
 
 ---
 
+#### **API 8: Get Peak Traffic Record (Max Count)**
+
+```
+GET /camera/{cameraId}/max-count
+```
+
+**Mô tả:** Lấy thông tin về thời điểm có số lượng xe **cao nhất** (kỷ lục) từng được ghi nhận bởi camera này.
+
+**Path Variable:**
+
+-   `cameraId`: ID của camera (e.g., "CAM001", "cam-thu-duc-01")
+
+
+**Response:** `Map<String, Object>`
+
+**Example:**
+```
+# Get max traffic record for specific camera
+GET http://localhost:6677/api/traffic/camera/TTH 282.1/max-count
+```
+
+**Response Example:**
+```
+{
+    "success": true,
+    "status": 200,
+    "message": "Request processed successfully",
+    "code": "SUCCESS",
+    "data": {
+        "maxVehicleCount": 22,
+        "cameraId": "TTH 282.1",
+        "district": "Quận Gò Vấp",
+        "timestamp": "2025-12-25T10:26:58.522Z"
+    },
+    "timestamp": "2025-12-25T11:46:20.835232365Z"
+}
+```
+
+----------
+
+#### **API 9: Calculate Traffic Flow Rate**
+
+HTTP
+
+```
+GET /camera/{cameraId}/flow-rate
+GET /camera/{cameraId}/flow-rate?start={ISO_TIMESTAMP}&end={ISO_TIMESTAMP}
+```
+
+**Mô tả:** Tính toán lưu lượng xe trung bình (**xe/phút**) trong một khoảng thời gian.
+
+-   Nếu không truyền `start/end`: Mặc định tính trong **1 giờ gần nhất**.
+
+-   Nếu truyền `start/end`: Tính trong khoảng thời gian chỉ định.
+
+
+**Path Variable:**
+
+-   `cameraId`: ID của camera
+
+
+**Query Params:**
+
+-   `start` (optional): Thời gian bắt đầu (Format: `YYYY-MM-DD`T`HH:mm:ss`)
+
+-   `end` (optional): Thời gian kết thúc (Format: `YYYY-MM-DD`T`HH:mm:ss`)
+
+
+**Response:** `Map<String, Object>`
+
+**Example:**
+```
+# Calculate flow rate for last 60 minutes (Default)
+GET http://localhost:6677/api/traffic/camera/TTH 282.1/flow-rate
+
+# Calculate flow rate for specific time range
+GET http://localhost:8085/api/traffic/camera/cam-thu-duc-01/flow-rate?start=2025-12-25T08:00:00&end=2025-12-25T09:00:00
+```
+
+**Response Example:**
+
+```
+{
+    "success": true,
+    "status": 200,
+    "message": "Request processed successfully",
+    "code": "SUCCESS",
+    "data": {
+        "cameraId": "TTH 282.1",
+        "totalVehiclesDetected": 40,
+        "durationMinutes": 60,
+        "flowRatePerMinute": 0.67,
+        "periodStart": "2025-12-25T10:46:03.965510079Z",
+        "periodEnd": "2025-12-25T11:46:03.965510079Z"
+    },
+    "timestamp": "2025-12-25T11:46:03.975137817Z"
+}
+```
+
+----------
+
 ### 🔌 **WebSocket Real-time Updates**
 
 **Connection URL:** `ws://localhost:8085/ws`  

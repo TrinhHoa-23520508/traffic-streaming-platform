@@ -1,11 +1,22 @@
 import type { NextConfig } from "next";
 
+// Extract hostname from NEXT_PUBLIC_CAMERA_API_URL for image configuration
+const getCameraApiHostname = (): string => {
+  const apiUrl = process.env.NEXT_PUBLIC_CAMERA_API_URL || 'https://api.notis.vn/v4';
+  try {
+    const url = new URL(apiUrl);
+    return url.hostname;
+  } catch {
+    return 'api.notis.vn';
+  }
+};
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'api.notis.vn',
+        hostname: getCameraApiHostname(),
         port: '',
         pathname: '/v4/**',
       }

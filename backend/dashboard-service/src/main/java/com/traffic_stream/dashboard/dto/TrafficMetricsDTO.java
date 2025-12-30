@@ -29,6 +29,9 @@ public class TrafficMetricsDTO {
     @JsonProperty("detection_details")
     private Map<String, Integer> detectionDetails;
 
+    @JsonProperty("max_count")
+    private int maxCount;
+
     @JsonProperty("timestamp")
     private long timestamp;
 

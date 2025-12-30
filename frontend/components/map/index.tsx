@@ -9,7 +9,9 @@ import L from 'leaflet';
 import CameraMarkers from "@/components/camera-markers";
 import RoutingManager from "@/components/routing";
 import { API_CONFIG } from "@/lib/api/config";
+import { trafficApi } from "@/lib/api/trafficApi";
 import type { Camera } from "@/types/camera";
+import type { CameraMaxCount } from "@/types/traffic";
 import { FiNavigation } from "react-icons/fi";
 
 import "leaflet/dist/leaflet.css";
@@ -229,6 +231,11 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
     const map = useMap();
     const heatLayerRef = useRef<any | null>(null);
     const [zoomLevel, setZoomLevel] = useState(() => map.getZoom());
+    
+    // ⭐ Store max counts for each camera (for heatmap normalization)
+    const [maxCounts, setMaxCounts] = useState<Record<string, number>>({});
+    const [maxCountsLoading, setMaxCountsLoading] = useState(false);
+    const fetchedCamerasRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         const handleZoom = () => {
@@ -242,6 +249,59 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
             map.off('zoomend', handleZoom);
         };
     }, [map]);
+
+    // ⭐ Fetch max counts for cameras when heatmap is enabled
+    useEffect(() => {
+        if (!enabled || cameras.length === 0) return;
+
+        const fetchMaxCounts = async () => {
+            // Only fetch for cameras we haven't fetched yet
+            const camerasToFetch = cameras.filter((c: any) => {
+                const cameraId = c.id || c._id || c.name;
+                return !fetchedCamerasRef.current.has(cameraId);
+            });
+
+            if (camerasToFetch.length === 0) return;
+
+            setMaxCountsLoading(true);
+            console.log(`🔥 Heatmap: Fetching max counts for ${camerasToFetch.length} cameras...`);
+
+            // Fetch max counts in batches to avoid overwhelming the API
+            const BATCH_SIZE = 10;
+            const newMaxCounts: Record<string, number> = { ...maxCounts };
+
+            for (let i = 0; i < camerasToFetch.length; i += BATCH_SIZE) {
+                const batch = camerasToFetch.slice(i, i + BATCH_SIZE);
+                
+                const results = await Promise.allSettled(
+                    batch.map(async (c: any) => {
+                        const cameraId = c.id || c._id || c.name;
+                        try {
+                            const data = await trafficApi.getCameraMaxCount(cameraId);
+                            return { cameraId, maxCount: data.maxVehicleCount };
+                        } catch (error) {
+                            console.warn(`⚠️ Failed to fetch max count for ${cameraId}, using fallback`);
+                            return { cameraId, maxCount: 50 }; // Fallback value
+                        }
+                    })
+                );
+
+                results.forEach((result) => {
+                    if (result.status === 'fulfilled') {
+                        const { cameraId, maxCount } = result.value;
+                        newMaxCounts[cameraId] = maxCount;
+                        fetchedCamerasRef.current.add(cameraId);
+                    }
+                });
+            }
+
+            setMaxCounts(newMaxCounts);
+            setMaxCountsLoading(false);
+            console.log(`✅ Heatmap: Max counts loaded for ${Object.keys(newMaxCounts).length} cameras`);
+        };
+
+        fetchMaxCounts();
+    }, [enabled, cameras]);
 
     // Remove the old camera loading and random count generation - now using cameras from props
     // Update heat layer when cameras data changes
@@ -267,19 +327,21 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
             // @ts-ignore: no types for leaflet.heat
             await import('leaflet.heat');
 
-            // Calculate max density to normalize or use a fixed scale
-            // Using a fixed scale allows comparing traffic levels objectively
-            // Assuming ~50 vehicles is "high traffic" for a single camera view
-            const MAX_DENSITY_THRESHOLD = 50;
+            // ⭐ FALLBACK: Use 50 if max count is not available for a camera
+            const DEFAULT_MAX_COUNT = 50;
 
             // build points with [lat, lon, weight] using cameras from props
             const points = cameras.map((c: any) => {
                 const lat = c.loc.coordinates[1];
                 const lon = c.loc.coordinates[0];
+                const cameraId = c.id || c._id || c.name;
                 
-                // Normalize weight: 0 to 1
+                // ⭐ Get individual max count for this camera (or use fallback)
+                const cameraMaxCount = maxCounts[cameraId] || DEFAULT_MAX_COUNT;
+                
+                // Normalize weight: 0 to 1 based on camera's own max count
                 // We clamp it at 1.0 so extremely high traffic doesn't break the visual
-                let weight = (c.density || 0) / MAX_DENSITY_THRESHOLD;
+                let weight = (c.density || 0) / cameraMaxCount;
                 if (weight > 1) weight = 1;
                 if (weight < 0) weight = 0;
                 
@@ -350,7 +412,7 @@ function HeatLayerManager({ enabled, cameras, imageRefreshKey }: { enabled: bool
             // We don't remove the layer here to prevent flickering on re-renders
             // The layer is managed by the 'enabled' flag check above
         };
-    }, [enabled, cameras, map, zoomLevel]); // Re-run when zoom changes to update maxZoom
+    }, [enabled, cameras, map, zoomLevel, maxCounts]); // Re-run when zoom changes or max counts are loaded
 
     return null;
 }

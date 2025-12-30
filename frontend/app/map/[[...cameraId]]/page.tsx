@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect, useRef, useCallback, memo, startTransition } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import SearchBox from "@/components/search";
 import CameraInfoCard from "@/components/camera-info-card";
 import ImageModal from "@/components/image-modal";
@@ -26,7 +26,6 @@ const Map = dynamic(
 
 export default function MapPage() {
     const params = useParams();
-    const router = useRouter();
     
     // Extract cameraId from optional catch-all route - only used for initial load
     const initialCameraIdRef = useRef<string | null>(params.cameraId ? (params.cameraId as string[])[0] : null);
@@ -35,8 +34,6 @@ export default function MapPage() {
     const [mapCenter, setMapCenter] = useState<[number, number]>([10.8231, 106.6297]);
     const [locationName, setLocationName] = useState<string>("Ho Chi Minh City");
     const [mapZoom, setMapZoom] = useState<number>(13);
-    const [isStatsOpen, setIsStatsOpen] = useState<boolean>(false);
-    const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
     const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lon: number, name: string } | null>(null);
     const [imageRefreshKey, setImageRefreshKey] = useState<number>(() => Date.now());
@@ -154,29 +151,6 @@ export default function MapPage() {
         setIsModalAI(false);
     }, []);
 
-    // Handlers for navigation to stats and report pages - use startTransition for smooth navigation
-    const handleOpenStats = useCallback(() => {
-        startTransition(() => {
-            // Close any selected camera before navigating
-            if (selectedCamera) {
-                setSelectedCamera(null);
-            }
-        });
-        // Navigate to stats page
-        router.push('/statistic');
-    }, [selectedCamera, router]);
-
-    const handleOpenReport = useCallback(() => {
-        startTransition(() => {
-            // Close any selected camera before navigating
-            if (selectedCamera) {
-                setSelectedCamera(null);
-            }
-        });
-        // Navigate to report page
-        router.push('/report');
-    }, [selectedCamera, router]);
-
     return (
         <div className="fixed inset-0 h-screen w-screen overflow-visible">
             {/* Navigation Sidebar - Use Link for prefetching */}
@@ -194,7 +168,6 @@ export default function MapPage() {
                         <Link
                             href="/statistic"
                             prefetch={true}
-                            onClick={handleOpenStats}
                             className="p-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
                             title="Statistic"
                         >
@@ -203,7 +176,6 @@ export default function MapPage() {
                         <Link
                             href="/report"
                             prefetch={true}
-                            onClick={handleOpenReport}
                             className="p-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
                             title="Report"
                         >
@@ -254,9 +226,7 @@ export default function MapPage() {
                     selectedLocation={selectedLocation}
                     imageRefreshKey={imageRefreshKey}
                     isDrawerOpen={false}
-                    onOpenDrawer={handleOpenStats}
                     isReportOpen={false}
-                    onOpenReport={handleOpenReport}
                     isModalOpen={!!modalImageUrl}
                 />
             </div>

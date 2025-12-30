@@ -5,10 +5,22 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { FiMap, FiBarChart2, FiFileText } from "react-icons/fi";
 
-// Lazy load the heavy component - loading.tsx handles the loading state
+// Lazy load the heavy component with loading state for instant feedback
 const ReportDialog = dynamic(
     () => import("@/components/report-dialog"),
-    { ssr: false }
+    { 
+        ssr: false,
+        loading: () => (
+            <div className="fixed inset-0 flex items-center justify-center">
+                <div className="bg-white rounded-lg p-8 shadow-xl">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="w-10 h-10 border-3 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                        <p className="text-gray-600 text-sm">Loading report...</p>
+                    </div>
+                </div>
+            </div>
+        )
+    }
 );
 
 export default function ReportPage() {

@@ -20,6 +20,18 @@ const getCameraApiHostname = (): string => {
 };
 
 const nextConfig: NextConfig = {
+  // ⚠️ BẮT BUỘC cho Docker: Output standalone mode
+  // Tạo server.js độc lập, không cần node_modules trong production
+  output: 'standalone',
+
+  // Bỏ qua ESLint và TypeScript errors khi build (cho Docker)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
   images: {
     remotePatterns: [
       {

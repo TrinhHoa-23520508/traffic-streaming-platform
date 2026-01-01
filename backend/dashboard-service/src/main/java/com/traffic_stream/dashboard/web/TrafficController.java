@@ -163,4 +163,18 @@ public class TrafficController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * API 11: Lấy lưu lượng theo từng PHÚT (Mặc định 1h qua)
+     * Endpoint: GET /api/traffic/minute-summary
+     */
+    @GetMapping("/minute-summary")
+    public ResponseEntity<Map<String, Long>> getMinuteSummary(
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(required = false) String district,
+            @RequestParam(required = false) String cameraId) {
+        Map<String, Long> summary = trafficService.getMinuteTimeSeries(start, end, district, cameraId);
+        return ResponseEntity.ok(summary);
+    }
+
 }

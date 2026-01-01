@@ -165,4 +165,20 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
     @Query("SELECT MAX(t.totalCount) FROM TrafficMetric t WHERE t.cameraId = :cameraId")
     Integer findMaxCountByCameraId(@Param("cameraId") String cameraId);
 
+    /**
+     * API Lấy tổng count theo từng PHÚT
+     */
+    @Query(value = "SELECT to_char(t.timestamp AT TIME ZONE :tz, 'YYYY-MM-DD\"T\"HH24:MI:00') as time_bucket, " +
+            "SUM(t.total_count) as total " +
+            "FROM traffic_metrics t " +
+            "WHERE t.timestamp >= :start AND t.timestamp < :end " +
+            "AND (:district IS NULL OR t.district = :district) " +
+            "GROUP BY time_bucket " +
+            "ORDER BY time_bucket ASC", nativeQuery = true)
+    List<Object[]> getMinuteTimeSeries(
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            @Param("district") String district,
+            @Param("tz") String timezone);
+
 }

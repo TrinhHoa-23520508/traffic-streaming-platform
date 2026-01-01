@@ -499,6 +499,53 @@ public class TrafficService {
     }
 
     /**
+     * API: Lấy Time Series theo PHÚT
+     * Mặc định: Từ 1 tiếng trước -> Hiện tại
+     */
+    public Map<String, Long> getMinuteTimeSeries(String startStr, String endStr, String district, String cameraId) {
+        Instant now = Instant.now();
+        Instant oneHourAgo = now.minus(1, ChronoUnit.HOURS);
+
+        Instant end = (endStr != null && !endStr.isEmpty()) ? parseToInstant(endStr, false) : now;
+        Instant start = (startStr != null && !startStr.isEmpty()) ? parseToInstant(startStr, true) : oneHourAgo;
+
+        Map<String, Long> timeSeries = new LinkedHashMap<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:00");
+
+        ZonedDateTime currentZdt = start.atZone(VIETNAM_ZONE).truncatedTo(ChronoUnit.MINUTES);
+        ZonedDateTime endZdt = end.atZone(VIETNAM_ZONE);
+
+        int safety = 0;
+        while (currentZdt.isBefore(endZdt) && safety < 1440) {
+            timeSeries.put(formatter.format(currentZdt), 0L);
+            currentZdt = currentZdt.plusMinutes(1);
+            safety++;
+        }
+
+        if (cameraId != null && !cameraId.isEmpty()) {
+            List<TrafficMetric> metrics = repository.findByTimestampBetweenAndCameraId(start, end, cameraId);
+            for (TrafficMetric metric : metrics) {
+                ZonedDateTime zdt = metric.getTimestamp().atZone(VIETNAM_ZONE).truncatedTo(ChronoUnit.MINUTES);
+                String key = formatter.format(zdt);
+                long count = metric.getTotalCount();
+                if (timeSeries.containsKey(key)) {
+                    timeSeries.merge(key, count, Long::sum);
+                }
+            }
+        } else {
+            List<Object[]> rows = repository.getMinuteTimeSeries(start, end, district, VIETNAM_TZ_NAME);
+            for (Object[] row : rows) {
+                String timeKey = (String) row[0];
+                Number total = (Number) row[1];
+                if (timeSeries.containsKey(timeKey)) {
+                    timeSeries.put(timeKey, total.longValue());
+                }
+            }
+        }
+        return timeSeries;
+    }
+
+    /**
      * Helper 1: Query DB để lấy tổng xe theo quận trong khoảng thời gian
      */
     private Map<String, Long> getDistrictCountMap(Instant start, Instant end) {

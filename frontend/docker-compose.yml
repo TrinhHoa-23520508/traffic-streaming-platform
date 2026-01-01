@@ -1,0 +1,24 @@
+# ==============================================
+# DOCKER COMPOSE CHO FRONTEND NEXT.JS
+# ==============================================
+# Chạy: docker compose up --build
+# Dừng: docker compose down
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # API URLs - thay đổi nếu backend chạy ở host khác
+        NEXT_PUBLIC_API_URL: http://localhost:6677
+        NEXT_PUBLIC_WS_URL: http://localhost:6677/ws
+        NEXT_PUBLIC_ENABLE_WEBSOCKET: "false"
+        NEXT_PUBLIC_CAMERA_API_URL: https://api.notis.vn/v4
+        NEXT_PUBLIC_TILE_LAYER_URL: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+        NEXT_PUBLIC_ROUTING_API_URL: https://router.project-osrm.org/route/v1
+        NEXT_PUBLIC_NOMINATIM_API_URL: https://nominatim.openstreetmap.org
+    container_name: traffic-frontend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

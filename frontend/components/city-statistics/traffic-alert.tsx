@@ -5,6 +5,7 @@ import { IoClose } from 'react-icons/io5'
 import React, { useState, useEffect } from 'react'
 import InforPanel from "./infor-panel"
 import { trafficApi } from "@/lib/api/trafficApi"
+import { API_CONFIG } from "@/lib/api/config"
 import { CHART_COLORS } from "./color"
 
 type AlertSeverity = "high" | "medium" | "low"
@@ -24,9 +25,9 @@ type TrafficAlert = {
 }
 
 const SEVERITY_THRESHOLDS = {
-    HIGH: 5,
-    MEDIUM: 3,
-    LOW: 1
+    HIGH: 70,
+    MEDIUM: 50,
+    LOW: 30
 } as const;
 
 const ITEMS_PER_PAGE = 3;
@@ -354,7 +355,7 @@ function CameraPreviewSection({ alert, liveviewUrl }: { alert: TrafficAlert | nu
 
     useEffect(() => {
         if (liveviewUrl) {
-            const url = `https://api.notis.vn/v4/${liveviewUrl}?t=${Date.now()}`;
+            const url = `${API_CONFIG.CAMERA_API_URL}/${liveviewUrl}?t=${Date.now()}`;
             setDisplayUrl(url);
             setShowImage(Boolean(url));
         } else if (alert?.imageUrl) {

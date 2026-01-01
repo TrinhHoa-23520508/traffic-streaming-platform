@@ -105,6 +105,8 @@ services:
     build: ./traffic-analysis-service
     ports:
       - "8082:8082"
+    volumes:
+      - ./traffic-analysis-service/models:/app/models
     environment:
       KAFKA_BROKER: broker:29092
       IMAGE_BASE_URL: https://api.notis.vn/v4/
@@ -123,6 +125,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
+              count: 1
               capabilities: [ gpu ]
     cpus: '2'
     mem_limit: 4G

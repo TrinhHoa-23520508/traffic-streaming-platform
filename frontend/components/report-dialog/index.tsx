@@ -332,30 +332,30 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
     if (!showSuccessPopup) return null;
     
     return (
-      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
           {/* Header */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-green-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-green-100">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800">Thành công!</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Thành công!</h3>
             </div>
           </div>
           
           {/* Content */}
-          <div className="px-6 py-5">
-            <p className="text-gray-600 text-sm leading-relaxed">{successMessage}</p>
+          <div className="px-4 sm:px-6 py-4 sm:py-5">
+            <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{successMessage}</p>
           </div>
           
           {/* Actions */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 sm:justify-end">
             <button
               onClick={() => setShowSuccessPopup(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors text-center"
             >
               Đóng
             </button>
@@ -364,7 +364,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                 setShowSuccessPopup(false)
                 setActiveTab("list")
               }}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors shadow-sm"
+              className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors shadow-sm text-center"
             >
               Danh sách báo cáo
             </button>
@@ -379,30 +379,30 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
     if (!showWarningPopup) return null;
     
     return (
-      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
           {/* Header */}
-          <div className="bg-gradient-to-r from-amber-50 to-yellow-50 px-6 py-4 border-b border-amber-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-gradient-to-r from-amber-50 to-yellow-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-amber-100">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800">Lưu ý</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Lưu ý</h3>
             </div>
           </div>
           
           {/* Content */}
-          <div className="px-6 py-5">
-            <p className="text-gray-600 text-sm leading-relaxed">{warningMessage}</p>
+          <div className="px-4 sm:px-6 py-4 sm:py-5">
+            <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{warningMessage}</p>
           </div>
           
           {/* Actions */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
             <button
               onClick={() => setShowWarningPopup(false)}
-              className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors shadow-sm"
+              className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors shadow-sm text-center"
             >
               Đã hiểu
             </button>
@@ -417,37 +417,37 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
     if (!showDeleteConfirm) return null;
     
     return (
-      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
           {/* Header */}
-          <div className="bg-gradient-to-r from-red-50 to-pink-50 px-6 py-4 border-b border-red-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-red-600" />
+          <div className="bg-gradient-to-r from-red-50 to-pink-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-red-100">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-800">Xác nhận xóa</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Xác nhận xóa</h3>
             </div>
           </div>
           
           {/* Content */}
-          <div className="px-6 py-5">
-            <p className="text-gray-600 text-sm leading-relaxed">Bạn có chắc chắn muốn xóa báo cáo này không? Hành động này không thể hoàn tác.</p>
+          <div className="px-4 sm:px-6 py-4 sm:py-5">
+            <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">Bạn có chắc chắn muốn xóa báo cáo này không? Hành động này không thể hoàn tác.</p>
           </div>
           
           {/* Actions */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 sm:justify-end">
             <button
               onClick={() => {
                 setShowDeleteConfirm(false)
                 setReportToDelete(null)
               }}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors text-center"
             >
               Hủy
             </button>
             <button
               onClick={confirmDelete}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors shadow-sm"
+              className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors shadow-sm text-center"
             >
               Xóa báo cáo
             </button>
@@ -467,75 +467,75 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
             className="bg-white w-full h-full flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
             role="dialog" aria-modal="true"
         >
-            <div className="flex items-center justify-center py-4 px-6 border-b border-gray-200 relative flex-none bg-gradient-to-r from-blue-50 via-white to-purple-50">
+            <div className="flex items-center justify-center py-3 sm:py-4 px-4 sm:px-6 border-b border-gray-200 relative flex-none bg-gradient-to-r from-blue-50 via-white to-purple-50">
                 <div className="text-center">
-                    <h1 className="text-gray-800 text-2xl font-bold">Báo Cáo Giao Thông</h1>
-                    <p className="text-gray-500 text-sm">Quản lý và xuất báo cáo thống kê.</p>
+                    <h1 className="text-gray-800 text-lg sm:text-xl md:text-2xl font-bold">Báo Cáo Giao Thông</h1>
+                    <p className="text-gray-500 text-xs sm:text-sm">Quản lý và xuất báo cáo thống kê.</p>
                 </div>
             </div>
 
             <div className="flex-1 overflow-auto flex flex-col">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                    <div className="px-6 pt-4 pb-2 flex justify-center">
-                        <TabsList className="grid w-[320px] grid-cols-2 bg-gray-100 p-1 rounded-lg">
-                            <TabsTrigger value="export" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">Xuất Báo Cáo</TabsTrigger>
-                            <TabsTrigger value="list" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">Danh sách</TabsTrigger>
+                    <div className="px-4 sm:px-6 pt-3 sm:pt-4 pb-2 flex justify-center">
+                        <TabsList className="grid w-[260px] sm:w-[320px] grid-cols-2 bg-gray-100 p-1 rounded-lg">
+                            <TabsTrigger value="export" className="rounded-md text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">Xuất Báo Cáo</TabsTrigger>
+                            <TabsTrigger value="list" className="rounded-md text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">Danh sách</TabsTrigger>
                         </TabsList>
                     </div>
 
-                    <TabsContent value="export" className="flex-1 overflow-y-auto data-[state=inactive]:hidden p-6 pl-20">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <TabsContent value="export" className="flex-1 overflow-y-auto data-[state=inactive]:hidden p-4 sm:p-6 pl-14 sm:pl-20">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
                             {/* Left Column: Settings + Districts */}
-                            <div className="space-y-6">
+                            <div className="space-y-4 sm:space-y-6">
                                 {/* Cấu hình báo cáo */}
-                                <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                                        <span className="w-1 h-5 bg-blue-500 rounded-full"></span>
+                                <div className="space-y-3 sm:space-y-4">
+                                    <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                        <span className="w-1 h-4 sm:h-5 bg-blue-500 rounded-full"></span>
                                         Cấu hình báo cáo
                                     </h3>
                                     
                                     <div className="grid gap-2 max-w-md">
-                                        <Label>Tên báo cáo</Label>
+                                        <Label className="text-sm">Tên báo cáo</Label>
                                         <input 
                                             type="text"
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="flex h-9 sm:h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs sm:text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                             value={reportName}
                                             onChange={(e) => setReportName(e.target.value)}
                                             placeholder="Nhập tên báo cáo"
                                         />
                                     </div>
 
-                                    <div className="flex flex-wrap gap-3 items-end">
+                                    <div className="flex flex-wrap gap-2 sm:gap-3 items-end">
                                         <div className="grid gap-2">
-                                            <Label>Ngày bắt đầu</Label>
+                                            <Label className="text-xs sm:text-sm">Ngày bắt đầu</Label>
                                             <DatePicker value={startDate} onChange={setStartDate} />
                                         </div>
                                         <div className="grid gap-2">
-                                            <Label>Ngày kết thúc</Label>
+                                            <Label className="text-xs sm:text-sm">Ngày kết thúc</Label>
                                             <DatePicker value={endDate} onChange={setEndDate} />
                                         </div>
                                         <div className="grid gap-2">
-                                            <Label>Giờ bắt đầu</Label>
+                                            <Label className="text-xs sm:text-sm">Giờ bắt đầu</Label>
                                             <input 
                                                 type="time" 
-                                                className="flex h-10 w-28 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                className="flex h-9 sm:h-10 w-24 sm:w-28 rounded-md border border-input bg-background px-2 sm:px-3 py-2 text-xs sm:text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                                 value={startTime}
                                                 onChange={(e) => setStartTime(e.target.value)}
                                             />
                                         </div>
                                         <div className="grid gap-2">
-                                            <Label>Giờ kết thúc</Label>
+                                            <Label className="text-xs sm:text-sm">Giờ kết thúc</Label>
                                             <input 
                                                 type="time" 
-                                                className="flex h-10 w-28 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                className="flex h-9 sm:h-10 w-24 sm:w-28 rounded-md border border-input bg-background px-2 sm:px-3 py-2 text-xs sm:text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                                 value={endTime}
                                                 onChange={(e) => setEndTime(e.target.value)}
                                             />
                                         </div>
                                         <div className="grid gap-2">
-                                            <Label>Độ phân giải</Label>
+                                            <Label className="text-xs sm:text-sm">Độ phân giải</Label>
                                             <Select value={interval} onValueChange={setInterval}>
-                                                <SelectTrigger className="w-28">
+                                                <SelectTrigger className="w-24 sm:w-28 h-9 sm:h-10 text-xs sm:text-sm">
                                                     <SelectValue placeholder="Chọn" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -550,20 +550,20 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                 </div>
 
                                 {/* Quận/Huyện - NO scroll, display full */}
-                                <div className="space-y-3">
-                                    <Label className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                                        <span className="w-1 h-5 bg-purple-500 rounded-full"></span>
+                                <div className="space-y-2 sm:space-y-3">
+                                    <Label className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                        <span className="w-1 h-4 sm:h-5 bg-purple-500 rounded-full"></span>
                                         Chọn Quận / Huyện ({selectedDistricts.length})
                                     </Label>
-                                    <div className="border rounded-lg p-4 bg-gradient-to-br from-slate-50 to-white">
+                                    <div className="border rounded-lg p-3 sm:p-4 bg-gradient-to-br from-slate-50 to-white">
                                         {isLoadingDistricts ? (
-                                            <div className="flex items-center justify-center py-8">
-                                                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                                            <div className="flex items-center justify-center py-6 sm:py-8">
+                                                <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-gray-400" />
                                             </div>
                                         ) : (
-                                            <div className="grid grid-cols-3 gap-2">
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 sm:gap-2">
                                                 {districts.map((d) => (
-                                                    <div key={d.id} className="flex items-center space-x-2 hover:bg-white p-2 rounded-md transition-colors border border-transparent hover:border-slate-200">
+                                                    <div key={d.id} className="flex items-center space-x-2 hover:bg-white p-1.5 sm:p-2 rounded-md transition-colors border border-transparent hover:border-slate-200">
                                                         <Checkbox 
                                                             id={`district-${d.id}`}
                                                             checked={selectedDistricts.includes(d.id)}
@@ -667,19 +667,18 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                             </div>
 
                             {/* Right Column: Camera List - WITH scroll */}
-                            <div className="space-y-3">
-                                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                                    <span className="w-1 h-5 bg-green-500 rounded-full"></span>
+                            <div className="space-y-2 sm:space-y-3">
+                                <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                    <span className="w-1 h-4 sm:h-5 bg-green-500 rounded-full"></span>
                                     Danh sách Camera {selectedDistricts.length > 0 ? `(${cameras.length})` : ''}
                                 </h3>
                                 
                                 {/* 
                                     === HƯỚNG DẪN CHỈNH KÍCH THƯỚC KHUNG CAMERA ===
-                                    - h-[700px]: Chiều cao khung (height). Đổi số này để tăng/giảm chiều cao.
-                                      Ví dụ: h-[500px], h-[800px], h-[90vh] (90% chiều cao màn hình)
-                                    - Để thay đổi chiều rộng: thêm class như w-full, w-[400px], max-w-lg, etc.
+                                    - h-[500px] sm:h-[600px] lg:h-[700px]: Chiều cao khung responsive
+                                    - min-h-[300px]: Đảm bảo không bị co lại quá nhỏ
                                 */}
-                                <div className="border rounded-lg bg-gradient-to-br from-slate-50 to-white h-[700px] overflow-hidden flex flex-col shadow-sm">
+                                <div className="border rounded-lg bg-gradient-to-br from-slate-50 to-white h-[400px] sm:h-[500px] lg:h-[700px] min-h-[300px] overflow-hidden flex flex-col shadow-sm">
                                     {selectedDistricts.length === 0 ? (
                                         <div className="flex-1 flex items-center justify-center text-sm text-gray-400 italic">
                                             Vui lòng chọn Quận/Huyện trước
@@ -784,17 +783,17 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="list" className="flex-1 overflow-hidden p-6 pl-20 data-[state=inactive]:hidden">
-                        <div className="grid grid-cols-12 gap-6 h-full">
+                    <TabsContent value="list" className="flex-1 overflow-hidden p-4 sm:p-6 pl-14 sm:pl-20 data-[state=inactive]:hidden">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 h-full">
                             {/* List Column */}
-                            <div className="col-span-4 flex flex-col h-full border rounded-lg bg-white overflow-hidden min-h-0 shadow-sm">
-                                <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-gray-50 to-blue-50/50 flex-none">
-                                    <h3 className="font-semibold text-gray-700 flex items-center gap-2">
-                                        <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
+                            <div className="lg:col-span-4 flex flex-col h-[40vh] lg:h-full border rounded-lg bg-white overflow-hidden min-h-[200px] shadow-sm">
+                                <div className="p-3 sm:p-4 border-b flex justify-between items-center bg-gradient-to-r from-gray-50 to-blue-50/50 flex-none">
+                                    <h3 className="font-semibold text-gray-700 flex items-center gap-2 text-sm sm:text-base">
+                                        <span className="w-1 h-3 sm:h-4 bg-blue-500 rounded-full"></span>
                                         Danh sách báo cáo
                                     </h3>
                                     <Button variant="ghost" size="sm" onClick={fetchReports} disabled={isLoadingReports}>
-                                        <RefreshCw className={`h-4 w-4 ${isLoadingReports ? 'animate-spin' : ''}`} />
+                                        <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isLoadingReports ? 'animate-spin' : ''}`} />
                                     </Button>
                                 </div>
                                 <div className="flex-1 min-h-0">
@@ -856,50 +855,52 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                             </div>
 
                             {/* Preview Column */}
-                            <div className="col-span-8 flex flex-col h-full border rounded-lg bg-gradient-to-br from-gray-50 to-blue-50/30 overflow-hidden min-h-0 shadow-sm">
+                            <div className="lg:col-span-8 flex flex-col h-[50vh] lg:h-full border rounded-lg bg-gradient-to-br from-gray-50 to-blue-50/30 overflow-hidden min-h-[250px] shadow-sm">
                                 {selectedReport ? (
                                     <div className="flex flex-col h-full">
-                                        <div className="p-4 border-b bg-gradient-to-r from-white to-blue-50/50 flex justify-between items-center shadow-sm flex-none">
+                                        <div className="p-3 sm:p-4 border-b bg-gradient-to-r from-white to-blue-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0 shadow-sm flex-none">
                                             <div>
-                                                <h3 className="font-bold text-lg text-gray-800">{selectedReport.fileName}</h3>
-                                                <p className="text-sm text-gray-500">
+                                                <h3 className="font-bold text-sm sm:text-base lg:text-lg text-gray-800 line-clamp-1">{selectedReport.fileName}</h3>
+                                                <p className="text-xs sm:text-sm text-gray-500">
                                                     Tạo lúc: {format(new Date(selectedReport.createdAt), "HH:mm dd/MM/yyyy")}
                                                 </p>
                                             </div>
-                                            <div className="flex gap-3">
+                                            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
                                                 <Button 
                                                     variant="destructive" 
-                                                    size="default"
+                                                    size="sm"
+                                                    className="flex-1 sm:flex-none text-xs sm:text-sm"
                                                     onClick={() => handleDelete(selectedReport.id)}
                                                 >
-                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    <Trash2 className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                     Xóa
                                                 </Button>
                                                 <Button 
                                                     variant="default" 
-                                                    size="default"
+                                                    size="sm"
+                                                    className="flex-1 sm:flex-none text-xs sm:text-sm"
                                                     onClick={() => handleDownload(selectedReport)}
                                                     disabled={selectedReport.status !== 'COMPLETED'}
                                                 >
-                                                    <Download className="mr-2 h-4 w-4" />
+                                                    <Download className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                     Tải xuống
                                                 </Button>
                                             </div>
                                         </div>
-                                        <div className="flex-1 min-h-0 overflow-y-auto p-6">
+                                        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-6">
                                             {isLoadingDetail ? (
-                                                <div className="flex flex-col items-center justify-center h-40">
-                                                    <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-3" />
-                                                    <p className="text-gray-500">Đang tải thông tin chi tiết...</p>
+                                                <div className="flex flex-col items-center justify-center h-32 sm:h-40">
+                                                    <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin text-blue-500 mb-2 sm:mb-3" />
+                                                    <p className="text-gray-500 text-xs sm:text-sm">Đang tải thông tin chi tiết...</p>
                                                 </div>
                                             ) : (
-                                                <div className="space-y-5 bg-white p-6 rounded-xl shadow-sm border max-w-2xl mx-auto">
+                                                <div className="space-y-3 sm:space-y-4 lg:space-y-5 bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl shadow-sm border max-w-2xl mx-auto">
                                                     {/* Status & ID Header */}
-                                                    <div className="flex items-center justify-between pb-4 border-b">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-sm font-medium text-gray-600">Trạng thái:</span>
+                                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 pb-3 sm:pb-4 border-b">
+                                                        <div className="flex items-center gap-2 sm:gap-3">
+                                                            <span className="text-xs sm:text-sm font-medium text-gray-600">Trạng thái:</span>
                                                             <div className={cn(
-                                                                "inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold",
+                                                                "inline-flex items-center px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-semibold",
                                                                 selectedReport.status === 'COMPLETED' ? "bg-green-100 text-green-700" :
                                                                 selectedReport.status === 'PENDING' ? "bg-yellow-100 text-yellow-700" :
                                                                 "bg-red-100 text-red-700"
@@ -908,75 +909,75 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-sm font-medium text-gray-600">ID:</span>
-                                                            <code className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-700">{selectedReport.id}</code>
+                                                            <span className="text-xs sm:text-sm font-medium text-gray-600">ID:</span>
+                                                            <code className="font-mono text-[10px] sm:text-xs lg:text-sm bg-gray-100 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-gray-700 truncate max-w-[100px] sm:max-w-none">{selectedReport.id}</code>
                                                         </div>
                                                     </div>
 
                                                     {/* Time Range */}
-                                                    <div className="grid grid-cols-2 gap-6">
-                                                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
-                                                            <h4 className="text-sm font-medium text-blue-600 uppercase tracking-wider mb-2">Bắt đầu</h4>
-                                                            <p className="text-lg font-bold text-gray-800">
+                                                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
+                                                        <div className="bg-blue-50/50 p-2 sm:p-3 lg:p-4 rounded-lg border border-blue-100">
+                                                            <h4 className="text-[10px] sm:text-xs lg:text-sm font-medium text-blue-600 uppercase tracking-wider mb-1 sm:mb-2">Bắt đầu</h4>
+                                                            <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-800">
                                                                 {selectedReport.startTime ? format(new Date(selectedReport.startTime), "HH:mm") : "N/A"}
                                                             </p>
                                                             <p className="text-sm text-gray-600">
                                                                 {selectedReport.startTime ? format(new Date(selectedReport.startTime), "dd/MM/yyyy") : ""}
                                                             </p>
                                                         </div>
-                                                        <div className="bg-purple-50/50 p-4 rounded-lg border border-purple-100">
-                                                            <h4 className="text-sm font-medium text-purple-600 uppercase tracking-wider mb-2">Kết thúc</h4>
-                                                            <p className="text-lg font-bold text-gray-800">
+                                                        <div className="bg-purple-50/50 p-2 sm:p-3 lg:p-4 rounded-lg border border-purple-100">
+                                                            <h4 className="text-[10px] sm:text-xs lg:text-sm font-medium text-purple-600 uppercase tracking-wider mb-1 sm:mb-2">Kết thúc</h4>
+                                                            <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-800">
                                                                 {selectedReport.endTime ? format(new Date(selectedReport.endTime), "HH:mm") : "N/A"}
                                                             </p>
-                                                            <p className="text-sm text-gray-600">
+                                                            <p className="text-xs sm:text-sm text-gray-600">
                                                                 {selectedReport.endTime ? format(new Date(selectedReport.endTime), "dd/MM/yyyy") : ""}
                                                             </p>
                                                         </div>
                                                     </div>
 
                                                     {/* Configuration */}
-                                                    <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-sm text-gray-600">Interval:</span>
-                                                            <p className="font-semibold text-gray-800">{selectedReport.interval ? `${selectedReport.interval} phút` : "N/A"}</p>
+                                                    <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:gap-4 bg-gray-50 p-2 sm:p-3 lg:p-4 rounded-lg">
+                                                        <div className="flex items-center gap-2 sm:gap-3">
+                                                            <span className="text-xs sm:text-sm text-gray-600">Interval:</span>
+                                                            <p className="font-semibold text-xs sm:text-sm text-gray-800">{selectedReport.interval ? `${selectedReport.interval} phút` : "N/A"}</p>
                                                         </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-sm text-gray-600">Loại:</span>
-                                                            <p className="font-semibold text-gray-800">{selectedReport.type || "PDF"}</p>
+                                                        <div className="flex items-center gap-2 sm:gap-3">
+                                                            <span className="text-xs sm:text-sm text-gray-600">Loại:</span>
+                                                            <p className="font-semibold text-xs sm:text-sm text-gray-800">{selectedReport.type || "PDF"}</p>
                                                         </div>
                                                     </div>
 
                                                     {/* Scope - Districts */}
-                                                    <div className="space-y-3">
-                                                        <div className="flex items-center gap-2 pb-2 border-b">
-                                                            <span className="w-1.5 h-5 bg-blue-500 rounded-full"></span>
-                                                            <h4 className="text-base font-semibold text-gray-800">Quận/Huyện ({selectedReport.districts?.length || 0})</h4>
+                                                    <div className="space-y-2 sm:space-y-3">
+                                                        <div className="flex items-center gap-2 pb-1.5 sm:pb-2 border-b">
+                                                            <span className="w-1 sm:w-1.5 h-4 sm:h-5 bg-blue-500 rounded-full"></span>
+                                                            <h4 className="text-sm sm:text-base font-semibold text-gray-800">Quận/Huyện ({selectedReport.districts?.length || 0})</h4>
                                                         </div>
-                                                        <div className="flex flex-wrap gap-2">
+                                                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
                                                             {selectedReport.districts && selectedReport.districts.length > 0 ? (
                                                                 selectedReport.districts.map((d, i) => (
-                                                                    <span key={i} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200">
+                                                                    <span key={i} className="px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-50 text-blue-700 rounded-md sm:rounded-lg text-xs sm:text-sm font-medium border border-blue-200">
                                                                         {d}
                                                                     </span>
                                                                 ))
                                                             ) : (
-                                                                <span className="text-sm text-gray-500 italic">Toàn thành phố</span>
+                                                                <span className="text-xs sm:text-sm text-gray-500 italic">Toàn thành phố</span>
                                                             )}
                                                         </div>
                                                     </div>
 
                                                     {/* Scope - Cameras */}
-                                                    <div className="space-y-3">
-                                                        <div className="flex items-center gap-2 pb-2 border-b">
-                                                            <span className="w-1.5 h-5 bg-green-500 rounded-full"></span>
-                                                            <h4 className="text-base font-semibold text-gray-800">Camera ({selectedReport.cameras?.length || 0})</h4>
+                                                    <div className="space-y-2 sm:space-y-3">
+                                                        <div className="flex items-center gap-2 pb-1.5 sm:pb-2 border-b">
+                                                            <span className="w-1 sm:w-1.5 h-4 sm:h-5 bg-green-500 rounded-full"></span>
+                                                            <h4 className="text-sm sm:text-base font-semibold text-gray-800">Camera ({selectedReport.cameras?.length || 0})</h4>
                                                         </div>
                                                         {selectedReport.cameras && selectedReport.cameras.length > 0 ? (
-                                                            <div className="max-h-40 overflow-y-auto border rounded-lg p-3 bg-gray-50">
-                                                                <div className="flex flex-wrap gap-2">
+                                                            <div className="max-h-32 sm:max-h-40 overflow-y-auto border rounded-lg p-2 sm:p-3 bg-gray-50">
+                                                                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                                                                     {selectedReport.cameras.map((c, i) => (
-                                                                        <span key={i} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700">{c}</span>
+                                                                        <span key={i} className="px-2 sm:px-3 py-1 sm:py-1.5 bg-white border border-gray-200 rounded-md sm:rounded-lg text-xs sm:text-sm text-gray-700">{c}</span>
                                                                     ))}
                                                                 </div>
                                                             </div>
@@ -990,8 +991,8 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                     </div>
                                 ) : (
                                     <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
-                                        <FileText className="h-16 w-16 mb-4 opacity-20" />
-                                        <p>Chọn một báo cáo để xem chi tiết</p>
+                                        <FileText className="h-12 w-12 sm:h-16 sm:w-16 mb-3 sm:mb-4 opacity-20" />
+                                        <p className="text-xs sm:text-sm">Chọn một báo cáo để xem chi tiết</p>
                                     </div>
                                 )}
                             </div>

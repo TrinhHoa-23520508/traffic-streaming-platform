@@ -6,6 +6,7 @@ import type { Camera } from '@/types/camera';
 import StatCardWithProgress from '@/components/stat-card-progress'; // Đảm bảo đường dẫn đúng
 import StatCardWithBadge from '@/components/stat-card-badge';
 import { trafficApi } from '@/lib/api/trafficApi';
+import { API_CONFIG } from '@/lib/api/config';
 import type { TrafficMetricsDTO, CameraFlowRate, CameraMaxCount } from '@/types/traffic';
 import { calculateTrafficLevel, getTrafficLevelInfo } from '@/types/traffic';
 import { FaCar, FaMotorcycle, FaBus, FaTruck, FaPersonWalking } from 'react-icons/fa6';
@@ -41,7 +42,7 @@ const getCongestionColor = (status: 'CAO' | 'TRUNG BÌNH' | 'THẤP') => {
 
 
 export default function CameraInfoCard({ camera, onClose, onImageClick, imageRefreshKey }: CameraInfoCardProps) {
-    const initialUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    const initialUrl = `${API_CONFIG.CAMERA_API_URL}/${camera.liveviewUrl}?t=${imageRefreshKey}`;
     const [currentSrc, setCurrentSrc] = useState<string>(initialUrl);
     const [loadingImage, setLoadingImage] = useState<boolean>(false);
     const imgRef = useRef<HTMLImageElement | null>(null);
@@ -158,7 +159,7 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     // --- LOGIC XỬ LÝ ẢNH MƯỢT MÀ (SMOOTH TRANSITION) ---
     
     // Live URL luôn có sẵn
-    const liveUrl = `https://api.notis.vn/v4/${camera.liveviewUrl}?t=${imageRefreshKey}`;
+    const liveUrl = `${API_CONFIG.CAMERA_API_URL}/${camera.liveviewUrl}?t=${imageRefreshKey}`;
     
     // AI URL - có thể không có
     const aiUrl = trafficData?.annotatedImageUrl || null;
@@ -270,12 +271,15 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
         const latest = countHistory[countHistory.length - 1];
         const oldest = countHistory[0];
         
-        const countDiff = latest.count - oldest.count;
-        const timeDiff = (latest.timestamp - oldest.timestamp) / 1000 / 60; // convert to minutes
+        // Tính trung bình mật độ xe trong history để làm mượt dữ liệu
+        const avgDensity = countHistory.reduce((sum, item) => sum + item.count, 0) / countHistory.length;
         
-        if (timeDiff === 0) return 0;
+        // Heuristic: Ước tính lưu lượng = Mật độ * Hệ số luân chuyển
+        // Giả sử xe lưu thông qua khung hình với tốc độ trung bình, thay thế toàn bộ xe trong khoảng 30-40s
+        // => Hệ số nhân khoảng 1.5 - 2.0
+        const TURNOVER_RATE = 1.8;
         
-        return Math.max(0, Math.round(countDiff / timeDiff)); // Không âm
+        return Math.round(avgDensity * TURNOVER_RATE);
     };
 
     // ⭐ Get flow rate - từ API hoặc tính local
@@ -324,30 +328,29 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     });
 
     const vehicleConfig = {
-        car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-        motorcycle: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
-        motorbike: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
-        bus: { label: 'Xe buýt', icon: FaBus, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
-        truck: { label: 'Xe tải', icon: FaTruck, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
+        Car: { label: 'Ô tô', icon: FaCar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+        Motorcycle: { label: 'Xe máy', icon: FaMotorcycle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+        Bus: { label: 'Xe buýt', icon: FaBus, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
+        Truck: { label: 'Xe tải', icon: FaTruck, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
         person: { label: 'Người đi bộ', icon: FaPersonWalking, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-100' }
     };
 
     return (
-        // Container chính - w-[420px] để chỉnh kích thước
-        <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl space-y-4 w-[420px] border border-white/20 transition-all duration-500 animate-in slide-in-from-bottom-4 fade-in zoom-in-95">
+        // Container chính - responsive width
+        <div className="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl shadow-2xl space-y-3 sm:space-y-4 w-full max-w-[95vw] sm:max-w-[380px] md:max-w-[400px] lg:max-w-[420px] min-w-[280px] border border-white/20 transition-all duration-500 animate-in slide-in-from-bottom-4 fade-in zoom-in-95">
 
             {/* --- PHẦN TIÊU ĐỀ (Tên & Quận) --- */}
-            <div className="flex justify-between items-start">
-                <div className="flex-1 pr-2">
-                    <h3 className="text-lg font-bold text-gray-800 leading-tight line-clamp-2">{camera.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase tracking-wider rounded-full">
+            <div className="flex justify-between items-start gap-2">
+                <div className="flex-1 min-w-0">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-800 leading-tight line-clamp-2 break-words">{camera.name}</h3>
+                    <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
+                        <span className="px-1.5 sm:px-2 py-0.5 bg-gray-100 text-gray-600 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-full truncate max-w-[120px] sm:max-w-none">
                             {camera.dist}
                         </span>
-                        <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium">
-                            <span className="relative flex h-2 w-2">
+                        <span className="flex items-center gap-1 text-[9px] sm:text-[10px] text-green-600 font-medium">
+                            <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-green-500"></span>
                             </span>
                             Online
                         </span>
@@ -355,9 +358,9 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 </div>
                 <button 
                     onClick={onClose} 
-                    className="group bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 p-2 rounded-full transition-all duration-300 shadow-sm hover:shadow"
+                    className="group flex-shrink-0 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 p-1.5 sm:p-2 rounded-full transition-all duration-300 shadow-sm hover:shadow"
                 >
-                    <IoClose className="w-5 h-5 transition-transform group-hover:rotate-90" />
+                    <IoClose className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:rotate-90" />
                 </button>
             </div>
 
@@ -365,15 +368,15 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
             <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-900 shadow-lg group ring-1 ring-black/5">
                 {/* Khi ở chế độ AI nhưng chưa có ảnh AI hợp lệ -> hiện màn đen với loading */}
                 {showAI && !hasValidAiImage ? (
-                    <div className="w-full h-full bg-gray-900 flex flex-col items-center justify-center">
+                    <div className="w-full h-full bg-gray-900 flex flex-col items-center justify-center px-4">
                         <div className="relative">
-                            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <RiRobot2Fill className="w-5 h-5 text-purple-400" />
+                                <RiRobot2Fill className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                             </div>
                         </div>
-                        <span className="text-sm font-medium text-gray-400 mt-3">Đang chờ phân tích AI...</span>
-                        <span className="text-xs text-gray-500 mt-1">Hình ảnh AI sẽ xuất hiện khi sẵn sàng</span>
+                        <span className="text-xs sm:text-sm font-medium text-gray-400 mt-2 sm:mt-3 text-center">Đang chờ phân tích AI...</span>
+                        <span className="text-[10px] sm:text-xs text-gray-500 mt-1 text-center">Hình ảnh AI sẽ xuất hiện khi sẵn sàng</span>
                     </div>
                 ) : (
                     <img
@@ -395,38 +398,39 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 {loadingImage && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 backdrop-blur-[2px] transition-all duration-300">
                         <div className="relative">
-                            <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 border-3 sm:border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <div className={`w-2 h-2 rounded-full ${showAI ? 'bg-purple-500' : 'bg-red-500'}`}></div>
+                                <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${showAI ? 'bg-purple-500' : 'bg-red-500'}`}></div>
                             </div>
                         </div>
-                        <span className="text-[10px] font-bold text-white mt-2 shadow-black drop-shadow-md">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-white mt-1.5 sm:mt-2 drop-shadow-md">
                             {showAI ? 'Đang phân tích...' : 'Đang tải Live...'}
                         </span>
                     </div>
                 )}
 
                 {/* Live / AI Badge */}
-                <div className={`absolute top-3 left-3 px-2.5 py-1 rounded-md text-[10px] font-bold text-white flex items-center gap-1.5 shadow-lg backdrop-blur-md transition-colors duration-300 ${showAI ? 'bg-purple-600/90' : 'bg-red-600/90'}`}>
-                    {showAI ? <RiRobot2Fill className="w-3.5 h-3.5" /> : <RiLiveFill className="w-3.5 h-3.5 animate-pulse" />}
-                    {showAI ? 'PHÂN TÍCH AI' : 'TRỰC TIẾP'}
+                <div className={`absolute top-2 left-2 sm:top-3 sm:left-3 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[9px] sm:text-[10px] font-bold text-white flex items-center gap-1 sm:gap-1.5 shadow-lg backdrop-blur-md transition-colors duration-300 ${showAI ? 'bg-purple-600/90' : 'bg-red-600/90'}`}>
+                    {showAI ? <RiRobot2Fill className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <RiLiveFill className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-pulse" />}
+                    <span className="hidden xs:inline">{showAI ? 'PHÂN TÍCH AI' : 'TRỰC TIẾP'}</span>
+                    <span className="xs:hidden">{showAI ? 'AI' : 'LIVE'}</span>
                 </div>
 
                 {/* Toggle Switch Overlay - Redesigned */}
-                <div className="absolute bottom-3 right-3">
-                    <div className="bg-black/60 backdrop-blur-md p-1 rounded-full border border-white/10 flex items-center shadow-xl">
+                <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3">
+                    <div className="bg-black/60 backdrop-blur-md p-0.5 sm:p-1 rounded-full border border-white/10 flex items-center shadow-xl">
                         <button 
                             onClick={() => setShowAI(false)}
-                            className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all duration-300 flex items-center gap-1 ${!showAI ? 'bg-red-500 text-white shadow-md' : 'text-gray-300 hover:text-white'}`}
+                            className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold transition-all duration-300 flex items-center gap-0.5 sm:gap-1 ${!showAI ? 'bg-red-500 text-white shadow-md' : 'text-gray-300 hover:text-white'}`}
                         >
-                            <RiLiveFill className="w-3 h-3" />
+                            <RiLiveFill className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                             Live
                         </button>
                         <button 
                             onClick={() => setShowAI(true)}
-                            className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all duration-300 flex items-center gap-1 ${showAI ? 'bg-purple-600 text-white shadow-md' : 'text-gray-300 hover:text-white'}`}
+                            className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold transition-all duration-300 flex items-center gap-0.5 sm:gap-1 ${showAI ? 'bg-purple-600 text-white shadow-md' : 'text-gray-300 hover:text-white'}`}
                         >
-                            <RiRobot2Fill className="w-3 h-3" />
+                            <RiRobot2Fill className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                             AI
                         </button>
                     </div>
@@ -435,84 +439,84 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
 
             {/* ⭐ Loading state */}
             {loading ? (
-                <div className="py-8 flex flex-col items-center justify-center text-gray-400 space-y-3">
+                <div className="py-6 sm:py-8 flex flex-col items-center justify-center text-gray-400 space-y-2 sm:space-y-3">
                     <div className="relative">
-                        <div className="w-10 h-10 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 border-3 sm:border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
                         <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full"></div>
                         </div>
                     </div>
-                    <p className="text-xs font-medium animate-pulse">Đang đồng bộ dữ liệu...</p>
+                    <p className="text-[10px] sm:text-xs font-medium animate-pulse">Đang đồng bộ dữ liệu...</p>
                 </div>
             ) : trafficData ? (
-                <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500">
+                <div className="space-y-3 sm:space-y-4 animate-in slide-in-from-bottom-2 duration-500">
                     
                     {/* Stats Grid - Enhanced */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         {/* Vehicle Count */}
-                        <div className="bg-gradient-to-br from-blue-50 to-white p-3 rounded-xl border border-blue-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
-                            <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider relative z-10">Số lượng xe</span>
-                            <div className="flex items-end gap-1 mt-1 relative z-10">
-                                <span className="text-2xl font-black text-gray-800">{trafficData.totalCount}</span>
-                                <span className="text-xs font-medium text-gray-500 mb-1">xe</span>
+                        <div className="bg-gradient-to-br from-blue-50 to-white p-2 sm:p-3 rounded-lg sm:rounded-xl border border-blue-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                            <div className="absolute top-0 right-0 w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-bl-full -mr-6 -mt-6 sm:-mr-8 sm:-mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+                            <span className="text-[9px] sm:text-[10px] text-blue-600 font-bold uppercase tracking-wider relative z-10">Số lượng xe</span>
+                            <div className="flex items-end gap-1 mt-0.5 sm:mt-1 relative z-10">
+                                <span className="text-xl sm:text-2xl font-black text-gray-800">{trafficData.totalCount}</span>
+                                <span className="text-[10px] sm:text-xs font-medium text-gray-500 mb-0.5 sm:mb-1">xe</span>
                             </div>
-                            <div className="w-full bg-blue-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div className="w-full bg-blue-100 h-1 sm:h-1.5 rounded-full mt-1.5 sm:mt-2 overflow-hidden">
                                 <div className="bg-blue-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(trafficData.totalCount, 100)}%` }}></div>
                             </div>
                         </div>
 
                         {/* Flow Rate - with loading and error states */}
-                        <div className="bg-gradient-to-br from-purple-50 to-white p-3 rounded-xl border border-purple-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-purple-100 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
-                            <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider relative z-10">Lưu lượng</span>
+                        <div className="bg-gradient-to-br from-purple-50 to-white p-2 sm:p-3 rounded-lg sm:rounded-xl border border-purple-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                            <div className="absolute top-0 right-0 w-12 h-12 sm:w-16 sm:h-16 bg-purple-100 rounded-bl-full -mr-6 -mt-6 sm:-mr-8 sm:-mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+                            <span className="text-[9px] sm:text-[10px] text-purple-600 font-bold uppercase tracking-wider relative z-10">Lưu lượng</span>
                             {flowRateLoading ? (
-                                <div className="flex items-center gap-2 mt-1 relative z-10">
-                                    <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin"></div>
-                                    <span className="text-xs text-gray-500">Đang tải...</span>
+                                <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 relative z-10">
+                                    <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin"></div>
+                                    <span className="text-[10px] sm:text-xs text-gray-500">Đang tải...</span>
                                 </div>
                             ) : flowRateError ? (
-                                <div className="mt-1 relative z-10">
-                                    <span className="text-xs text-red-500">{flowRateError}</span>
+                                <div className="mt-0.5 sm:mt-1 relative z-10">
+                                    <span className="text-[10px] sm:text-xs text-red-500">{flowRateError}</span>
                                 </div>
                             ) : (
                                 <>
-                                    <div className="flex items-end gap-1 mt-1 relative z-10">
-                                        <span className="text-2xl font-black text-gray-800">{Math.round(flowRate)}</span>
-                                        <span className="text-xs font-medium text-gray-500 mb-1">xe/phút</span>
+                                    <div className="flex items-end gap-1 mt-0.5 sm:mt-1 relative z-10">
+                                        <span className="text-xl sm:text-2xl font-black text-gray-800">{Math.round(flowRate)}</span>
+                                        <span className="text-[10px] sm:text-xs font-medium text-gray-500 mb-0.5 sm:mb-1">xe/phút</span>
                                     </div>
                                     {flowRateData && (
-                                        <div className="text-[9px] text-purple-500 mt-1 relative z-10">
+                                        <div className="text-[8px] sm:text-[9px] text-purple-500 mt-0.5 sm:mt-1 relative z-10">
                                             Trong {getFlowRatePeriod()}
                                         </div>
                                     )}
                                 </>
                             )}
-                            <div className="w-full bg-purple-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div className="w-full bg-purple-100 h-1 sm:h-1.5 rounded-full mt-1.5 sm:mt-2 overflow-hidden">
                                 <div className="bg-purple-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(flowRate * 1.5, 100)}%` }}></div>
                             </div>
                         </div>
                     </div>
 
                     {/* Traffic Level Status - So sánh số xe hiện tại với peak */}
-                    <div className={`flex items-center justify-between p-3 rounded-xl border shadow-sm transition-colors duration-300 ${trafficLevelInfo.bgColor} ${trafficLevelInfo.borderColor}`}>
-                        <span className="text-xs font-semibold text-gray-700">Tình trạng giao thông</span>
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full shadow-sm ${trafficLevelInfo.color} text-white`}>
+                    <div className={`flex items-center justify-between p-2 sm:p-3 rounded-lg sm:rounded-xl border shadow-sm transition-colors duration-300 ${trafficLevelInfo.bgColor} ${trafficLevelInfo.borderColor}`}>
+                        <span className="text-[10px] sm:text-xs font-semibold text-gray-700">Tình trạng giao thông</span>
+                        <span className={`text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-0.5 sm:py-1 rounded-full shadow-sm ${trafficLevelInfo.color} text-white`}>
                             {trafficLevelInfo.labelVi}
                         </span>
                     </div>
 
                     {/* ⭐ Detection Details - With Icons & Vietnamese */}
                     {trafficData.detectionDetails && Object.keys(trafficData.detectionDetails).length > 0 && (
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2">
                             {Object.entries(trafficData.detectionDetails).map(([type, count]) => {
                                 const config = vehicleConfig[type as keyof typeof vehicleConfig] || { label: type, icon: FaCar, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-100' };
                                 const Icon = config.icon;
                                 return (
-                                    <div key={type} className={`flex flex-col items-center justify-center p-2 rounded-lg border ${config.bg} ${config.border} transition-transform hover:-translate-y-1 duration-300`}>
-                                        <Icon className={`w-5 h-5 mb-1 ${config.color}`} />
-                                        <span className="text-[10px] font-medium text-gray-500">{config.label}</span>
-                                        <span className={`text-sm font-bold ${config.color}`}>{count}</span>
+                                    <div key={type} className={`flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-md sm:rounded-lg border ${config.bg} ${config.border} transition-transform hover:-translate-y-1 duration-300`}>
+                                        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-1 ${config.color}`} />
+                                        <span className="text-[8px] sm:text-[10px] font-medium text-gray-500 truncate max-w-full">{config.label}</span>
+                                        <span className={`text-xs sm:text-sm font-bold ${config.color}`}>{count}</span>
                                     </div>
                                 );
                             })}
@@ -520,9 +524,9 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                     )}
                 </div>
             ) : (
-                <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                    <svg className="w-10 h-10 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                    <p className="text-xs font-medium">Không có dữ liệu giao thông</p>
+                <div className="text-center py-6 sm:py-8 text-gray-400 bg-gray-50 rounded-lg sm:rounded-xl border border-dashed border-gray-200">
+                    <svg className="w-8 h-8 sm:w-10 sm:h-10 mx-auto mb-1.5 sm:mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                    <p className="text-[10px] sm:text-xs font-medium">Không có dữ liệu giao thông</p>
                 </div>
             )}
         </div>

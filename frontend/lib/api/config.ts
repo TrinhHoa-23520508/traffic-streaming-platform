@@ -18,6 +18,7 @@ export const API_CONFIG = {
       CAMERA_LATEST: '/api/traffic/camera',
       CAMERAS: '/api/traffic/cameras',
       DISTRICTS: '/api/traffic/districts',
+      MINUTE_SUMMARY: '/api/traffic/minute-summary',
     },
     REPORTS: {
       BASE: '/api/reports',

@@ -492,6 +492,14 @@ class TrafficApiService {
     return this.fetchWithErrorHandling<CameraList[]>(url);
   }
 
+  async getMinuteSummary(params?: HourlySummaryParams): Promise<HourlySummary> {
+    if (params?.cameraId && params?.district) {
+      delete params.district;
+    }
+    const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.MINUTE_SUMMARY, params as any);
+    return this.fetchWithErrorHandling<HourlySummary>(url);
+  }
+
   async healthCheck(): Promise<boolean> {
     try {
       await this.getLatest();

@@ -164,7 +164,7 @@ export default function CityStatisticsPage() {
                             </div>
                         </div>
 
-                        <div className="flex gap-4 items-start">
+                        <div className="flex gap-4">
                             <div className="w-2/3 h-[350px]">
                                 <DistrictComparison
                                     onSelectionChange={() => { }}
@@ -172,7 +172,7 @@ export default function CityStatisticsPage() {
                                     districts={districts}
                                 />
                             </div>
-                            <div className="w-1/3 h-full">
+                            <div className="w-1/3 h-[350px]">
                                 <VehicleTypeDistribution data={cityStatsData?.vehicleRatio} />
                             </div>
                         </div>

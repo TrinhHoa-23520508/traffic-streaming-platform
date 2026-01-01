@@ -5,10 +5,10 @@ import { createPortal } from 'react-dom';
 import InforPanel from "./infor-panel";
 import { useState, useEffect, useRef } from "react";
 import { CameraList, HourlySummary, trafficApi } from "@/lib/api/trafficApi";
-import type { CityStatsHourlyWS } from "@/types/city-stats";
+import type { CityStatsHourlyWS, CityStatsData } from "@/types/city-stats";
 import { CHART_COLORS } from "./color";
 import { DateRange } from "react-day-picker";
-import { subHours, format, addHours, differenceInHours } from "date-fns";
+import { subHours, format, addHours, differenceInHours, addMinutes, differenceInMinutes } from "date-fns";
 import { FiActivity } from "react-icons/fi";
 
 interface HourlyData {
@@ -17,7 +17,7 @@ interface HourlyData {
 }
 
 interface TrafficDensityStatsProps {
-    data?: CityStatsHourlyWS;
+    data?: CityStatsHourlyWS | CityStatsData;
     refreshTrigger?: number;
     onLoadComplete?: () => void;
     districts?: string[];
@@ -26,13 +26,13 @@ interface TrafficDensityStatsProps {
 const generateRandomHourlyData = (range?: DateRange): HourlyData[] => {
     const now = new Date();
 
-    const rawFrom = range?.from ? new Date(range!.from as Date) : subHours(now, 24);
+    const rawFrom = range?.from ? new Date(range!.from as Date) : subHours(now, 1);
     const rawTo = range?.to ? new Date(range!.to as Date) : now;
 
     const from = new Date(rawFrom);
-    from.setMinutes(0, 0, 0);
+    from.setSeconds(0, 0);
     const to = new Date(rawTo);
-    to.setMinutes(0, 0, 0);
+    to.setSeconds(0, 0);
 
     if (from > to) {
         const tmp = from;
@@ -40,9 +40,9 @@ const generateRandomHourlyData = (range?: DateRange): HourlyData[] => {
         (to as any) = tmp;
     }
 
-    const hoursDiff = Math.max(0, differenceInHours(to, from));
-    const points: HourlyData[] = Array.from({ length: hoursDiff + 1 }, (_, i) => {
-        const d = addHours(from, i);
+    const minutesDiff = Math.max(0, differenceInMinutes(to, from));
+    const points: HourlyData[] = Array.from({ length: minutesDiff + 1 }, (_, i) => {
+        const d = addMinutes(from, i);
         return {
             time: new Date(d),
             traffic: Math.floor(Math.random() * 2000) + 500
@@ -66,14 +66,29 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
     const [dateRange, setDateRange] = useState<DateRange>(() => {
         const now = new Date();
 
-        const from = subHours(now, 24);
-        from.setMinutes(0, 0);
+        const from = subHours(now, 1);
+        from.setSeconds(0, 0);
 
         const to = new Date(now);
-        to.setMinutes(0, 0);
+        to.setSeconds(0, 0);
 
         return { from, to };
     });
+
+    useEffect(() => {
+        const now = new Date();
+        const from = subHours(now, 1);
+        from.setSeconds(0, 0);
+        const to = new Date(now);
+        to.setSeconds(0, 0);
+
+        if (dateRange?.from && dateRange?.to) {
+            const diff = differenceInHours(dateRange.to, dateRange.from);
+            if (diff > 2) {
+                setDateRange({ from, to });
+            }
+        }
+    }, []);
 
     const [selectedCamera, setSelectedCamera] = useState<string>("");
 
@@ -109,16 +124,16 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
                 const now = new Date();
 
-                const startDate = dateRange?.from ? new Date(dateRange.from as Date) : subHours(now, 24);
-                startDate.setMinutes(0, 0, 0);
+                const startDate = dateRange?.from ? new Date(dateRange.from as Date) : subHours(now, 1);
+                startDate.setSeconds(0, 0);
 
                 const endDate = dateRange?.to ? new Date(dateRange.to as Date) : new Date(now);
-                endDate.setMinutes(0, 0, 0);
+                endDate.setSeconds(0, 0);
 
                 const startStr = format(startDate, "yyyy-MM-dd'T'HH:mm:ss");
                 const endStr = format(endDate, "yyyy-MM-dd'T'HH:mm:ss");
 
-                const response: HourlySummary = await trafficApi.getHourlySummary({
+                const response: HourlySummary = await trafficApi.getMinuteSummary({
                     start: startStr,
                     end: endStr,
                     district: areaDistrict,
@@ -134,19 +149,17 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                         console.warn('Invalid timestamp in hourly summary:', timestamp);
                         continue;
                     }
-                    const hourDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), parsed.getHours(), 0, 0, 0);
-                    valueMap.set(hourDate.getTime(), Number(count ?? 0));
+                    const minuteDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), parsed.getHours(), parsed.getMinutes(), 0, 0);
+                    valueMap.set(minuteDate.getTime(), Number(count ?? 0));
                 }
 
                 const points: HourlyData[] = [];
-                for (let d = new Date(startDate); d.getTime() <= endDate.getTime(); d.setHours(d.getHours() + 1)) {
-                    const hourBoundary = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), 0, 0, 0);
-                    const val = valueMap.get(hourBoundary.getTime()) ?? 0;
 
-                    points.push({
-                        time: new Date(hourBoundary),
-                        traffic: val
-                    });
+                for (let d = new Date(startDate); d.getTime() <= endDate.getTime(); d.setMinutes(d.getMinutes() + 1)) {
+                    const timePoint = new Date(d);
+                    timePoint.setSeconds(0, 0);
+                    const val = valueMap.get(timePoint.getTime()) ?? 0;
+                    points.push({ time: timePoint, traffic: val });
                 }
 
                 setChartData(points);
@@ -166,22 +179,58 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
     useEffect(() => {
         console.log('📨 WebSocket hourly data received:', wsData);
 
-        if (wsData && wsData.district === areaDistrict) {
-            const nextTime = addHours(dateRange.to!, 1);
+        let newDataPoint: CityStatsHourlyWS | undefined;
 
-            if (wsData.hour.getTime() === nextTime.getTime()) {
-                const newPoint: HourlyData = {
-                    time: wsData.hour,
-                    traffic: wsData.totalCount
-                };
-
-                setChartData(prevData => [...prevData, newPoint]);
-                wsUpdateRef.current = true;
-                setDateRange(prevRange => ({
-                    from: prevRange.from,
-                    to: wsData!.hour
-                }));
+        if (wsData && 'hourlySummary' in wsData) {
+            const fullData = wsData as CityStatsData;
+            const districtData = fullData.hourlySummary.find((d: any) => d.district === areaDistrict);
+            if (districtData) {
+                newDataPoint = {
+                    ...districtData,
+                    hour: new Date(districtData.hour)
+                } as unknown as CityStatsHourlyWS;
             }
+        }
+
+        else if (wsData && 'district' in wsData) {
+            newDataPoint = wsData as CityStatsHourlyWS;
+        }
+
+        if (newDataPoint && newDataPoint.district === areaDistrict) {
+            const newTime = newDataPoint.hour;
+
+            setChartData(prevData => {
+                const lastPoint = prevData[prevData.length - 1];
+
+                if (lastPoint && lastPoint.time.getTime() === newTime.getTime()) {
+                    const newData = [...prevData];
+                    newData[newData.length - 1] = {
+                        time: newTime,
+                        traffic: newDataPoint!.totalCount
+                    };
+                    return newData;
+                }
+
+                if (!lastPoint || differenceInMinutes(newTime, lastPoint.time) >= 1) {
+                    setDateRange(prevRange => ({
+                        from: prevRange.from ? addMinutes(prevRange.from, 1) : prevRange.from,
+                        to: newTime
+                    }));
+
+                    const newData = [...prevData, {
+                        time: newTime,
+                        traffic: newDataPoint!.totalCount
+                    }];
+
+                    newData.shift();
+
+                    return newData;
+                }
+
+                return prevData;
+            });
+
+            wsUpdateRef.current = true;
         }
     }, [wsData, areaDistrict]);
 

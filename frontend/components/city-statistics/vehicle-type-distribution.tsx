@@ -27,7 +27,6 @@ export default function VehicleTypeDistribution({ data }: VehicleTypeDistributio
         if (!data) return [];
         return data.map(item => {
             if ('vehicleType' in item) {
-                // Map vehicle type to user-friendly name and color
                 const nameMap: Record<string, string> = {
                     'motorcycle': 'Xe máy',
                     'car': 'Xe ô tô',
@@ -45,6 +44,23 @@ export default function VehicleTypeDistribution({ data }: VehicleTypeDistributio
             return item;
         });
     }, [data]);
+
+    if (!data || data.length === 0) {
+        return (
+            <InforPanel
+                title="Tỷ lệ loại phương tiện"
+                icon={<FiPieChart className="w-4 h-4" />}
+                className="h-full"
+                showFilter={false}
+                hideFilterButton={true}
+                showDate={false}
+            >
+                <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+                    Chưa có dữ liệu
+                </div>
+            </InforPanel>
+        );
+    }
 
     const CustomTooltip = ({ active, payload, coordinate }: any) => {
         if (!active || !payload || !payload.length) return null;
@@ -109,11 +125,11 @@ export default function VehicleTypeDistribution({ data }: VehicleTypeDistributio
             <div className="flex flex-col h-full relative">
                 <div className="flex-1 min-h-[200px]" ref={chartRef}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
+                        <PieChart margin={{ top: 0, left: 0, right: 0, bottom: 10 }}>
                             <Pie
                                 data={chartData}
                                 cx="50%"
-                                cy="50%"
+                                cy="45%"
                                 innerRadius={50}
                                 outerRadius={70}
                                 paddingAngle={2}
@@ -126,10 +142,10 @@ export default function VehicleTypeDistribution({ data }: VehicleTypeDistributio
                             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                             <Legend
                                 verticalAlign="bottom"
-                                height={36}
+                                height={60}
                                 iconType="circle"
                                 iconSize={8}
-                                wrapperStyle={{ fontSize: '12px', fontWeight: 500, paddingTop: '10px' }}
+                                wrapperStyle={{ fontSize: '12px', fontWeight: 500, paddingTop: '20px' }}
                             />
                         </PieChart>
                     </ResponsiveContainer>

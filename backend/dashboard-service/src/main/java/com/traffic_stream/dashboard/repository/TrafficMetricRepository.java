@@ -108,4 +108,77 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
     @Query("SELECT DISTINCT t.cameraId, t.district FROM TrafficMetric t WHERE t.cameraId IN :cameraIds")
     List<Object[]> findCameraDistrictMappingsByCameraIds(@Param("cameraIds") List<String> cameraIds);
 
+    /**
+     * API Max Count: Lấy bản ghi có lượng xe lớn nhất của 1 camera
+     * Spring Data JPA sẽ tự động tạo query: ORDER BY totalCount DESC LIMIT 1
+     */
+    Optional<TrafficMetric> findTopByCameraIdOrderByTotalCountDesc(String cameraId);
+
+    /**
+     * API Flow Rate: Tính tổng số lượng xe đã đếm được trong khoảng thời gian
+     * Dùng để tính toán: (Tổng xe) / (Số phút)
+     */
+    @Query("SELECT SUM(t.totalCount) FROM TrafficMetric t " +
+            "WHERE t.cameraId = :cameraId AND t.timestamp BETWEEN :start AND :end")
+    Long sumTotalCountByCameraIdAndTimestamp(
+            @Param("cameraId") String cameraId,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+    /**
+     * API Growth Rate: Tính tổng số xe theo từng quận trong khoảng thời gian
+     * Trả về List Object[]: [0] = district (String), [1] = totalCount (Long)
+     */
+    @Query("SELECT t.district, SUM(t.totalCount) " +
+            "FROM TrafficMetric t " +
+            "WHERE t.timestamp >= :start AND t.timestamp < :end " +
+            "GROUP BY t.district")
+    List<Object[]> sumTotalCountByDistrictBetween(
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+    /**
+     * API Busiest Camera: Tính tổng số xe theo từng Camera trong khoảng thời gian
+     * Trả về List Object[]: [0] = cameraName (String), [1] = totalCount (Long)
+     */
+    @Query("SELECT t.cameraName, SUM(t.totalCount) " +
+            "FROM TrafficMetric t " +
+            "WHERE t.timestamp >= :start AND t.timestamp < :end " +
+            "GROUP BY t.cameraName")
+    List<Object[]> sumTotalCountByCameraBetween(
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+    /**
+     * Lấy Max Count của danh sách camera (Dùng cho API /latest để tối ưu hiệu năng)
+     * Trả về: [cameraId, maxCount]
+     */
+    @Query("SELECT t.cameraId, MAX(t.totalCount) " +
+            "FROM TrafficMetric t " +
+            "WHERE t.cameraId IN :cameraIds " +
+            "GROUP BY t.cameraId")
+    List<Object[]> findMaxCountsByCameraIds(@Param("cameraIds") List<String> cameraIds);
+
+    /**
+     * Lấy Max Count của 1 camera cụ thể (Dùng cho Consumer)
+     */
+    @Query("SELECT MAX(t.totalCount) FROM TrafficMetric t WHERE t.cameraId = :cameraId")
+    Integer findMaxCountByCameraId(@Param("cameraId") String cameraId);
+
+    /**
+     * API Lấy tổng count theo từng PHÚT
+     */
+    @Query(value = "SELECT to_char(t.timestamp AT TIME ZONE :tz, 'YYYY-MM-DD\"T\"HH24:MI:00') as time_bucket, " +
+            "SUM(t.total_count) as total " +
+            "FROM traffic_metrics t " +
+            "WHERE t.timestamp >= :start AND t.timestamp < :end " +
+            "AND (:district IS NULL OR t.district = :district) " +
+            "GROUP BY time_bucket " +
+            "ORDER BY time_bucket ASC", nativeQuery = true)
+    List<Object[]> getMinuteTimeSeries(
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            @Param("district") String district,
+            @Param("tz") String timezone);
+
 }

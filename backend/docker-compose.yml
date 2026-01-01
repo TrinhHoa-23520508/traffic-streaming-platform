@@ -89,6 +89,8 @@ services:
     build: ./traffic-analysis-service
     ports:
       - "8082-8087:8082"
+    volumes:
+      - ./traffic-analysis-service/models:/app/models
     environment:
       KAFKA_BROKER: broker:29092
       IMAGE_BASE_URL: https://api.notis.vn/v4/
@@ -155,21 +157,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # image-retrieval-service:
-  #   build: ./image-retrieval-service
-  #   ports:
-  #     - "1810:1810"
-  #   environment:
-  #     MINIO_ENDPOINT: http://minio:9000
-  #     MINIO_PUBLIC_ENDPOINT: http://localhost:9000
-  #     MINIO_ACCESS_KEY: minioadmin
-  #     MINIO_SECRET_KEY: minioadmin
-  #     MINIO_BUCKET_NAME: traffic-analyzed-images
-  #     SERVER_PORT: 1810
-  #   depends_on:
-  #     minio:
-  #       condition: service_healthy
-
+# --- SỬA Ở ĐÂY: Xóa dòng ánh xạ thừa, chỉ để lại các volume global ---
 volumes:
   postgres_data:
   minio_data:

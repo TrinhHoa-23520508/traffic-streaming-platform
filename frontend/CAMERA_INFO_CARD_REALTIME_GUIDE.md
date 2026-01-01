@@ -114,40 +114,48 @@ return () => unsubscribe();
 
 Đây là **standard pattern** cho WebSocket subscription trong React.
 
-#### **Sliding Window History:**
+#### **Sliding Window History (Cập nhật):**
 ```typescript
-// Chỉ giữ data trong 2 phút gần nhất
-const twoMinutesAgo = now - 2 * 60 * 1000;
-const filtered = prev.filter(item => item.timestamp > twoMinutesAgo);
+// Giữ lại tối đa 10 mẫu gần nhất HOẶC dữ liệu trong 5 phút
+const MAX_SAMPLES = 10;
+const MAX_TIME_WINDOW = 5 * 60 * 1000;
+
+// Logic này đảm bảo hoạt động tốt cho cả 2 trường hợp:
+// 1. Update nhanh (1s/lần): Giữ 10 mẫu cuối (~10s) -> Phản ứng nhanh
+// 2. Update chậm (1ph/lần): Giữ 5 mẫu cuối (~5ph) -> Đủ dữ liệu để tính trung bình
 ```
 
-Dùng để tính **flow rate chính xác**.
+Dùng để tính **flow rate chính xác** và ổn định hơn.
 
 ### 5. **Calculate Flow Rate**
 ```typescript
 const calculateFlowRate = (): number => {
-  if (countHistory.length < 2) return 0;
+  // Nếu chưa có history, dùng data hiện tại
+  if (countHistory.length === 0) {
+      return trafficData ? Math.round(trafficData.totalCount * 1.8) : 0;
+  }
   
-  const latest = countHistory[countHistory.length - 1];
-  const oldest = countHistory[0];
+  // Tính trung bình mật độ xe trong history để làm mượt dữ liệu
+  const avgDensity = countHistory.reduce((sum, item) => sum + item.count, 0) / countHistory.length;
   
-  // Số xe tăng thêm
-  const countDiff = latest.count - oldest.count;
+  // Heuristic: Ước tính lưu lượng = Mật độ * Hệ số luân chuyển
+  // Giả sử xe lưu thông qua khung hình với tốc độ trung bình, thay thế toàn bộ xe trong khoảng 30-40s
+  // => Hệ số nhân khoảng 1.5 - 2.0
+  const TURNOVER_RATE = 1.8;
   
-  // Thời gian (phút)
-  const timeDiff = (latest.timestamp - oldest.timestamp) / 1000 / 60;
-  
-  if (timeDiff === 0) return 0;
-  
-  // Flow rate = (số xe tăng) / (thời gian)
-  return Math.max(0, Math.round(countDiff / timeDiff));
+  return Math.round(avgDensity * TURNOVER_RATE);
 };
 ```
 
 **🔑 Công thức:**
 ```
-Flow Rate (xe/phút) = (Count mới - Count cũ) / (Thời gian giữa 2 lần đo)
+Flow Rate (xe/phút) ≈ Mật độ trung bình * Hệ số luân chuyển (1.8)
 ```
+
+**Tại sao thay đổi?**
+- Công thức cũ `(Count mới - Count cũ) / Thời gian` chỉ tính **sự thay đổi mật độ**.
+- Nếu lưu lượng ổn định (xe vào = xe ra), mật độ không đổi → Flow Rate = 0 (Sai).
+- Công thức mới ước tính dựa trên mật độ hiện tại và giả định tốc độ di chuyển.
 
 **Tại sao cần history?**
 - Không thể tính flow rate từ 1 data point duy nhất

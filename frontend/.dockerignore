@@ -1,0 +1,45 @@
+# ==============================================
+# DOCKER IGNORE FILE
+# ==============================================
+# Các file/thư mục sẽ KHÔNG được copy vào Docker context
+# Giúp build nhanh hơn và image nhỏ hơn
+
+# Dependencies (sẽ được cài lại trong Docker)
+node_modules
+
+# Build output (sẽ build lại trong Docker)
+.next
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files (trừ .env.local cần cho build)
+.env
+.env.development
+.env.test
+# .env.local -> KHÔNG IGNORE, cần cho build
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test và coverage
+coverage
+.nyc_output
+
+# Documentation không cần thiết
+*.md
+!README.md
+
+# Docker files (không cần trong context)
+Dockerfile
+docker-compose*.yml

@@ -1,6 +1,6 @@
 // lib/api/trafficApi.ts
 
-import type { TrafficMetricsDTO, DashboardUpdate } from '@/types/traffic';
+import type { TrafficMetricsDTO, CameraFlowRate, CameraMaxCount, DashboardUpdate } from '@/types/traffic';
 import { API_CONFIG, getBaseUrl, getWsUrl } from './config';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -39,6 +39,14 @@ export interface HourlySummaryParams {
   end?: string;
   district?: string;
   cameraId?: string;
+}
+
+/**
+ * Query parameters for /camera/{cameraId}/flow-rate endpoint
+ */
+export interface FlowRateParams {
+  start?: string; // format: YYYY-MM-DDTHH:mm:ss or ISO 8601
+  end?: string;   // format: YYYY-MM-DDTHH:mm:ss or ISO 8601
 }
 
 export interface DistrictDailySummary {
@@ -381,11 +389,21 @@ class TrafficApiService {
         mode: 'cors',
       });
 
+      console.log('📡 API Response status:', response.status, response.statusText);
+
       if (!response.ok) {
+        const errorText = await response.text().catch(() => 'No error body');
+        console.error('❌ API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: url,
+          body: errorText
+        });
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const apiResponse: ApiResponse<T> = await response.json();
+      console.log('✅ API Response data:', apiResponse);
 
       if (!apiResponse.success) {
         throw new Error(apiResponse.message || 'Unknown API Error');
@@ -471,7 +489,8 @@ class TrafficApiService {
    * GET /api/traffic/camera/{cameraId}/latest
    */
   async getCameraLatest(cameraId: string): Promise<TrafficMetricsDTO> {
-    const url = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERA_LATEST}/${cameraId}/latest`;
+    const encodedCameraId = encodeURIComponent(cameraId);
+    const url = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERA_LATEST}/${encodedCameraId}/latest`;
     const rawData = await this.fetchWithErrorHandling<BackendTrafficDataRaw>(url);
     return transformTrafficData(rawData);
   }
@@ -498,6 +517,50 @@ class TrafficApiService {
     }
     const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.MINUTE_SUMMARY, params as any);
     return this.fetchWithErrorHandling<HourlySummary>(url);
+  }
+
+  /**
+   * GET /api/traffic/camera/{cameraId}/flow-rate
+   * Get average flow rate (vehicles/minute) for a specific camera
+   * 
+   * @param cameraId - The camera ID
+   * @param params - Optional query parameters for time range
+   * @returns Promise<CameraFlowRate>
+   * 
+   * @example
+   * // Get current flow rate
+   * const flowRate = await trafficApi.getCameraFlowRate('cam-001');
+   * 
+   * // Get flow rate for specific time range
+   * const flowRate = await trafficApi.getCameraFlowRate('cam-001', {
+   *   start: '2025-12-25T08:00:00',
+   *   end: '2025-12-25T12:00:00'
+   * });
+   */
+  async getCameraFlowRate(cameraId: string, params?: FlowRateParams): Promise<CameraFlowRate> {
+    const encodedCameraId = encodeURIComponent(cameraId);
+    const baseEndpoint = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERA_FLOW_RATE}/${encodedCameraId}/flow-rate`;
+    const url = this.buildUrl(baseEndpoint, params as any);
+    console.log('🌐 Calling flow-rate API:', url);
+    return this.fetchWithErrorHandling<CameraFlowRate>(url);
+  }
+
+  /**
+   * GET /api/traffic/camera/{cameraId}/max-count
+   * Get peak traffic record (max vehicle count) for a specific camera
+   * 
+   * @param cameraId - The camera ID
+   * @returns Promise<CameraMaxCount>
+   * 
+   * @example
+   * const maxCount = await trafficApi.getCameraMaxCount('TTH 282.1');
+   * // Returns: { cameraId, maxVehicleCount, district, timestamp }
+   */
+  async getCameraMaxCount(cameraId: string): Promise<CameraMaxCount> {
+    const encodedCameraId = encodeURIComponent(cameraId);
+    const url = `${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERA_MAX_COUNT}/${encodedCameraId}/max-count`;
+    console.log('🌐 Calling max-count API:', url);
+    return this.fetchWithErrorHandling<CameraMaxCount>(url);
   }
 
   async healthCheck(): Promise<boolean> {

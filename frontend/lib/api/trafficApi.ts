@@ -87,12 +87,14 @@ interface BackendTrafficDataRaw {
   cameraId?: string;
   cameraName?: string;
   totalCount?: number;
+  maxCount?: number;
   annotatedImageUrl?: string;
   detectionDetails?: Record<string, number>;
 
   camera_id?: string;
   camera_name?: string;
   total_count?: number;
+  max_count?: number;
   annotated_image_url?: string;
   detection_details?: Record<string, number>;
   timestamp_vn?: string;
@@ -107,6 +109,7 @@ function transformTrafficData(data: BackendTrafficDataRaw): TrafficMetricsDTO {
   const cid = data.cameraId || data.camera_id || 'unknown';
   const cname = data.cameraName || data.camera_name || 'Unknown Camera';
   const total = data.totalCount ?? data.total_count ?? 0;
+  const max = data.maxCount ?? data.max_count;
   const details = data.detectionDetails || data.detection_details || {};
   const imgUrl = data.annotatedImageUrl || data.annotated_image_url || '';
 
@@ -128,6 +131,7 @@ function transformTrafficData(data: BackendTrafficDataRaw): TrafficMetricsDTO {
     coordinates: data.coordinates,
     detectionDetails: details as any,
     totalCount: total,
+    maxCount: max,
     timestamp: timeStr
   };
 }
@@ -281,6 +285,7 @@ class TrafficApiService {
         cameraId,
         cameraName: cameraId,
         totalCount: carCount + motorcycleCount,
+        maxCount: 100,
         detectionDetails: { car: carCount, motorcycle: motorcycleCount },
         timestamp: new Date().toISOString(),
         district: 'Unknown',
@@ -339,6 +344,7 @@ class TrafficApiService {
           cameraId: id,
           cameraName: id,
           totalCount: 0,
+          maxCount: 100,
           detectionDetails: {},
           timestamp: new Date().toISOString(),
           district: 'Unknown',

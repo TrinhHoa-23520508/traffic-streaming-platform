@@ -1,16 +1,18 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from "react-dom";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { CHART_COLORS } from './color';
-import { FiMinimize2, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiMinimize2, FiChevronLeft, FiChevronRight, FiActivity } from 'react-icons/fi';
 import InforPanel from "./infor-panel";
-
-import { DashboardUpdate, HourlySummaryItem } from '@/types/traffic';
+import { trafficApi, HourlySummary } from "@/lib/api/trafficApi";
+import { subHours, format, addMinutes, differenceInMinutes } from "date-fns";
+import { CityStatsHourlyWS, CityStatsData } from "@/types/city-stats";
 
 interface DistrictComparisonProps {
     districts: string[];
-    onSelectionChange: (selected: string[]) => void;
-    liveData?: HourlySummaryItem[] | null;
+    onSelectionChange?: (selected: string[]) => void;
+    refreshTrigger?: number;
+    wsData?: CityStatsHourlyWS | CityStatsData;
 }
 
 const LINE_COLORS = [
@@ -19,41 +21,217 @@ const LINE_COLORS = [
     CHART_COLORS.senary
 ];
 
-export default function DistrictComparison({ districts, onSelectionChange, liveData }: DistrictComparisonProps) {
-    const [selected, setSelected] = useState<string[]>(['Bình Thạnh', 'Quận 1']);
+interface ChartDataPoint {
+    time: string;
+    timestamp: number;
+    [key: string]: any;
+}
 
+const generateRandomHourlyData = (districts: string[]): ChartDataPoint[] => {
+    const now = new Date();
+    const from = subHours(now, 1);
+    from.setSeconds(0, 0);
+    const to = new Date(now);
+    to.setSeconds(0, 0);
+
+    const minutesDiff = Math.max(0, differenceInMinutes(to, from));
+
+    return Array.from({ length: minutesDiff + 1 }, (_, i) => {
+        const d = addMinutes(from, i);
+        const point: ChartDataPoint = {
+            time: format(d, "HH:mm"),
+            timestamp: d.getTime(),
+        };
+
+        districts.forEach(district => {
+            point[district] = Math.floor(Math.random() * 2000) + 500;
+        });
+
+        return point;
+    });
+};
+
+const DEFAULT_DISTRICTS = [
+    "Quận 1", "Quận 3", "Quận 4", "Quận 5", "Quận 6", "Quận 7", "Quận 8", "Quận 10",
+    "Quận 11", "Quận 12", "Bình Thạnh", "Gò Vấp", "Phú Nhuận", "Tân Bình",
+    "Tân Phú", "Bình Tân", "Thủ Đức"
+];
+
+export default function DistrictComparison({ districts, onSelectionChange, refreshTrigger, wsData }: DistrictComparisonProps) {
+    const effectiveDistricts = districts && districts.length > 0 ? districts : DEFAULT_DISTRICTS;
+
+    const [selected, setSelected] = useState<string[]>(() => {
+        return effectiveDistricts.slice(0, 3);
+    });
+
+    const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+    const [loading, setLoading] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<HTMLDivElement>(null);
 
-    const chartData = useMemo(() => {
-        if (liveData && liveData.length > 0) {
-            const points: Record<string, any> = {};
-
-            liveData.forEach(item => {
-                const time = new Date(item.hour).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-                if (!points[time]) {
-                    points[time] = { time };
-                }
-                points[time][item.district] = item.totalCount;
-            });
-
-            return Object.values(points).sort((a, b) => a.time.localeCompare(b.time));
+    useEffect(() => {
+        const validSelected = selected.filter(d => effectiveDistricts.includes(d));
+        if (validSelected.length === 0 && effectiveDistricts.length > 0) {
+            const newSelected = effectiveDistricts.slice(0, 3);
+            setSelected(newSelected);
+            onSelectionChange?.(newSelected);
+        } else if (validSelected.length !== selected.length) {
+            setSelected(validSelected);
+            onSelectionChange?.(validSelected);
         }
-        return [];
-    }, [selected, liveData]);
+    }, [effectiveDistricts]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            if (selected.length === 0) {
+                setChartData([]);
+                return;
+            }
+
+            try {
+                setLoading(true);
+                const now = new Date();
+                const startDate = subHours(now, 1);
+                startDate.setSeconds(0, 0);
+                const endDate = new Date(now);
+                endDate.setSeconds(0, 0);
+
+                const startStr = format(startDate, "yyyy-MM-dd'T'HH:mm:ss");
+                const endStr = format(endDate, "yyyy-MM-dd'T'HH:mm:ss");
+
+                const promises = selected.map(district =>
+                    trafficApi.getMinuteSummary({
+                        start: startStr,
+                        end: endStr,
+                        district: district
+                    }).then(data => ({ district, data }))
+                );
+
+                const results = await Promise.all(promises);
+
+                const timeMap = new Map<number, ChartDataPoint>();
+
+                for (let d = new Date(startDate); d.getTime() <= endDate.getTime(); d.setMinutes(d.getMinutes() + 1)) {
+                    const timePoint = new Date(d);
+                    timePoint.setSeconds(0, 0);
+                    const timestamp = timePoint.getTime();
+
+                    timeMap.set(timestamp, {
+                        time: format(timePoint, "HH:mm"),
+                        timestamp: timestamp
+                    });
+                }
+
+                results.forEach(({ district, data }) => {
+                    for (const [ts, count] of Object.entries(data || {})) {
+                        const parsed = new Date(ts);
+                        if (isNaN(parsed.getTime())) continue;
+
+                        const minuteDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), parsed.getHours(), parsed.getMinutes(), 0, 0);
+                        const timestamp = minuteDate.getTime();
+
+                        const point = timeMap.get(timestamp);
+                        if (point) {
+                            point[district] = Number(count ?? 0);
+                        }
+                    }
+                });
+
+                const points = Array.from(timeMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+
+                points.forEach(p => {
+                    selected.forEach(d => {
+                        if (p[d] === undefined) p[d] = 0;
+                    });
+                });
+
+                setChartData(points);
+            } catch (error) {
+                console.error('Error fetching district comparison data:', error);
+                console.log('Using random data as fallback');
+                setChartData(generateRandomHourlyData(selected));
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [selected, refreshTrigger]);
+
+    useEffect(() => {
+        if (!wsData) return;
+
+        setChartData(prev => {
+            let newChartData = [...prev];
+            let hasUpdates = false;
+
+            const processUpdate = (update: any) => {
+                if (!selected.includes(update.district)) return;
+
+                hasUpdates = true;
+                const updateTime = new Date(update.hour);
+                updateTime.setSeconds(0, 0);
+                const timestamp = updateTime.getTime();
+                const timeStr = format(updateTime, "HH:mm");
+
+                const existingIndex = newChartData.findIndex(p => p.timestamp === timestamp);
+
+                if (existingIndex >= 0) {
+                    newChartData[existingIndex] = {
+                        ...newChartData[existingIndex],
+                        [update.district]: update.totalCount
+                    };
+                } else {
+                    const newPoint: ChartDataPoint = {
+                        time: timeStr,
+                        timestamp: timestamp,
+                        [update.district]: update.totalCount
+                    };
+
+                    selected.forEach(d => {
+                        if (d !== update.district) {
+                            newPoint[d] = 0;
+                        }
+                    });
+                    newChartData.push(newPoint);
+                }
+            };
+
+            if ('hourlySummary' in wsData) {
+                const fullData = wsData as CityStatsData;
+                fullData.hourlySummary.forEach(processUpdate);
+            } else if ('district' in wsData) {
+                processUpdate(wsData);
+            }
+
+            if (!hasUpdates) return prev;
+
+            newChartData.sort((a, b) => a.timestamp - b.timestamp);
+
+            if (newChartData.length > 0) {
+                const lastPoint = newChartData[newChartData.length - 1];
+                const maxTimestamp = lastPoint.timestamp;
+                const minAllowedTimestamp = maxTimestamp - (60 * 60 * 1000);
+
+                newChartData = newChartData.filter(p => p.timestamp >= minAllowedTimestamp);
+            }
+
+            return newChartData;
+        });
+    }, [wsData, selected]);
 
     const handleToggle = (district: string) => {
         if (selected.includes(district)) {
             if (selected.length > 1) {
                 const newSel = selected.filter(d => d !== district);
                 setSelected(newSel);
-                onSelectionChange(newSel);
+                onSelectionChange?.(newSel);
             }
         } else {
             if (selected.length < 3) {
                 const newSel = [...selected, district];
                 setSelected(newSel);
-                onSelectionChange(newSel);
+                onSelectionChange?.(newSel);
             }
         }
     };
@@ -94,7 +272,7 @@ export default function DistrictComparison({ districts, onSelectionChange, liveD
                             className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth flex-1 px-1"
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
-                            {districts.map(d => {
+                            {effectiveDistricts.map(d => {
                                 const isSelected = selected.includes(d);
                                 const index = selected.indexOf(d);
                                 const color = isSelected && index >= 0 ? LINE_COLORS[index] : undefined;

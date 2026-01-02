@@ -54,7 +54,7 @@ const generateRandomHourlyData = (range?: DateRange): HourlyData[] => {
 
 export default function TrafficDensityStatisticsAreaChart({ data: wsData, refreshTrigger, onLoadComplete, districts = [] }: TrafficDensityStatsProps) {
     const [areaDistrict, setAreaDistrict] = useState<string>(() => {
-        return districts && districts.length > 0 ? districts[0] : "Bình Dương";
+        return districts && districts.length > 0 ? districts[0] : "Quận 1";
     });
 
     useEffect(() => {
@@ -179,6 +179,13 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
     useEffect(() => {
         console.log('📨 WebSocket hourly data received:', wsData);
 
+        if (dateRange?.to) {
+            const timeDiff = Math.abs(differenceInMinutes(new Date(), dateRange.to));
+            if (timeDiff > 1) {
+                return;
+            }
+        }
+
         let newDataPoint: CityStatsHourlyWS | undefined;
 
         if (wsData && 'hourlySummary' in wsData) {
@@ -200,9 +207,12 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
             const newTime = newDataPoint.hour;
 
             setChartData(prevData => {
-                const lastPoint = prevData[prevData.length - 1];
+                if (prevData.length === 0) return prevData;
 
-                if (lastPoint && lastPoint.time.getTime() === newTime.getTime()) {
+                const lastPoint = prevData[prevData.length - 1];
+                const diff = differenceInMinutes(newTime, lastPoint.time);
+
+                if (diff === 0) {
                     const newData = [...prevData];
                     newData[newData.length - 1] = {
                         time: newTime,
@@ -211,9 +221,11 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                     return newData;
                 }
 
-                if (!lastPoint || differenceInMinutes(newTime, lastPoint.time) >= 1) {
+                if (diff >= 1) {
+                    const newFrom = dateRange?.from ? addMinutes(dateRange.from, diff) : undefined;
+
                     setDateRange(prevRange => ({
-                        from: prevRange.from ? addMinutes(prevRange.from, 1) : prevRange.from,
+                        from: newFrom || prevRange.from,
                         to: newTime
                     }));
 
@@ -222,7 +234,13 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                         traffic: newDataPoint!.totalCount
                     }];
 
-                    newData.shift();
+                    if (newFrom) {
+                        return newData.filter(p => p.time >= newFrom);
+                    }
+
+                    if (newData.length > 61) {
+                        newData.shift();
+                    }
 
                     return newData;
                 }
@@ -232,7 +250,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
             wsUpdateRef.current = true;
         }
-    }, [wsData, areaDistrict]);
+    }, [wsData, areaDistrict, dateRange]);
 
     function formatNumber(n: number) {
         return n?.toLocaleString("vi-VN") ?? "0";

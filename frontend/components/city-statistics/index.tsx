@@ -25,6 +25,7 @@ type TrafficAlert = {
     time: string
     severity: AlertSeverity
     totalCount: number
+    maxCount: number
     imageUrl?: string
 }
 
@@ -168,7 +169,8 @@ export default function CityStatisticsPage() {
                             <div className="w-2/3 h-[350px]">
                                 <DistrictComparison
                                     onSelectionChange={() => { }}
-                                    liveData={cityStatsData?.hourlySummary}
+                                    wsData={cityStatsData}
+                                    refreshTrigger={refreshKey}
                                     districts={districts}
                                 />
                             </div>

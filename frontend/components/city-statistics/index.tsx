@@ -129,9 +129,10 @@ export default function CityStatisticsPage() {
     }, []);
 
     return (
-        <div className="flex h-screen w-full bg-slate-50 py-4 pr-8 gap-4 overflow-hidden">
-            <div className="w-[30%] flex flex-col gap-4 h-full min-w-[320px]">
-                <div className="h-full">
+        <div className="flex flex-col lg:flex-row h-screen w-full bg-slate-50 py-2 sm:py-4 px-2 sm:px-4 lg:pr-8 gap-2 sm:gap-4 overflow-x-hidden overflow-y-auto lg:overflow-hidden">
+            {/* Left Panel - Traffic Alerts */}
+            <div className="w-full lg:w-[30%] flex flex-col gap-2 sm:gap-4 min-h-[300px] sm:min-h-[350px] lg:min-h-0 lg:h-full min-w-0 lg:min-w-[250px] xl:min-w-[280px] 2xl:min-w-[320px] flex-shrink-0 lg:flex-shrink">
+                <div className="h-full min-h-[280px] lg:min-h-0">
                     <TrafficAlertsPanel
                         refreshTrigger={refreshKey}
                         districts={districts}
@@ -142,17 +143,19 @@ export default function CityStatisticsPage() {
                 </div>
             </div>
 
-            <div className="w-[70%] flex flex-col gap-4 h-full min-w-[600px]">
+            {/* Right Panel - Statistics */}
+            <div className="w-full lg:w-[70%] flex flex-col gap-2 sm:gap-4 min-h-0 lg:h-full min-w-0 lg:min-w-[400px] xl:min-w-[500px] 2xl:min-w-[600px]">
 
-                <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
-                    <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Thống kê toàn thành phố</h1>
+                <div className="flex justify-between items-center bg-white p-2 sm:p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
+                    <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-800 tracking-tight">Thống kê toàn thành phố</h1>
                 </div>
 
-                <div className="flex-1 overflow-y-auto pr-2 pb-4">
-                    <div className="flex flex-col gap-4">
+                <div className="flex-1 overflow-y-auto pr-1 sm:pr-2 pb-2 sm:pb-4">
+                    <div className="flex flex-col gap-2 sm:gap-4">
 
-                        <div className="flex gap-4 h-[320px]">
-                            <div className="w-2/3 h-full">
+                        {/* Row 1: Traffic Density + Trending */}
+                        <div className="flex flex-col lg:flex-row gap-2 sm:gap-4">
+                            <div className="w-full lg:w-2/3 h-[250px] sm:h-[280px] md:h-[300px] lg:h-[320px] min-h-0">
                                 <TrafficDensityStatisticsAreaChart
                                     data={cityStatsData}
                                     refreshTrigger={refreshKey}
@@ -160,13 +163,14 @@ export default function CityStatisticsPage() {
                                     districts={districts}
                                 />
                             </div>
-                            <div className="w-1/3 h-full">
+                            <div className="w-full lg:w-1/3 h-[180px] sm:h-[200px] lg:h-full min-h-0">
                                 <TrendingDistricts data={cityStatsData?.fastestGrowing} />
                             </div>
                         </div>
 
-                        <div className="flex gap-4">
-                            <div className="w-2/3 h-[350px]">
+                        {/* Row 2: District Comparison + Vehicle Type */}
+                        <div className="flex flex-col lg:flex-row gap-2 sm:gap-4">
+                            <div className="w-full lg:w-2/3 h-[280px] sm:h-[320px] lg:h-[350px] min-h-0">
                                 <DistrictComparison
                                     onSelectionChange={() => { }}
                                     wsData={cityStatsData}
@@ -174,22 +178,27 @@ export default function CityStatisticsPage() {
                                     districts={districts}
                                 />
                             </div>
-                            <div className="w-1/3 h-[350px]">
+                            <div className="w-full lg:w-1/3 h-[220px] sm:h-[250px] lg:h-[350px] min-h-0">
                                 <VehicleTypeDistribution data={cityStatsData?.vehicleRatio} />
                             </div>
                         </div>
 
-                        <div className="flex gap-4">
-                            <div className="w-2/3 h-[500px]">
+                        {/* Row 3: Vehicle Stats + Top Districts/Cameras */}
+                        <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
+                            <div className="w-full xl:w-2/3 h-[350px] sm:h-[400px] md:h-[450px] lg:h-[500px] min-h-0">
                                 <VehicleStatisticsStackChart
                                     refreshTrigger={refreshKey}
                                     onLoadComplete={handleApiComplete}
                                     districts={districts}
                                 />
                             </div>
-                            <div className="w-1/3 flex flex-col gap-4">
-                                <TopDistricts data={cityStatsData?.busiestDistricts} />
-                                <TopCameras data={cityStatsData?.busiestCameras} />
+                            <div className="w-full xl:w-1/3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2 sm:gap-4 min-h-0">
+                                <div className="h-[180px] sm:h-[200px] md:h-[220px] lg:h-[240px] min-h-0 overflow-hidden">
+                                    <TopDistricts data={cityStatsData?.busiestDistricts} className="h-full" />
+                                </div>
+                                <div className="h-[180px] sm:h-[200px] md:h-[220px] lg:h-[240px] min-h-0 overflow-hidden">
+                                    <TopCameras data={cityStatsData?.busiestCameras} className="h-full" />
+                                </div>
                             </div>
                         </div>
 

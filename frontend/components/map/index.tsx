@@ -171,12 +171,13 @@ const Map = (props: MapProps) => {
                 routeCoordinates={activeRouteCoordinates}
             />
 
-            <div className="absolute top-4 right-4 sm:right-6 md:right-8 z-[1000] pointer-events-auto transition-all duration-300 ease-in-out">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                    <div className="bg-white rounded-lg shadow p-2 text-sm flex items-center gap-2">
-                        <label className="flex items-center gap-2 select-none cursor-pointer">
-                            <input type="checkbox" checked={heatEnabled} onChange={(e) => setHeatEnabled(e.target.checked)} />
-                            <span className="text-red-500 font-medium">Heatmap</span>
+            {/* Heatmap & Routing controls - Bottom-left on mobile, top-right on desktop */}
+            <div className="absolute bottom-20 left-2 sm:bottom-auto sm:left-auto sm:top-4 sm:right-4 md:right-6 lg:right-8 z-[1000] pointer-events-auto transition-all duration-300 ease-in-out">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5 sm:gap-2">
+                    <div className="bg-white rounded-lg shadow p-1.5 sm:p-2 text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                        <label className="flex items-center gap-1.5 sm:gap-2 select-none cursor-pointer">
+                            <input type="checkbox" className="w-3.5 h-3.5 sm:w-4 sm:h-4" checked={heatEnabled} onChange={(e) => setHeatEnabled(e.target.checked)} />
+                            <span className="text-red-500 font-medium text-xs sm:text-sm">Heatmap</span>
                         </label>
                     </div>
 
@@ -192,10 +193,10 @@ const Map = (props: MapProps) => {
                                 setRoutingState('idle');
                             }
                         }}
-                        className={`p-2 rounded-lg shadow transition-colors ${routingEnabled ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                        className={`p-1.5 sm:p-2 rounded-lg shadow transition-colors ${routingEnabled ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                         title="Toggle Routing Mode"
                     >
-                        <FiNavigation size={18} />
+                        <FiNavigation className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                     </button>
                 </div>
             </div>

@@ -150,18 +150,18 @@ export default function InforPanel({
     }, [open]);
 
     return (
-        <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col w-full ${className || ''}`}>
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 flex-shrink-0">
-                <div className="flex flex-col gap-3">
-                    <h2 className="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2">
+        <div className={`bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col w-full h-full min-h-0 overflow-hidden ${className || ''}`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4 mb-3 sm:mb-4 flex-shrink-0">
+                <div className="flex flex-col gap-2 sm:gap-3 min-w-0 flex-1">
+                    <h2 className="text-sm sm:text-base lg:text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2">
                         {icon ? (
-                            <span className="p-1.5 rounded-md bg-slate-100 text-slate-600">
+                            <span className="p-1 sm:p-1.5 rounded-md bg-slate-100 text-slate-600 flex-shrink-0">
                                 {icon}
                             </span>
                         ) : (
-                            <span className="w-1.5 h-6 rounded-full inline-block bg-teal-500"></span>
+                            <span className="w-1 sm:w-1.5 h-5 sm:h-6 rounded-full inline-block bg-teal-500 flex-shrink-0"></span>
                         )}
-                        {title}
+                        <span className="truncate">{title}</span>
                     </h2>
 
                     {lastUpdated && (
@@ -261,7 +261,7 @@ export default function InforPanel({
                 </>
             </div>
 
-            <div className={`animate-in fade-in slide-in-from-bottom-2 duration-500 flex-1 overflow-hidden ${contentClassName || ''}`}>
+            <div className={`animate-in fade-in slide-in-from-bottom-2 duration-500 flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${contentClassName || ''}`}>
                 {children}
             </div>
         </div>

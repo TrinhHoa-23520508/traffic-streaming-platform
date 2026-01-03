@@ -40,6 +40,7 @@ export const API_CONFIG = {
       CAMERA_MAX_COUNT: '/api/traffic/camera', // /{cameraId}/max-count
       CAMERAS: '/api/traffic/cameras',
       DISTRICTS: '/api/traffic/districts',
+      MINUTE_SUMMARY: '/api/traffic/minute-summary',
     },
     REPORTS: {
       BASE: '/api/reports',
@@ -48,7 +49,7 @@ export const API_CONFIG = {
   },
 
   WS_TOPIC: '/topic/traffic',
-  WS_CITY_STATS_TOPIC: '/topic/hourly-summary-by-district',
+  WS_CITY_STATS_TOPIC: '/topic/dashboard-update',
 
   DEFAULT_TIMEOUT: Number(process.env.NEXT_PUBLIC_API_TIMEOUT) || 10000,
   MAX_RECONNECT_ATTEMPTS: Number(process.env.NEXT_PUBLIC_MAX_RECONNECT_ATTEMPTS) || 10,

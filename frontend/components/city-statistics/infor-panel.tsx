@@ -37,14 +37,18 @@ interface InforPanelProps {
     dateRangeValue?: DateRange;
     onDateRangeChange?: (range: DateRange) => void;
     showCurrentTimeOptionInDatePicker?: boolean;
+    icon?: React.ReactNode;
     className?: string;
     contentClassName?: string;
+    hideFilterButton?: boolean;
+    showDate?: boolean;
 }
 
 export default function InforPanel({
     title,
     lastUpdated,
     children,
+    icon,
 
     filterLabel = "Quận/Huyện",
     filterValue,
@@ -67,7 +71,9 @@ export default function InforPanel({
     onDateRangeChange,
     showCurrentTimeOptionInDatePicker,
     className,
-    contentClassName
+    contentClassName,
+    hideFilterButton = false,
+    showDate = true
 }: InforPanelProps) {
     const options = filterOptionHasAll ? ['Tất cả', ...(districts || [])] : (districts || []);
     const [open, setOpen] = React.useState(false);
@@ -97,18 +103,20 @@ export default function InforPanel({
     const renderActiveFilters = () => {
         return (
             <div className="flex flex-wrap gap-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200 transition-colors hover:bg-slate-200">
-                    {useDateRange ? (
-                        dateRangeValue?.from ? (
-                            <>
-                                {format(dateRangeValue.from, "dd/MM/yyyy HH:mm")}
-                                {dateRangeValue.to && ` - ${format(dateRangeValue.to, "dd/MM/yyyy HH:mm")}`}
-                            </>
-                        ) : "Chưa chọn ngày"
-                    ) : (
-                        dateValue ? format(dateValue, "dd/MM/yyyy") : "Chưa chọn ngày"
-                    )}
-                </div>
+                {showDate && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200 transition-colors hover:bg-slate-200">
+                        {useDateRange ? (
+                            dateRangeValue?.from ? (
+                                <>
+                                    {format(dateRangeValue.from, "dd/MM/yyyy HH:mm")}
+                                    {dateRangeValue.to && ` - ${format(dateRangeValue.to, "dd/MM/yyyy HH:mm")}`}
+                                </>
+                            ) : "Chưa chọn ngày"
+                        ) : (
+                            dateValue ? format(dateValue, "dd/MM/yyyy") : "Chưa chọn ngày"
+                        )}
+                    </div>
+                )}
 
                 {showFilter && filterValue && (
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-100 transition-colors hover:bg-indigo-100">
@@ -142,11 +150,17 @@ export default function InforPanel({
     }, [open]);
 
     return (
-        <div className={`bg-white rounded-2xl border border-slate-200/60 px-6 py-5 w-full transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50 hover:border-slate-300/80 group flex flex-col ${className || ''}`}>
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-50 pb-4 mb-2 flex-shrink-0">
+        <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col w-full ${className || ''}`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 flex-shrink-0">
                 <div className="flex flex-col gap-3">
-                    <h2 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-                        <span className="w-1 h-6 rounded-full inline-block" style={{ backgroundColor: CHART_COLORS.quaternary }}></span>
+                    <h2 className="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                        {icon ? (
+                            <span className="p-1.5 rounded-md bg-slate-100 text-slate-600">
+                                {icon}
+                            </span>
+                        ) : (
+                            <span className="w-1.5 h-6 rounded-full inline-block bg-teal-500"></span>
+                        )}
                         {title}
                     </h2>
 
@@ -164,10 +178,12 @@ export default function InforPanel({
                 </div>
 
                 <>
-                    <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="h-9 gap-2 text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-sm cursor-pointer rounded-lg transition-all duration-200">
-                        <SlidersHorizontal className="h-4 w-4" />
-                        <span className="hidden sm:inline font-medium">Bộ lọc</span>
-                    </Button>
+                    {!hideFilterButton && (
+                        <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="h-9 gap-2 text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-sm cursor-pointer rounded-lg transition-all duration-200">
+                            <SlidersHorizontal className="h-4 w-4" />
+                            <span className="hidden sm:inline font-medium">Bộ lọc</span>
+                        </Button>
+                    )}
 
                     {open && typeof document !== "undefined" && createPortal(
                         (

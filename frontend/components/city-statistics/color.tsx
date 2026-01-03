@@ -8,3 +8,12 @@ export const CHART_COLORS = {
     septenary: "#93c5fd",
     octonary: "#eff6ff",
 }
+
+export const VEHICLE_TYPE_COLORS = {
+    Car: CHART_COLORS.quinary,
+    Motorcycle: CHART_COLORS.tertiary,
+    Truck: CHART_COLORS.senary,
+    Bus: CHART_COLORS.secondary,
+    Bicycle: CHART_COLORS.septenary,
+    Other: CHART_COLORS.quaternary
+};

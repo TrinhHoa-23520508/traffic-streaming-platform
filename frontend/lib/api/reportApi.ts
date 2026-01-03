@@ -116,25 +116,13 @@ const reportApi = {
   getCamerasByDistrict: async (districtId: string): Promise<Camera[]> => {
     // Use existing traffic API to get cameras for a district
     try {
-        const metrics = await trafficApi.getLatest({ district: districtId });
-        // metrics is List<TrafficMetric>
-        // Extract unique cameras
-        const uniqueCameras = new Map<string, Camera>();
+        const cameras = await trafficApi.getAllCameras({ district: districtId });
         
-        metrics.forEach(m => {
-            // TrafficMetricsDTO uses camelCase, but we check for snake_case just in case raw data leaks through
-            const id = m.cameraId || (m as any).camera_id;
-            const name = m.cameraName || (m as any).camera_name || id;
-            if (id && !uniqueCameras.has(id)) {
-                uniqueCameras.set(id, {
-                    id,
-                    name,
-                    districtId
-                });
-            }
-        });
-        
-        return Array.from(uniqueCameras.values());
+        return cameras.map(c => ({
+            id: c.cameraId,
+            name: c.cameraName || c.cameraId,
+            districtId: c.district
+        }));
     } catch (error) {
         console.error("Error fetching cameras from traffic API:", error);
         return [];

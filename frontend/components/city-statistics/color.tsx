@@ -10,10 +10,10 @@ export const CHART_COLORS = {
 }
 
 export const VEHICLE_TYPE_COLORS = {
-    car: CHART_COLORS.quinary,
-    motorcycle: CHART_COLORS.tertiary,
-    truck: CHART_COLORS.senary,
-    bus: CHART_COLORS.secondary,
-    bicycle: CHART_COLORS.septenary,
-    other: CHART_COLORS.quaternary
+    Car: CHART_COLORS.quinary,
+    Motorcycle: CHART_COLORS.tertiary,
+    Truck: CHART_COLORS.senary,
+    Bus: CHART_COLORS.secondary,
+    Bicycle: CHART_COLORS.septenary,
+    Other: CHART_COLORS.quaternary
 };

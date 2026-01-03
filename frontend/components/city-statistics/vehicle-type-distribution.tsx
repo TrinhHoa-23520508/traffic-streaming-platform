@@ -28,12 +28,12 @@ export default function VehicleTypeDistribution({ data }: VehicleTypeDistributio
         return data.map(item => {
             if ('vehicleType' in item) {
                 const nameMap: Record<string, string> = {
-                    'motorcycle': 'Xe máy',
-                    'car': 'Xe ô tô',
-                    'truck': 'Xe tải',
-                    'bus': 'Xe buýt',
-                    'bicycle': 'Xe đạp',
-                    'other': 'Xe khác'
+                    'Motorcycle': 'Xe máy',
+                    'Car': 'Xe ô tô',
+                    'Truck': 'Xe tải',
+                    'Bus': 'Xe buýt',
+                    'Bicycle': 'Xe đạp',
+                    'Other': 'Xe khác'
                 };
                 return {
                     name: nameMap[item.vehicleType] || item.vehicleType,

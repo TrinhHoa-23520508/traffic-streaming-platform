@@ -16,13 +16,20 @@ export default function TrendingDistricts({ data }: TrendingDistrictsProps) {
     const chartData = useMemo(() => {
         if (!data) return [];
         return data.map(item => {
+            let name, trend;
             if ('district' in item) {
-                return {
-                    name: item.district,
-                    trend: item.growthRate
-                };
+                name = item.district;
+                trend = item.growthRate;
+            } else {
+                name = (item as any).name;
+                trend = (item as any).trend;
             }
-            return item;
+
+            return {
+                name,
+                trend,
+                barValue: trend > 0 ? trend : 0
+            };
         });
     }, [data]);
 
@@ -56,11 +63,11 @@ export default function TrendingDistricts({ data }: TrendingDistrictsProps) {
                             />
                             <YAxis type="number" hide />
 
-                            <Bar dataKey="trend" radius={[4, 4, 0, 0]} barSize={30}>
+                            <Bar dataKey="barValue" radius={[4, 4, 0, 0]} barSize={30}>
                                 <LabelList
                                     dataKey="trend"
                                     position="top"
-                                    formatter={(value: any) => `+${value}%`}
+                                    formatter={(value: any) => `${value > 0 ? '+' : ''}${value}%`}
                                     style={{ fill: '#059669', fontSize: '11px', fontWeight: 600 }}
                                 />
                                 {chartData.map((_, index) => (

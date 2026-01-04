@@ -1,6 +1,8 @@
 package com.traffic_stream.dashboard.entity;
 
 import com.vladmihalcea.hibernate.type.json.JsonType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import jakarta.persistence.Transient;
@@ -32,11 +34,11 @@ public class TrafficMetric {
     @Column(name = "annotated_image_url")
     private String annotatedImageUrl;
 
-    @Type(JsonType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    private List<Double> coordinates; 
+    private List<Double> coordinates;
 
-    @Type(JsonType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, Integer> detectionDetails; 
 

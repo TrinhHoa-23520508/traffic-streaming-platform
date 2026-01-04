@@ -139,7 +139,7 @@ function transformTrafficData(data: BackendTrafficDataRaw): TrafficMetricsDTO {
 /**
  * Traffic data update callback
  */
-export type TrafficUpdateCallback = (data: TrafficMetricsDTO) => void;
+export type TrafficUpdateCallback = (data: TrafficMetricsDTO[]) => void;
 
 /**
  * City stats update callback
@@ -200,13 +200,16 @@ class TrafficApiService {
         // Subscribe to traffic topic
         client.subscribe(API_CONFIG.WS_TOPIC, (message) => {
           try {
-            const rawData: BackendTrafficDataRaw = JSON.parse(message.body);
-            const trafficData = transformTrafficData(rawData);
+            const rawData: BackendTrafficDataRaw | BackendTrafficDataRaw[] = JSON.parse(message.body);
+            const rawDataList = Array.isArray(rawData) ? rawData : [rawData];
+            const trafficDataList = rawDataList.map(transformTrafficData);
 
             // Update cache
-            this.trafficDataCache.set(trafficData.cameraId, trafficData);
+            trafficDataList.forEach(trafficData => {
+              this.trafficDataCache.set(trafficData.cameraId, trafficData);
+            });
 
-            this.subscribers.forEach(callback => callback(trafficData));
+            this.subscribers.forEach(callback => callback(trafficDataList));
           } catch (error) {
             console.error('Error parsing traffic data:', error);
           }
@@ -294,7 +297,7 @@ class TrafficApiService {
       };
 
       this.trafficDataCache.set(cameraId, randomTraffic);
-      this.subscribers.forEach(callback => callback(randomTraffic));
+      this.subscribers.forEach(callback => callback([randomTraffic]));
     });
   }
 

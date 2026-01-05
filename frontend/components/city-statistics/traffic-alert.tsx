@@ -21,27 +21,32 @@ type TrafficAlert = {
     time: string
     severity: AlertSeverity
     totalCount: number
+    maxCount: number
     imageUrl?: string
 }
 
-const SEVERITY_THRESHOLDS = {
-    HIGH: 70,
-    MEDIUM: 50,
-    LOW: 30
+const SEVERITY_PERCENTAGES = {
+    HIGH: 90,
+    MEDIUM: 80,
+    LOW: 70
 } as const;
 
 const ITEMS_PER_PAGE = 3;
 const MAX_ALERTS = 100;
 
-const getSeverity = (totalCount: number): AlertSeverity => {
-    if (totalCount >= SEVERITY_THRESHOLDS.HIGH) return "high";
-    if (totalCount >= SEVERITY_THRESHOLDS.MEDIUM) return "medium";
+const getSeverity = (totalCount: number, maxCount: number): AlertSeverity => {
+    if (!maxCount) return "low";
+    const percentage = (totalCount / maxCount) * 100;
+    if (percentage >= SEVERITY_PERCENTAGES.HIGH) return "high";
+    if (percentage >= SEVERITY_PERCENTAGES.MEDIUM) return "medium";
     return "low";
 };
 
-const getSeverityLabel = (totalCount: number): string => {
-    if (totalCount >= SEVERITY_THRESHOLDS.HIGH) return "Kẹt xe nghiêm trọng";
-    if (totalCount >= SEVERITY_THRESHOLDS.MEDIUM) return "Kẹt xe khá nghiêm trọng";
+const getSeverityLabel = (totalCount: number, maxCount: number): string => {
+    if (!maxCount) return "Kẹt xe nhẹ";
+    const percentage = (totalCount / maxCount) * 100;
+    if (percentage >= SEVERITY_PERCENTAGES.HIGH) return "Kẹt xe nghiêm trọng";
+    if (percentage >= SEVERITY_PERCENTAGES.MEDIUM) return "Kẹt xe khá nghiêm trọng";
     return "Kẹt xe nhẹ";
 };
 
@@ -99,27 +104,38 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                 });
 
                 const initialAlerts: TrafficAlert[] = latestData
-                    .filter(data => data.totalCount >= SEVERITY_THRESHOLDS.LOW)
-                    .map(data => ({
-                        id: `${data.cameraId}-${data.id}`,
-                        title: `${data.cameraName}`,
-                        description: `${getSeverityLabel(data.totalCount)}, được phát hiện tại camera ${data.cameraId}`,
-                        cameraId: data.cameraId,
-                        cameraName: data.cameraName,
-                        district: data.district,
-                        date: new Date(data.timestamp).toISOString().split('T')[0],
-                        time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
-                        severity: getSeverity(data.totalCount),
-                        totalCount: data.totalCount,
-                        imageUrl: data.annotatedImageUrl
-                    }))
+                    .filter(data => {
+                        const max = Number(data.maxCount) || 100;
+                        const total = Number(data.totalCount);
+                        return (total / max) * 100 >= SEVERITY_PERCENTAGES.LOW;
+                    })
+                    .map(data => {
+                        const max = Number(data.maxCount) || 100;
+                        const total = Number(data.totalCount);
+                        return {
+                            id: `${data.cameraId}-${data.id}`,
+                            title: `${data.cameraName}`,
+                            description: `${getSeverityLabel(total, max)}, được phát hiện tại camera ${data.cameraId}`,
+                            cameraId: data.cameraId,
+                            cameraName: data.cameraName,
+                            district: data.district,
+                            date: new Date(data.timestamp).toISOString().split('T')[0],
+                            time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
+                            severity: getSeverity(total, max),
+                            totalCount: total,
+                            maxCount: max,
+                            imageUrl: data.annotatedImageUrl
+                        };
+                    })
                     .slice(0, maxAlerts);
 
                 setAlerts(initialAlerts);
                 setLastUpdated(new Date().toLocaleString('vi-VN'));
 
                 const unsubscribe = trafficApi.subscribe((data) => {
-                    if (data.totalCount < SEVERITY_THRESHOLDS.LOW) return;
+                    const max = Number(data.maxCount) || 100;
+                    const total = Number(data.totalCount);
+                    if ((total / max) * 100 < SEVERITY_PERCENTAGES.LOW) return;
 
                     const alertDate = new Date(data.timestamp);
                     const today = new Date();
@@ -136,14 +152,15 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                     const newAlert: TrafficAlert = {
                         id: `${data.cameraId}-${Date.now()}`,
                         title: `${data.cameraName} - ${data.district}`,
-                        description: `${getSeverityLabel(data.totalCount)}, được phát hiện tại camera ${data.cameraId}`,
+                        description: `${getSeverityLabel(total, max)}, được phát hiện tại camera ${data.cameraId}`,
                         cameraId: data.cameraId,
                         cameraName: data.cameraName,
                         district: data.district,
                         date: new Date(data.timestamp).toISOString().split('T')[0],
                         time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
-                        severity: getSeverity(data.totalCount),
-                        totalCount: data.totalCount,
+                        severity: getSeverity(total, max),
+                        totalCount: total,
+                        maxCount: max,
                         imageUrl: data.annotatedImageUrl
                     };
 
@@ -152,14 +169,15 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                         return updated.slice(0, maxAlerts);
                     });
                     setLastUpdated(new Date().toLocaleString('vi-VN'));
-                    // Call onAlertsUpdate after state update completes
                     setTimeout(() => onAlertsUpdate?.(), 0);
                 });
 
                 return unsubscribe;
             } catch (error) {
                 const unsubscribe = trafficApi.subscribe((data) => {
-                    if (data.totalCount < SEVERITY_THRESHOLDS.LOW) return;
+                    const max = Number(data.maxCount) || 100;
+                    const total = Number(data.totalCount);
+                    if ((total / max) * 100 < SEVERITY_PERCENTAGES.LOW) return;
 
                     const alertDate = new Date(data.timestamp);
                     const today = new Date();
@@ -170,14 +188,15 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                     const newAlert: TrafficAlert = {
                         id: `${data.cameraId}-${Date.now()}`,
                         title: `${data.cameraName} - ${data.district}`,
-                        description: `${getSeverityLabel(data.totalCount)}, được phát hiện tại camera ${data.cameraId}`,
+                        description: `${getSeverityLabel(total, max)}, được phát hiện tại camera ${data.cameraId}`,
                         cameraId: data.cameraId,
                         cameraName: data.cameraName,
                         district: data.district,
                         date: new Date(data.timestamp).toISOString().split('T')[0],
                         time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
-                        severity: getSeverity(data.totalCount),
-                        totalCount: data.totalCount,
+                        severity: getSeverity(total, max),
+                        totalCount: total,
+                        maxCount: max,
                         imageUrl: data.annotatedImageUrl
                     };
 
@@ -186,7 +205,6 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                         return updated.slice(0, maxAlerts);
                     });
                     setLastUpdated(new Date().toLocaleString('vi-VN'));
-                    // Call onAlertsUpdate after state update completes
                     setTimeout(() => onAlertsUpdate?.(), 0);
                 });
 

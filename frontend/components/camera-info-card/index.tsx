@@ -336,18 +336,18 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     };
 
     return (
-        // Container chính - responsive width
-        <div className="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl shadow-2xl space-y-3 sm:space-y-4 w-full max-w-[95vw] sm:max-w-[380px] md:max-w-[400px] lg:max-w-[420px] min-w-[280px] border border-white/20 transition-all duration-500 animate-in slide-in-from-bottom-4 fade-in zoom-in-95">
+        // Container chính - responsive width với max-height để không chiếm quá nhiều không gian
+        <div className="bg-white/95 backdrop-blur-md p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl shadow-2xl space-y-2 sm:space-y-3 md:space-y-4 w-full max-w-[280px] sm:max-w-[320px] md:max-w-[360px] lg:max-w-[400px] min-w-[240px] max-h-[75vh] sm:max-h-[80vh] overflow-y-auto overflow-x-hidden border border-white/20 transition-all duration-500 animate-in slide-in-from-bottom-4 fade-in zoom-in-95 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
 
             {/* --- PHẦN TIÊU ĐỀ (Tên & Quận) --- */}
-            <div className="flex justify-between items-start gap-2">
+            <div className="flex justify-between items-start gap-1.5 sm:gap-2">
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-base sm:text-lg font-bold text-gray-800 leading-tight line-clamp-2 break-words">{camera.name}</h3>
-                    <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
-                        <span className="px-1.5 sm:px-2 py-0.5 bg-gray-100 text-gray-600 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-full truncate max-w-[120px] sm:max-w-none">
+                    <h3 className="text-sm sm:text-base md:text-lg font-bold text-gray-800 leading-tight line-clamp-2 break-words">{camera.name}</h3>
+                    <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5 sm:mt-1 flex-wrap">
+                        <span className="px-1 sm:px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider rounded-full truncate max-w-[100px] sm:max-w-[120px]">
                             {camera.dist}
                         </span>
-                        <span className="flex items-center gap-1 text-[9px] sm:text-[10px] text-green-600 font-medium">
+                        <span className="flex items-center gap-0.5 sm:gap-1 text-[8px] sm:text-[9px] text-green-600 font-medium">
                             <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-green-500"></span>
@@ -358,9 +358,9 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 </div>
                 <button 
                     onClick={onClose} 
-                    className="group flex-shrink-0 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 p-1.5 sm:p-2 rounded-full transition-all duration-300 shadow-sm hover:shadow"
+                    className="group flex-shrink-0 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 p-1 sm:p-1.5 rounded-full transition-all duration-300 shadow-sm hover:shadow"
                 >
-                    <IoClose className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:rotate-90" />
+                    <IoClose className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 transition-transform group-hover:rotate-90" />
                 </button>
             </div>
 

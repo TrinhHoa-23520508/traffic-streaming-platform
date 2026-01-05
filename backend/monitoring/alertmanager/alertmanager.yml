@@ -1,0 +1,82 @@
+# Alertmanager Configuration for Traffic Streaming Platform
+global:
+  resolve_timeout: 5m
+
+# Templates
+templates:
+  - '/etc/alertmanager/template/*.tmpl'
+
+# Route tree
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default'
+  
+  routes:
+    # Critical alerts
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      continue: true
+      
+    # Warning alerts
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      
+    # Database alerts
+    - match:
+        service: postgres
+      receiver: 'database-alerts'
+      
+    # Kafka alerts
+    - match:
+        service: kafka
+      receiver: 'kafka-alerts'
+
+# Receivers configuration
+receivers:
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook'
+        send_resolved: true
+
+  - name: 'critical-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/critical'
+        send_resolved: true
+    # Example: Email configuration (uncomment and configure)
+    # email_configs:
+    #   - to: 'team@example.com'
+    #     from: 'alertmanager@example.com'
+    #     smarthost: 'smtp.gmail.com:587'
+    #     auth_username: 'your-email@gmail.com'
+    #     auth_password: 'your-password'
+    #     headers:
+    #       Subject: '[CRITICAL] {{ .GroupLabels.alertname }}'
+
+  - name: 'warning-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/warning'
+        send_resolved: true
+
+  - name: 'database-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/database'
+        send_resolved: true
+
+  - name: 'kafka-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/kafka'
+        send_resolved: true
+
+# Inhibition rules
+inhibit_rules:
+  # Inhibit warning if critical is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']

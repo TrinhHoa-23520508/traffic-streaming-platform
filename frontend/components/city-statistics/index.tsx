@@ -3,11 +3,15 @@
 import { useState, useEffect, useCallback, startTransition } from "react"
 import { FiCamera, FiRefreshCw } from "react-icons/fi"
 import { Button } from "../ui/button"
-import TrafficDensityStatisticsAreaChart from "./traffic-density_stats"
+import TrafficDensityStatisticsAreaChart from "./traffic-density-stats"
 import VehicleStatisticsStackChart from "./vehicle-stats"
 import TrafficAlertsPanel from "./traffic-alert"
 import { trafficApi } from "@/lib/api/trafficApi"
-import InforPanel from "./infor-panel"
+import TopCameras from "./top-cameras"
+import TopDistricts from "./top-districts"
+import DistrictComparison from "./district-comparison"
+import TrendingDistricts from "./trending-districts"
+import VehicleTypeDistribution from "./vehicle-type-distribution"
 
 type AlertSeverity = "high" | "medium" | "low"
 type TrafficAlert = {
@@ -21,6 +25,7 @@ type TrafficAlert = {
     time: string
     severity: AlertSeverity
     totalCount: number
+    maxCount: number
     imageUrl?: string
 }
 
@@ -31,13 +36,11 @@ export default function CityStatisticsPage() {
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [completedCount, setCompletedCount] = useState(0)
     const [selectedAlert, setSelectedAlert] = useState<TrafficAlert | null>(null)
-    const [cameraMap, setCameraMap] = useState<Record<string, string>>({})
+    const [cameraMap, setCameraMap] = useState<Record<string, string>>({});
 
-    // Defer camera data loading to not block initial render
     useEffect(() => {
-        // Use setTimeout to defer non-critical data loading
         const timer = setTimeout(() => {
-            // Check cache first for instant load
+
             const cached = sessionStorage.getItem('camera_map_data');
             if (cached) {
                 const { data, timestamp } = JSON.parse(cached);
@@ -46,7 +49,7 @@ export default function CityStatisticsPage() {
                     return;
                 }
             }
-            
+
             fetch('/camera_api.json')
                 .then(res => res.json())
                 .then(data => {
@@ -57,19 +60,17 @@ export default function CityStatisticsPage() {
                         }
                     })
                     setCameraMap(map);
-                    // Cache the result
                     sessionStorage.setItem('camera_map_data', JSON.stringify({
                         data: map,
                         timestamp: Date.now()
                     }));
                 })
                 .catch(err => console.error("Failed to load camera map", err))
-        }, 100); // Defer by 100ms
-        
+        }, 100);
+
         return () => clearTimeout(timer);
     }, [])
 
-    // Defer districts loading to not block initial render
     useEffect(() => {
         const timer = setTimeout(() => {
             startTransition(() => {
@@ -86,8 +87,8 @@ export default function CityStatisticsPage() {
                 };
                 fetchDistricts();
             });
-        }, 150); // Defer by 150ms
-        
+        }, 150);
+
         return () => clearTimeout(timer);
     }, [])
 
@@ -113,7 +114,6 @@ export default function CityStatisticsPage() {
         setSelectedAlert(alert);
     }, []);
 
-    // Defer WebSocket subscription to not block initial render
     useEffect(() => {
         const timer = setTimeout(() => {
             const unsubscribe = trafficApi.subscribeCityStats((data) => {
@@ -123,15 +123,16 @@ export default function CityStatisticsPage() {
             return () => {
                 unsubscribe();
             };
-        }, 200); // Defer by 200ms
-        
+        }, 200);
+
         return () => clearTimeout(timer);
     }, []);
 
     return (
-        <div className="flex h-screen w-full bg-slate-50 py-4 pr-8 gap-4 overflow-hidden">
-            <div className="w-1/3 flex flex-col gap-4 h-full min-w-[350px]">
-                <div className="h-full">
+        <div className="flex flex-col lg:flex-row h-screen w-full bg-slate-50 py-2 sm:py-4 px-2 sm:px-4 lg:pr-8 gap-2 sm:gap-4 overflow-x-hidden overflow-y-auto lg:overflow-hidden">
+            {/* Left Panel - Traffic Alerts */}
+            <div className="w-full lg:w-[30%] flex flex-col gap-2 sm:gap-4 min-h-[300px] sm:min-h-[350px] lg:min-h-0 lg:h-full min-w-0 lg:min-w-[250px] xl:min-w-[280px] 2xl:min-w-[320px] flex-shrink-0 lg:flex-shrink">
+                <div className="h-full min-h-[280px] lg:min-h-0">
                     <TrafficAlertsPanel
                         refreshTrigger={refreshKey}
                         districts={districts}
@@ -142,27 +143,65 @@ export default function CityStatisticsPage() {
                 </div>
             </div>
 
-            <div className="w-2/3 flex flex-col gap-4 h-full min-w-[600px]">
-                <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
-                    <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Thống kê toàn thành phố</h1>
-                    <RefreshButton onClick={handleRefresh} isLoading={isRefreshing} />
+            {/* Right Panel - Statistics */}
+            <div className="w-full lg:w-[70%] flex flex-col gap-2 sm:gap-4 min-h-0 lg:h-full min-w-0 lg:min-w-[400px] xl:min-w-[500px] 2xl:min-w-[600px]">
+
+                <div className="flex justify-between items-center bg-white p-2 sm:p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
+                    <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-800 tracking-tight">Thống kê toàn thành phố</h1>
                 </div>
 
-                <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-2">
-                    <div className="h-[350px] flex-shrink-0">
-                        <TrafficDensityStatisticsAreaChart
-                            data={cityStatsData}
-                            refreshTrigger={refreshKey}
-                            onLoadComplete={handleApiComplete}
-                            districts={districts}
-                        />
-                    </div>
-                    <div className="flex-shrink-0">
-                        <VehicleStatisticsStackChart
-                            refreshTrigger={refreshKey}
-                            onLoadComplete={handleApiComplete}
-                            districts={districts}
-                        />
+                <div className="flex-1 overflow-y-auto pr-1 sm:pr-2 pb-2 sm:pb-4">
+                    <div className="flex flex-col gap-2 sm:gap-4">
+
+                        {/* Row 1: Traffic Density + Trending */}
+                        <div className="flex flex-col lg:flex-row gap-2 sm:gap-4">
+                            <div className="w-full lg:w-2/3 h-[250px] sm:h-[280px] md:h-[300px] lg:h-[320px] min-h-0">
+                                <TrafficDensityStatisticsAreaChart
+                                    data={cityStatsData}
+                                    refreshTrigger={refreshKey}
+                                    onLoadComplete={handleApiComplete}
+                                    districts={districts}
+                                />
+                            </div>
+                            <div className="w-full lg:w-1/3 h-[180px] sm:h-[200px] lg:h-full min-h-0">
+                                <TrendingDistricts data={cityStatsData?.fastestGrowing} />
+                            </div>
+                        </div>
+
+                        {/* Row 2: District Comparison + Vehicle Type */}
+                        <div className="flex flex-col lg:flex-row gap-2 sm:gap-4">
+                            <div className="w-full lg:w-2/3 h-[280px] sm:h-[320px] lg:h-[350px] min-h-0">
+                                <DistrictComparison
+                                    onSelectionChange={() => { }}
+                                    wsData={cityStatsData}
+                                    refreshTrigger={refreshKey}
+                                    districts={districts}
+                                />
+                            </div>
+                            <div className="w-full lg:w-1/3 h-[220px] sm:h-[250px] lg:h-[350px] min-h-0">
+                                <VehicleTypeDistribution data={cityStatsData?.vehicleRatio} />
+                            </div>
+                        </div>
+
+                        {/* Row 3: Vehicle Stats + Top Districts/Cameras */}
+                        <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
+                            <div className="w-full xl:w-2/3 h-[350px] sm:h-[400px] md:h-[450px] lg:h-[500px] min-h-0">
+                                <VehicleStatisticsStackChart
+                                    refreshTrigger={refreshKey}
+                                    onLoadComplete={handleApiComplete}
+                                    districts={districts}
+                                />
+                            </div>
+                            <div className="w-full xl:w-1/3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2 sm:gap-4 min-h-0">
+                                <div className="h-[180px] sm:h-[200px] md:h-[220px] lg:h-[240px] min-h-0 overflow-hidden">
+                                    <TopDistricts data={cityStatsData?.busiestDistricts} className="h-full" />
+                                </div>
+                                <div className="h-[180px] sm:h-[200px] md:h-[220px] lg:h-[240px] min-h-0 overflow-hidden">
+                                    <TopCameras data={cityStatsData?.busiestCameras} className="h-full" />
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>

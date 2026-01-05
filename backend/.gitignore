@@ -1,0 +1,16 @@
+# Environment variables - NEVER commit sensitive data
+.env
+
+# Docker volumes
+postgres_data/
+minio_data/
+prometheus_data/
+alertmanager_data/
+grafana_data/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

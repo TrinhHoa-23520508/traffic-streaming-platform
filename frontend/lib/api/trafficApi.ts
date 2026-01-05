@@ -1,6 +1,6 @@
 // lib/api/trafficApi.ts
 
-import type { TrafficMetricsDTO, CameraFlowRate, CameraMaxCount } from '@/types/traffic';
+import type { TrafficMetricsDTO, CameraFlowRate, CameraMaxCount, DashboardUpdate } from '@/types/traffic';
 import { API_CONFIG, getBaseUrl, getWsUrl } from './config';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -87,12 +87,14 @@ interface BackendTrafficDataRaw {
   cameraId?: string;
   cameraName?: string;
   totalCount?: number;
+  maxCount?: number;
   annotatedImageUrl?: string;
   detectionDetails?: Record<string, number>;
 
   camera_id?: string;
   camera_name?: string;
   total_count?: number;
+  max_count?: number;
   annotated_image_url?: string;
   detection_details?: Record<string, number>;
   timestamp_vn?: string;
@@ -107,6 +109,7 @@ function transformTrafficData(data: BackendTrafficDataRaw): TrafficMetricsDTO {
   const cid = data.cameraId || data.camera_id || 'unknown';
   const cname = data.cameraName || data.camera_name || 'Unknown Camera';
   const total = data.totalCount ?? data.total_count ?? 0;
+  const max = data.maxCount ?? data.max_count;
   const details = data.detectionDetails || data.detection_details || {};
   const imgUrl = data.annotatedImageUrl || data.annotated_image_url || '';
 
@@ -126,8 +129,9 @@ function transformTrafficData(data: BackendTrafficDataRaw): TrafficMetricsDTO {
     district: data.district,
     annotatedImageUrl: imgUrl,
     coordinates: data.coordinates,
-    detectionDetails: details,
+    detectionDetails: details as any,
     totalCount: total,
+    maxCount: max,
     timestamp: timeStr
   };
 }
@@ -140,7 +144,7 @@ export type TrafficUpdateCallback = (data: TrafficMetricsDTO) => void;
 /**
  * City stats update callback
  */
-export type CityStatsUpdateCallback = (data: any) => void;
+export type CityStatsUpdateCallback = (data: DashboardUpdate) => void;
 
 class TrafficApiService {
   private baseUrl: string;
@@ -281,6 +285,7 @@ class TrafficApiService {
         cameraId,
         cameraName: cameraId,
         totalCount: carCount + motorcycleCount,
+        maxCount: 100,
         detectionDetails: { car: carCount, motorcycle: motorcycleCount },
         timestamp: new Date().toISOString(),
         district: 'Unknown',
@@ -339,6 +344,7 @@ class TrafficApiService {
           cameraId: id,
           cameraName: id,
           totalCount: 0,
+          maxCount: 100,
           detectionDetails: {},
           timestamp: new Date().toISOString(),
           district: 'Unknown',
@@ -509,6 +515,14 @@ class TrafficApiService {
   async getAllCameras(params?: CameraListParams): Promise<CameraList[]> {
     const url = this.buildUrl(`${this.baseUrl}${API_CONFIG.ENDPOINTS.TRAFFIC.CAMERAS}`, params as any);
     return this.fetchWithErrorHandling<CameraList[]>(url);
+  }
+
+  async getMinuteSummary(params?: HourlySummaryParams): Promise<HourlySummary> {
+    if (params?.cameraId && params?.district) {
+      delete params.district;
+    }
+    const url = this.buildUrl(API_CONFIG.ENDPOINTS.TRAFFIC.MINUTE_SUMMARY, params as any);
+    return this.fetchWithErrorHandling<HourlySummary>(url);
   }
 
   /**

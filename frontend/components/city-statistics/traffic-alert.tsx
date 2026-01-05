@@ -132,80 +132,92 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                 setAlerts(initialAlerts);
                 setLastUpdated(new Date().toLocaleString('vi-VN'));
 
-                const unsubscribe = trafficApi.subscribe((data) => {
-                    const max = Number(data.maxCount) || 100;
-                    const total = Number(data.totalCount);
-                    if ((total / max) * 100 < SEVERITY_PERCENTAGES.LOW) return;
+                const unsubscribe = trafficApi.subscribe((dataList) => {
+                    const newAlerts: TrafficAlert[] = [];
+                    dataList.forEach(data => {
+                        const max = Number(data.maxCount) || 100;
+                        const total = Number(data.totalCount);
+                        if ((total / max) * 100 < SEVERITY_PERCENTAGES.LOW) return;
 
-                    const alertDate = new Date(data.timestamp);
-                    const today = new Date();
+                        const alertDate = new Date(data.timestamp);
+                        const today = new Date();
 
-                    if (selectedDate) {
-                        const selected = new Date(selectedDate);
-                        if (!isSameDay(alertDate, selected)) return;
-                    } else if (!isSameDay(alertDate, today)) {
-                        return;
-                    }
+                        if (selectedDate) {
+                            const selected = new Date(selectedDate);
+                            if (!isSameDay(alertDate, selected)) return;
+                        } else if (!isSameDay(alertDate, today)) {
+                            return;
+                        }
 
-                    if (areaDistrict && areaDistrict !== "Tất cả" && data.district !== areaDistrict) return;
+                        if (areaDistrict && areaDistrict !== "Tất cả" && data.district !== areaDistrict) return;
 
-                    const newAlert: TrafficAlert = {
-                        id: `${data.cameraId}-${Date.now()}`,
-                        title: `${data.cameraName} - ${data.district}`,
-                        description: `${getSeverityLabel(total, max)}, được phát hiện tại camera ${data.cameraId}`,
-                        cameraId: data.cameraId,
-                        cameraName: data.cameraName,
-                        district: data.district,
-                        date: new Date(data.timestamp).toISOString().split('T')[0],
-                        time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
-                        severity: getSeverity(total, max),
-                        totalCount: total,
-                        maxCount: max,
-                        imageUrl: data.annotatedImageUrl
-                    };
-
-                    setAlerts(prev => {
-                        const updated = [newAlert, ...prev];
-                        return updated.slice(0, maxAlerts);
+                        const newAlert: TrafficAlert = {
+                            id: `${data.cameraId}-${Date.now()}`,
+                            title: `${data.cameraName} - ${data.district}`,
+                            description: `${getSeverityLabel(total, max)}, được phát hiện tại camera ${data.cameraId}`,
+                            cameraId: data.cameraId,
+                            cameraName: data.cameraName,
+                            district: data.district,
+                            date: new Date(data.timestamp).toISOString().split('T')[0],
+                            time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
+                            severity: getSeverity(total, max),
+                            totalCount: total,
+                            maxCount: max,
+                            imageUrl: data.annotatedImageUrl
+                        };
+                        newAlerts.push(newAlert);
                     });
-                    setLastUpdated(new Date().toLocaleString('vi-VN'));
-                    setTimeout(() => onAlertsUpdate?.(), 0);
+
+                    if (newAlerts.length > 0) {
+                        setAlerts(prev => {
+                            const updated = [...newAlerts, ...prev];
+                            return updated.slice(0, maxAlerts);
+                        });
+                        setLastUpdated(new Date().toLocaleString('vi-VN'));
+                        setTimeout(() => onAlertsUpdate?.(), 0);
+                    }
                 });
 
                 return unsubscribe;
             } catch (error) {
-                const unsubscribe = trafficApi.subscribe((data) => {
-                    const max = Number(data.maxCount) || 100;
-                    const total = Number(data.totalCount);
-                    if ((total / max) * 100 < SEVERITY_PERCENTAGES.LOW) return;
+                const unsubscribe = trafficApi.subscribe((dataList) => {
+                    const newAlerts: TrafficAlert[] = [];
+                    dataList.forEach(data => {
+                        const max = Number(data.maxCount) || 100;
+                        const total = Number(data.totalCount);
+                        if ((total / max) * 100 < SEVERITY_PERCENTAGES.LOW) return;
 
-                    const alertDate = new Date(data.timestamp);
-                    const today = new Date();
-                    if (!isSameDay(alertDate, today)) return;
+                        const alertDate = new Date(data.timestamp);
+                        const today = new Date();
+                        if (!isSameDay(alertDate, today)) return;
 
-                    if (areaDistrict && areaDistrict !== "Tất cả" && data.district !== areaDistrict) return;
+                        if (areaDistrict && areaDistrict !== "Tất cả" && data.district !== areaDistrict) return;
 
-                    const newAlert: TrafficAlert = {
-                        id: `${data.cameraId}-${Date.now()}`,
-                        title: `${data.cameraName} - ${data.district}`,
-                        description: `${getSeverityLabel(total, max)}, được phát hiện tại camera ${data.cameraId}`,
-                        cameraId: data.cameraId,
-                        cameraName: data.cameraName,
-                        district: data.district,
-                        date: new Date(data.timestamp).toISOString().split('T')[0],
-                        time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
-                        severity: getSeverity(total, max),
-                        totalCount: total,
-                        maxCount: max,
-                        imageUrl: data.annotatedImageUrl
-                    };
-
-                    setAlerts(prev => {
-                        const updated = [newAlert, ...prev];
-                        return updated.slice(0, maxAlerts);
+                        const newAlert: TrafficAlert = {
+                            id: `${data.cameraId}-${Date.now()}`,
+                            title: `${data.cameraName} - ${data.district}`,
+                            description: `${getSeverityLabel(total, max)}, được phát hiện tại camera ${data.cameraId}`,
+                            cameraId: data.cameraId,
+                            cameraName: data.cameraName,
+                            district: data.district,
+                            date: new Date(data.timestamp).toISOString().split('T')[0],
+                            time: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
+                            severity: getSeverity(total, max),
+                            totalCount: total,
+                            maxCount: max,
+                            imageUrl: data.annotatedImageUrl
+                        };
+                        newAlerts.push(newAlert);
                     });
-                    setLastUpdated(new Date().toLocaleString('vi-VN'));
-                    setTimeout(() => onAlertsUpdate?.(), 0);
+
+                    if (newAlerts.length > 0) {
+                        setAlerts(prev => {
+                            const updated = [...newAlerts, ...prev];
+                            return updated.slice(0, maxAlerts);
+                        });
+                        setLastUpdated(new Date().toLocaleString('vi-VN'));
+                        setTimeout(() => onAlertsUpdate?.(), 0);
+                    }
                 });
 
                 return unsubscribe;

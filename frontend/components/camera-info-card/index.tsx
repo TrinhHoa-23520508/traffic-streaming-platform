@@ -146,12 +146,12 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
         fetchFlowRate();
         fetchMaxCount();
         
-        // ⭐ Chỉ refresh nếu API khả dụng
+        // ⭐ Chỉ refresh nếu API khả dụng - mỗi 1 phút
         const intervalId = setInterval(() => {
             if (!useLocalFlowRate) {
                 fetchFlowRate();
             }
-        }, 30000);
+        }, 60000);
         
         return () => clearInterval(intervalId);
     }, [camera]);

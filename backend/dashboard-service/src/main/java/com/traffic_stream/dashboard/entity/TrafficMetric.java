@@ -15,7 +15,11 @@ import java.util.Map;
 
 @Entity
 @Data
-@Table(name = "traffic_metrics")
+@Table(name = "traffic_metrics", indexes = {
+        @Index(name = "idx_traffic_timestamp", columnList = "timestamp"),
+        @Index(name = "idx_traffic_district_time", columnList = "district, timestamp"),
+        @Index(name = "idx_traffic_camera_time", columnList = "camera_id, timestamp")
+})
 public class TrafficMetric {
 
     @Id

@@ -23,15 +23,13 @@ public class TrafficMetricsConsumer {
             groupId = "${spring.kafka.consumer.group-id}",
             containerFactory = "kafkaListenerContainerFactory"
     )
-    public void consumeTrafficMetricsBatch(List<TrafficMetricsDTO> metricsList, Acknowledgment ack) {
+    public void consumeTrafficMetricsBatch(List<TrafficMetricsDTO> metricsList) {
         try {
             if (metricsList != null && !metricsList.isEmpty()) {
                 log.info("Received batch of {} metrics", metricsList.size());
 
                 trafficService.processMetricsBatch(metricsList);
             }
-
-            ack.acknowledge();
         } catch (Exception e) {
             log.error("Error processing batch metrics", e);
         }

@@ -68,9 +68,16 @@ public class TrafficService {
 
         bulkInsertMetrics(dtoList);
 
-        log.debug("Processed batch of {} items in {}ms", dtoList.size(), (System.currentTimeMillis() - startTime));
+        long dataTime = dtoList.get(0).getTimestamp();
+        long now = System.currentTimeMillis();
+        long latency = now - dataTime;
+        log.info("Batch Size: {}. DB Insert: {}ms. Data Latency: {}ms (RowTime: {} -> Now: {})", 
+                dtoList.size(), (now - startTime), latency, Instant.ofEpochMilli(dataTime), Instant.ofEpochMilli(now));
     }
 
+    /**
+     * Hàm Insert Bulk sử dụng Raw SQL để đạt hiệu năng tối đa
+     */
     /**
      * Hàm Insert Bulk sử dụng Raw SQL để đạt hiệu năng tối đa
      */
@@ -79,31 +86,36 @@ public class TrafficService {
                 "(camera_id, camera_name, district, annotated_image_url, coordinates, detection_details, total_count, timestamp) " +
                 "VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?)";
 
-        jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
-            @Override
-            public void setValues(PreparedStatement ps, int i) throws SQLException {
-                TrafficMetricsDTO dto = list.get(i);
-                try {
-                    ps.setString(1, dto.getCameraId());
-                    ps.setString(2, dto.getCameraName());
-                    ps.setString(3, dto.getDistrict());
-                    ps.setString(4, dto.getAnnotatedImageUrl());
+        try {
+            int[] result = jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps, int i) throws SQLException {
+                    TrafficMetricsDTO dto = list.get(i);
+                    try {
+                        ps.setString(1, dto.getCameraId());
+                        ps.setString(2, dto.getCameraName());
+                        ps.setString(3, dto.getDistrict());
+                        ps.setString(4, dto.getAnnotatedImageUrl());
 
-                    ps.setString(5, objectMapper.writeValueAsString(dto.getCoordinates()));
-                    ps.setString(6, objectMapper.writeValueAsString(dto.getDetectionDetails()));
+                        ps.setString(5, objectMapper.writeValueAsString(dto.getCoordinates()));
+                        ps.setString(6, objectMapper.writeValueAsString(dto.getDetectionDetails()));
 
-                    ps.setInt(7, dto.getTotalCount());
-                    ps.setTimestamp(8, Timestamp.from(Instant.ofEpochMilli(dto.getTimestamp())));
-                } catch (Exception e) {
-                    log.error("Lỗi map dữ liệu JDBC: ", e);
+                        ps.setInt(7, dto.getTotalCount());
+                        ps.setTimestamp(8, Timestamp.from(Instant.ofEpochMilli(dto.getTimestamp())));
+                    } catch (Exception e) {
+                        log.error("Lỗi map dữ liệu JDBC tại index {}: ", i, e);
+                    }
                 }
-            }
 
-            @Override
-            public int getBatchSize() {
-                return list.size();
-            }
-        });
+                @Override
+                public int getBatchSize() {
+                    return list.size();
+                }
+            });
+            log.info("Successfully inserted {} rows into database.", result.length);
+        } catch (Exception e) {
+            log.error("Lỗi Critical khi insert batch vào DB: ", e);
+        }
     }
 
     /**

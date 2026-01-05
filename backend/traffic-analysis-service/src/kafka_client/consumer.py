@@ -173,6 +173,9 @@ class TrafficAnalysisService:
         try:
             yolo_result, camera_data, image = item
             
+            # Generate Consistency Timestamp (Real-time)
+            current_timestamp_ms = int(time.time() * 1000)
+            
             # 1. Đếm đối tượng
             count_result = self.yolo_model.count_objects([yolo_result]) # Hàm này cần chỉnh nhẹ để nhận list hoặc 1 item
             
@@ -190,20 +193,19 @@ class TrafficAnalysisService:
             annotated_image_url = self.minio_client.upload_image(
                  image_bytes,
                  camera_data.get('id'),
-                 camera_data.get('timestamp')
+                 current_timestamp_ms  # Sử dụng timestamp mới
             )
 
             # 4. Gửi Kafka Output
-            self.publish_results(camera_data, count_result, annotated_image_url)
+            self.publish_results(camera_data, count_result, annotated_image_url, current_timestamp_ms)
 
         except Exception as e:
             logger.error(f"Post-processing error: {e}")
 
-    def publish_results(self, camera_data, count_result, annotated_image_url):
+    def publish_results(self, camera_data, count_result, annotated_image_url, timestamp_ms):
         # ... (Copy logic từ publish_results cũ vào đây)
         try:
-            timestamp = camera_data.get('timestamp')
-            vietnam_time = timestamp_to_vietnam_time(timestamp) if timestamp else None
+            vietnam_time = timestamp_to_vietnam_time(timestamp_ms)
             
             result = {
                 'camera_id': camera_data.get('id'),
@@ -213,7 +215,7 @@ class TrafficAnalysisService:
                 'coordinates': camera_data.get('loc', {}).get('coordinates', []),
                 'total_count': count_result['total'],
                 'detection_details': count_result['details'],
-                'timestamp': timestamp,
+                'timestamp': timestamp_ms,
                 'timestamp_vn': vietnam_time,
                 'annotated_image_url': annotated_image_url
             }

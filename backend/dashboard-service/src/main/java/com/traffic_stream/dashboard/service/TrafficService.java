@@ -1,41 +1,109 @@
 package com.traffic_stream.dashboard.service;
 
-import com.traffic_stream.dashboard.dto.TopTrafficDTO;
-import com.traffic_stream.dashboard.dto.CameraDTO;
-import com.traffic_stream.dashboard.dto.DistrictDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.traffic_stream.dashboard.dto.*;
 import com.traffic_stream.dashboard.entity.TrafficMetric;
 import com.traffic_stream.dashboard.repository.TrafficMetricRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import com.traffic_stream.dashboard.dto.HourlyDistrictSummaryDTO;
-import java.time.ZonedDateTime;
-import java.time.Duration;
-import java.util.*;
+import org.springframework.transaction.annotation.Transactional;
 
-import com.traffic_stream.dashboard.dto.DistrictDailySummaryDTO;
-import com.traffic_stream.dashboard.dto.DistrictGrowthDTO;
-import com.traffic_stream.dashboard.dto.VehicleTypeRatioDTO;
-
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
-import java.time.format.DateTimeFormatter;
-import java.util.LinkedHashMap;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 @Service
 public class TrafficService {
 
-    private final TrafficMetricRepository repository;
+    private static final Logger log = LoggerFactory.getLogger(TrafficService.class);
 
+    private final TrafficMetricRepository repository;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final JdbcTemplate jdbcTemplate; // Dùng JDBC để insert cực nhanh
+    private final ObjectMapper objectMapper; // Để convert JSONB
+
+    private final ExecutorService webSocketExecutor = Executors.newFixedThreadPool(10);
     private final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private final String VIETNAM_TZ_NAME = "Asia/Ho_Chi_Minh";
 
-    public TrafficService(TrafficMetricRepository repository) {
+    public TrafficService(TrafficMetricRepository repository,
+                          SimpMessagingTemplate messagingTemplate,
+                          JdbcTemplate jdbcTemplate,
+                          ObjectMapper objectMapper) {
         this.repository = repository;
+        this.messagingTemplate = messagingTemplate;
+        this.jdbcTemplate = jdbcTemplate;
+        this.objectMapper = objectMapper;
+    }
+
+    /**
+     * LOGIC Gửi WebSocket TRƯỚC -> Lưu DB SAU
+     */
+    @Transactional
+    public void processMetricsBatch(List<TrafficMetricsDTO> dtoList) {
+        if (dtoList == null || dtoList.isEmpty()) return;
+
+        long startTime = System.currentTimeMillis();
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                messagingTemplate.convertAndSend("/topic/traffic-batch", dtoList);
+            } catch (Exception e) {
+                log.warn("Lỗi gửi WebSocket batch: {}", e.getMessage());
+            }
+        }, webSocketExecutor);
+
+        bulkInsertMetrics(dtoList);
+
+        log.debug("Processed batch of {} items in {}ms", dtoList.size(), (System.currentTimeMillis() - startTime));
+    }
+
+    /**
+     * Hàm Insert Bulk sử dụng Raw SQL để đạt hiệu năng tối đa
+     */
+    private void bulkInsertMetrics(List<TrafficMetricsDTO> list) {
+        String sql = "INSERT INTO traffic_metrics " +
+                "(camera_id, camera_name, district, annotated_image_url, coordinates, detection_details, total_count, timestamp) " +
+                "VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?)";
+
+        jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+            @Override
+            public void setValues(PreparedStatement ps, int i) throws SQLException {
+                TrafficMetricsDTO dto = list.get(i);
+                try {
+                    ps.setString(1, dto.getCameraId());
+                    ps.setString(2, dto.getCameraName());
+                    ps.setString(3, dto.getDistrict());
+                    ps.setString(4, dto.getAnnotatedImageUrl());
+
+                    ps.setString(5, objectMapper.writeValueAsString(dto.getCoordinates()));
+                    ps.setString(6, objectMapper.writeValueAsString(dto.getDetectionDetails()));
+
+                    ps.setInt(7, dto.getTotalCount());
+                    ps.setTimestamp(8, Timestamp.from(Instant.ofEpochMilli(dto.getTimestamp())));
+                } catch (Exception e) {
+                    log.error("Lỗi map dữ liệu JDBC: ", e);
+                }
+            }
+
+            @Override
+            public int getBatchSize() {
+                return list.size();
+            }
+        });
     }
 
     /**

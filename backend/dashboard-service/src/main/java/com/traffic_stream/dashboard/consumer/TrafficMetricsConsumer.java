@@ -1,54 +1,39 @@
 package com.traffic_stream.dashboard.consumer;
 
-import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.traffic_stream.dashboard.repository.TrafficMetricRepository;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.kafka.annotation.KafkaListener;
-import com.traffic_stream.dashboard.entity.TrafficMetric;
 import com.traffic_stream.dashboard.dto.TrafficMetricsDTO;
+import com.traffic_stream.dashboard.service.TrafficService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.stereotype.Service;
 
-import java.time.Instant;
+import java.util.List;
 
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class TrafficMetricsConsumer {
 
-    private final ObjectMapper mapper;
-    private final TrafficMetricRepository repo;
-    private final SimpMessagingTemplate ws;
+    private final TrafficService trafficService;
 
-    public TrafficMetricsConsumer(TrafficMetricRepository repo, SimpMessagingTemplate ws, ObjectMapper mapper) {
-        this.repo = repo;
-        this.ws = ws;
-        this.mapper = mapper;
-    }
-
-    @KafkaListener(topics = "traffic_metrics_topic", groupId = "dashboard-group")
-    public void consume(String message) {
+    @KafkaListener(
+            topics = "${spring.kafka.topic.name}",
+            groupId = "${spring.kafka.consumer.group-id}",
+            containerFactory = "kafkaListenerContainerFactory"
+    )
+    public void consumeTrafficMetricsBatch(List<TrafficMetricsDTO> metricsList, Acknowledgment ack) {
         try {
-            TrafficMetricsDTO dto = mapper.readValue(message, TrafficMetricsDTO.class);
+            if (metricsList != null && !metricsList.isEmpty()) {
+                log.info("Received batch of {} metrics", metricsList.size());
 
-            TrafficMetric entity = new TrafficMetric();
-            entity.setCameraId(dto.getCameraId());
-            entity.setCameraName(dto.getCameraName());
-            entity.setDistrict(dto.getDistrict());
-            entity.setCoordinates(dto.getCoordinates());
-            entity.setAnnotatedImageUrl(dto.getAnnotatedImageUrl());
-            entity.setDetectionDetails(dto.getDetectionDetails());
-            entity.setTotalCount(dto.getTotalCount());
-            entity.setTimestamp(Instant.ofEpochMilli(dto.getTimestamp()));
+                trafficService.processMetricsBatch(metricsList);
+            }
 
-            repo.save(entity);
-
-            Integer dbMax = repo.findMaxCountByCameraId(dto.getCameraId());
-            if (dbMax == null) dbMax = 0;
-            int finalMax = Math.max(dbMax, dto.getTotalCount());
-            dto.setMaxCount(finalMax);
-            dto.setTimestamp(System.currentTimeMillis());
-            ws.convertAndSend("/topic/traffic", dto);
-
-        } catch (Exception ex) {
-            ex.printStackTrace();
+            ack.acknowledge();
+        } catch (Exception e) {
+            log.error("Error processing batch metrics", e);
         }
     }
 }

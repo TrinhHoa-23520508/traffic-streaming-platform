@@ -52,12 +52,10 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     const [loading, setLoading] = useState(true);
     const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
     
-    // ⭐ Flow Rate - từ API hoặc tính local
+    // ⭐ Flow Rate - từ API
     const [flowRateData, setFlowRateData] = useState<CameraFlowRate | null>(null);
     const [flowRateLoading, setFlowRateLoading] = useState(false);
     const [flowRateError, setFlowRateError] = useState<string | null>(null);
-    const [useLocalFlowRate, setUseLocalFlowRate] = useState(false);
-    const [countHistory, setCountHistory] = useState<Array<{count: number, timestamp: number}>>([]);
     
     // ⭐ Max Count - từ API (cho traffic level calculation)
     const [maxCountData, setMaxCountData] = useState<CameraMaxCount | null>(null);
@@ -105,6 +103,7 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
     }, [camera]);
 
     // ⭐ Fetch flow rate from API when camera changes
+    // ⭐ Fetch flow rate from API every 60s
     useEffect(() => {
         const fetchFlowRate = async () => {
             const cameraId = camera.id || (camera as any)._id || camera.name;
@@ -117,18 +116,25 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                 const data = await trafficApi.getCameraFlowRate(cameraId);
                 console.log('✅ Flow rate API response:', data);
                 setFlowRateData(data);
-                setUseLocalFlowRate(false);
             } catch (error: any) {
-                console.warn('⚠️ Flow rate API unavailable (404), switching to local calculation');
-                console.log('📊 Using local flow rate calculation instead');
-                setFlowRateError(null); // Không hiện lỗi, dùng local thay thế
+                console.warn('⚠️ Flow rate API unavailable:', error.message);
+                setFlowRateError('Không có dữ liệu');
                 setFlowRateData(null);
-                setUseLocalFlowRate(true);
             } finally {
                 setFlowRateLoading(false);
             }
         };
         
+        fetchFlowRate();
+        
+        // Refresh mỗi 60 giây
+        const intervalId = setInterval(fetchFlowRate, 60000);
+        
+        return () => clearInterval(intervalId);
+    }, [camera]);
+
+    // ⭐ Fetch max count from API (one time)
+    useEffect(() => {
         const fetchMaxCount = async () => {
             const cameraId = camera.id || (camera as any)._id || camera.name;
             
@@ -143,17 +149,7 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
             }
         };
         
-        fetchFlowRate();
         fetchMaxCount();
-        
-        // ⭐ Chỉ refresh nếu API khả dụng - mỗi 1 phút
-        const intervalId = setInterval(() => {
-            if (!useLocalFlowRate) {
-                fetchFlowRate();
-            }
-        }, 60000);
-        
-        return () => clearInterval(intervalId);
     }, [camera]);
 
     // --- LOGIC XỬ LÝ ẢNH MƯỢT MÀ (SMOOTH TRANSITION) ---
@@ -212,48 +208,21 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
         const cameraId = camera.id || (camera as any)._id || camera.name;
         console.log('📡 Subscribing to real-time updates for camera:', cameraId);
         
-        const unsubscribe = trafficApi.subscribe((data) => {
-            // ⭐ Filter: chỉ update nếu data thuộc camera này
-            if (data.cameraId === cameraId) {
+        const unsubscribe = trafficApi.subscribe((dataList) => {
+            // ⭐ Filter: Tìm data thuộc camera này trong danh sách trả về (vì WebSocket gửi về batch list)
+            const cameraData = Array.isArray(dataList) 
+                ? dataList.find(d => d.cameraId === cameraId)
+                : null;
+
+            if (cameraData) {
                 console.log('📨 Camera data updated:', {
-                    cameraId: data.cameraId,
-                    totalCount: data.totalCount,
-                    timestamp: data.timestamp
+                    cameraId: cameraData.cameraId,
+                    totalCount: cameraData.totalCount,
+                    timestamp: cameraData.timestamp
                 });
                 
-                setTrafficData(data);
+                setTrafficData(cameraData);
                 setLastUpdateTime(new Date());
-                
-                // ⭐ Update history cho local flow rate calculation (keep 2 minutes)
-                if (useLocalFlowRate) {
-                    setCountHistory(prev => {
-                        const now = Date.now();
-                        const twoMinutesAgo = now - 2 * 60 * 1000;
-                        
-                        // Filter data trong 2 phút gần nhất + add new data
-                        const filtered = prev.filter(item => item.timestamp > twoMinutesAgo);
-                        const newHistory = [...filtered, { count: data.totalCount, timestamp: now }];
-                        
-                        // Log flow rate calculation
-                        if (newHistory.length >= 2) {
-                            const latest = newHistory[newHistory.length - 1];
-                            const oldest = newHistory[0];
-                            const countDiff = latest.count - oldest.count;
-                            const timeDiff = (latest.timestamp - oldest.timestamp) / 1000 / 60;
-                            const calculatedRate = timeDiff > 0 ? Math.max(0, Math.round(countDiff / timeDiff)) : 0;
-                            console.log('📊 Local flow rate calculation:', {
-                                historyLength: newHistory.length,
-                                oldestCount: oldest.count,
-                                latestCount: latest.count,
-                                countDiff,
-                                timeDiffMinutes: timeDiff.toFixed(2),
-                                flowRate: calculatedRate
-                            });
-                        }
-                        
-                        return newHistory;
-                    });
-                }
             }
         });
         
@@ -262,53 +231,10 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
             console.log('🚪 Unsubscribing from camera:', cameraId);
             unsubscribe();
         };
-    }, [camera, useLocalFlowRate]);
+    }, [camera]);
 
-    // ⭐ Calculate local flow rate từ history (xe/phút) - FALLBACK khi API không có
-    const calculateLocalFlowRate = (): number => {
-        if (countHistory.length < 2) return 0;
-        
-        const latest = countHistory[countHistory.length - 1];
-        const oldest = countHistory[0];
-        
-        // Tính trung bình mật độ xe trong history để làm mượt dữ liệu
-        const avgDensity = countHistory.reduce((sum, item) => sum + item.count, 0) / countHistory.length;
-        
-        // Heuristic: Ước tính lưu lượng = Mật độ * Hệ số luân chuyển
-        // Giả sử xe lưu thông qua khung hình với tốc độ trung bình, thay thế toàn bộ xe trong khoảng 30-40s
-        // => Hệ số nhân khoảng 1.5 - 2.0
-        const TURNOVER_RATE = 1.8;
-        
-        return Math.round(avgDensity * TURNOVER_RATE);
-    };
-
-    // ⭐ Get flow rate - từ API hoặc tính local
-    const flowRate = useLocalFlowRate 
-        ? calculateLocalFlowRate() 
-        : (flowRateData?.flowRatePerMinute ?? 0);
-    
-    // Log current flow rate value
-    console.log('📊 Current flow rate:', {
-        useLocalFlowRate,
-        flowRateFromAPI: flowRateData?.flowRatePerMinute,
-        localFlowRate: calculateLocalFlowRate(),
-        displayedFlowRate: flowRate,
-        historyLength: countHistory.length
-    });
-    
-    // ⭐ Format flow rate period for display
-    const getFlowRatePeriod = (): string => {
-        if (useLocalFlowRate) {
-            if (countHistory.length < 2) return 'đang thu thập...';
-            const timeDiff = (countHistory[countHistory.length - 1].timestamp - countHistory[0].timestamp) / 1000;
-            if (timeDiff < 60) return `${Math.round(timeDiff)} giây`;
-            return `${Math.round(timeDiff / 60)} phút`;
-        }
-        if (!flowRateData) return '';
-        const duration = flowRateData.durationMinutes;
-        if (duration < 60) return `${duration} phút`;
-        return `${Math.round(duration / 60)} giờ`;
-    };
+    // ⭐ Get flow rate từ API
+    const flowRate = flowRateData?.flowRatePerMinute ?? 0;
 
     // ⭐ Calculate Traffic Level: So sánh số xe hiện tại với peak (maxVehicleCount)
     const currentCount = trafficData?.totalCount || 0;
@@ -480,17 +406,10 @@ export default function CameraInfoCard({ camera, onClose, onImageClick, imageRef
                                     <span className="text-[10px] sm:text-xs text-red-500">{flowRateError}</span>
                                 </div>
                             ) : (
-                                <>
-                                    <div className="flex items-end gap-1 mt-0.5 sm:mt-1 relative z-10">
-                                        <span className="text-xl sm:text-2xl font-black text-gray-800">{Math.round(flowRate)}</span>
-                                        <span className="text-[10px] sm:text-xs font-medium text-gray-500 mb-0.5 sm:mb-1">xe/phút</span>
-                                    </div>
-                                    {flowRateData && (
-                                        <div className="text-[8px] sm:text-[9px] text-purple-500 mt-0.5 sm:mt-1 relative z-10">
-                                            Trong {getFlowRatePeriod()}
-                                        </div>
-                                    )}
-                                </>
+                                <div className="flex items-end gap-1 mt-0.5 sm:mt-1 relative z-10">
+                                    <span className="text-xl sm:text-2xl font-black text-gray-800">{Math.round(flowRate)}</span>
+                                    <span className="text-[10px] sm:text-xs font-medium text-gray-500 mb-0.5 sm:mb-1">xe/phút</span>
+                                </div>
                             )}
                             <div className="w-full bg-purple-100 h-1 sm:h-1.5 rounded-full mt-1.5 sm:mt-2 overflow-hidden">
                                 <div className="bg-purple-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(flowRate * 1.5, 100)}%` }}></div>

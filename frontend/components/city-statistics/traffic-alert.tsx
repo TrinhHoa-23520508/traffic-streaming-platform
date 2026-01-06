@@ -153,7 +153,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
 
                         const newAlert: TrafficAlert = {
                             id: `${data.cameraId}-${Date.now()}`,
-                            title: `${data.cameraName} - ${data.district}`,
+                            title: `${data.cameraName}`,
                             description: `${getSeverityLabel(total, max)}, được phát hiện tại camera ${data.cameraId}`,
                             cameraId: data.cameraId,
                             cameraName: data.cameraName,
@@ -165,20 +165,24 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                             maxCount: max,
                             imageUrl: data.annotatedImageUrl
                         };
-                        newAlerts.push(newAlert);
-                    });
 
-                    if (newAlerts.length > 0) {
                         setAlerts(prev => {
-                            const updated = [...newAlerts, ...prev];
+                            const updated = [newAlert, ...prev];
                             return updated.slice(0, maxAlerts);
                         });
-                        setLastUpdated(new Date().toLocaleString('vi-VN'));
-                        setTimeout(() => onAlertsUpdate?.(), 0);
-                    }
-                });
 
-                return unsubscribe;
+                        if (newAlerts.length > 0) {
+                            setAlerts(prev => {
+                                const updated = [...newAlerts, ...prev];
+                                return updated.slice(0, maxAlerts);
+                            });
+                            setLastUpdated(new Date().toLocaleString('vi-VN'));
+                            setTimeout(() => onAlertsUpdate?.(), 0);
+                        }
+                    });
+
+                    return unsubscribe;
+                });
             } catch (error) {
                 const unsubscribe = trafficApi.subscribe((dataList) => {
                     const newAlerts: TrafficAlert[] = [];
@@ -195,7 +199,7 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
 
                         const newAlert: TrafficAlert = {
                             id: `${data.cameraId}-${Date.now()}`,
-                            title: `${data.cameraName} - ${data.district}`,
+                            title: `${data.cameraName}`,
                             description: `${getSeverityLabel(total, max)}, được phát hiện tại camera ${data.cameraId}`,
                             cameraId: data.cameraId,
                             cameraName: data.cameraName,
@@ -207,19 +211,25 @@ export default function TrafficAlertsPanel({ onAlertsUpdate, refreshTrigger, dis
                             maxCount: max,
                             imageUrl: data.annotatedImageUrl
                         };
-                        newAlerts.push(newAlert);
-                    });
 
-                    if (newAlerts.length > 0) {
                         setAlerts(prev => {
-                            const updated = [...newAlerts, ...prev];
+                            const updated = [newAlert, ...prev];
                             return updated.slice(0, maxAlerts);
                         });
-                        setLastUpdated(new Date().toLocaleString('vi-VN'));
-                        setTimeout(() => onAlertsUpdate?.(), 0);
-                    }
-                });
 
+                        if (newAlerts.length > 0) {
+                            setAlerts(prev => {
+                                const updated = [...newAlerts, ...prev];
+                                return updated.slice(0, maxAlerts);
+                            });
+                            setLastUpdated(new Date().toLocaleString('vi-VN'));
+                            setTimeout(() => onAlertsUpdate?.(), 0);
+                        }
+                    });
+
+                    return unsubscribe;
+                }
+                );
                 return unsubscribe;
             }
         };

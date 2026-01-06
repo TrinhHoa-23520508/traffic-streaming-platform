@@ -29,6 +29,8 @@ interface ChartDataPoint {
 
 const generateRandomHourlyData = (districts: string[]): ChartDataPoint[] => {
     const now = new Date();
+    now.setMinutes(now.getMinutes() - 2);
+
     const from = subHours(now, 1);
     from.setSeconds(0, 0);
     const to = new Date(now);
@@ -91,6 +93,7 @@ export default function DistrictComparison({ districts, onSelectionChange, refre
             try {
                 setLoading(true);
                 const now = new Date();
+                now.setMinutes(now.getMinutes() - 2);
                 const startDate = subHours(now, 1);
                 startDate.setSeconds(0, 0);
                 const endDate = new Date(now);
@@ -305,7 +308,7 @@ export default function DistrictComparison({ districts, onSelectionChange, refre
                     </div>
                 </div>
 
-                <div className="flex-1 w-full min-h-[100px] overflow-auto" ref={chartRef}>
+                <div className="w-full h-[250px]" ref={chartRef}>
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <defs>

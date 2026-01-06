@@ -163,7 +163,7 @@ export default function CityStatisticsPage() {
                                     districts={districts}
                                 />
                             </div>
-                            <div className="w-full lg:w-1/3 h-[180px] sm:h-[200px] lg:h-full min-h-0">
+                            <div className="w-full lg:w-1/3 h-[180px] sm:h-[200px] lg:h-[320px] min-h-0">
                                 <TrendingDistricts data={cityStatsData?.fastestGrowing} />
                             </div>
                         </div>
@@ -185,19 +185,19 @@ export default function CityStatisticsPage() {
 
                         {/* Row 3: Vehicle Stats + Top Districts/Cameras */}
                         <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
-                            <div className="w-full xl:w-2/3 h-[350px] sm:h-[400px] md:h-[450px] lg:h-[500px] min-h-0">
+                            <div className="w-full xl:w-2/3 min-h-[500px] h-auto">
                                 <VehicleStatisticsStackChart
                                     refreshTrigger={refreshKey}
                                     onLoadComplete={handleApiComplete}
                                     districts={districts}
                                 />
                             </div>
-                            <div className="w-full xl:w-1/3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2 sm:gap-4 min-h-0">
-                                <div className="h-[180px] sm:h-[200px] md:h-[220px] lg:h-[240px] min-h-0 overflow-hidden">
-                                    <TopDistricts data={cityStatsData?.busiestDistricts} className="h-full" />
+                            <div className="w-full xl:w-1/3 grid grid-cols-1 sm:grid-cols-2 xl:flex xl:flex-col gap-2 sm:gap-4 h-fit">
+                                <div className="min-h-0 h-full xl:h-auto">
+                                    <TopDistricts data={cityStatsData?.busiestDistricts} className="h-full xl:h-fit" />
                                 </div>
-                                <div className="h-[180px] sm:h-[200px] md:h-[220px] lg:h-[240px] min-h-0 overflow-hidden">
-                                    <TopCameras data={cityStatsData?.busiestCameras} className="h-full" />
+                                <div className="min-h-0 h-full xl:h-auto">
+                                    <TopCameras data={cityStatsData?.busiestCameras} className="h-full xl:h-fit" />
                                 </div>
                             </div>
                         </div>
@@ -206,23 +206,5 @@ export default function CityStatisticsPage() {
                 </div>
             </div>
         </div>
-    )
-}
-
-function RefreshButton({ onClick, isLoading }: { onClick: () => void; isLoading: boolean }) {
-    return (
-        <Button
-            variant="outline"
-            size="sm"
-            className={`cursor-pointer gap-2 transition-all duration-200 font-medium border shadow-sm
-                ${isLoading
-                    ? "bg-slate-50 border-slate-200 text-slate-400"
-                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"}`}
-            onClick={onClick}
-            disabled={isLoading}
-        >
-            <FiRefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            {isLoading ? 'Đang tải...' : 'Làm mới dữ liệu'}
-        </Button>
     )
 }

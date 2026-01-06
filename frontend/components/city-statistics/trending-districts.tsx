@@ -43,8 +43,8 @@ export default function TrendingDistricts({ data }: TrendingDistrictsProps) {
             showDate={false}
         >
             <div className="flex flex-col h-full">
-                <div className="flex-1 w-full min-h-[100px]" ref={chartRef}>
-                    <ResponsiveContainer width="100%" height="100%">
+                <div className="flex-1 w-full min-h-[100px] min-w-0" ref={chartRef}>
+                    <ResponsiveContainer width="99%" height="100%">
                         <BarChart
                             data={chartData}
                             margin={{ top: 25, right: 10, left: 10, bottom: 40 }}
@@ -63,7 +63,7 @@ export default function TrendingDistricts({ data }: TrendingDistrictsProps) {
                             />
                             <YAxis type="number" hide />
 
-                            <Bar dataKey="barValue" radius={[4, 4, 0, 0]} barSize={30}>
+                            <Bar dataKey="barValue" radius={[4, 4, 0, 0]} maxBarSize={50}>
                                 <LabelList
                                     dataKey="trend"
                                     position="top"

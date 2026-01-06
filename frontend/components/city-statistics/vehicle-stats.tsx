@@ -57,6 +57,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
 
     const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
         const now = new Date();
+        now.setMinutes(now.getMinutes() - 2);
         return {
             from: startOfDay(now),
             to: now,
@@ -72,6 +73,7 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
             try {
                 if (showLoading) setLoading(true);
                 const now = new Date();
+                now.setMinutes(now.getMinutes() - 2);
                 const start = dateRange?.from || startOfDay(now);
                 const end = dateRange?.to || now;
 
@@ -113,13 +115,14 @@ export default function VehicleStatisticsStackChart({ data, refreshTrigger, onLo
                 if (!prev?.to) return prev;
 
                 const now = new Date();
-                if (now.getTime() - prev.to.getTime() < 120000) {
+                now.setMinutes(now.getMinutes() - 2);
+                if (now.getTime() - prev.to.getTime() <= 240000) {
                     isAutoUpdating.current = true;
                     return { ...prev, to: now };
                 }
                 return prev;
             });
-        }, 60_000);
+        }, 120_000);
 
         return () => clearInterval(intervalId);
     }, []);

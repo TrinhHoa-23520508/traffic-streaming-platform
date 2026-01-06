@@ -188,7 +188,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
             const now = new Date();
             const nowMinus2 = addMinutes(now, -2);
             const timeDiff = Math.abs(differenceInMinutes(nowMinus2, dateRange.to));
-            if (timeDiff > 1) {
+            if (timeDiff > 30) {
                 return;
             }
         }

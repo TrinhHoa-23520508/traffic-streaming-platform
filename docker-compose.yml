@@ -147,6 +147,25 @@ services:
         condition: service_healthy
     networks:
       - default
+  traffic-routing-service:
+    build: ./backend/traffic-routing-service
+    ports:
+      - "8002:8000"
+    environment:
+      KAFKA_BROKER: broker:29092
+      # ROUTING_PLACE: "Ho Chi Minh City, Vietnam"
+    volumes:
+      - ./traffic-routing-service/data:/app/data
+    depends_on:
+      broker:
+        condition: service_healthy
+    cpus: '1'
+    mem_limit: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin

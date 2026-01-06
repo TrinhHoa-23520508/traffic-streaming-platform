@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+osmnx
+networkx
+kafka-python
+scipy
+geopy
+pydantic
+requests
+Rtree
+scikit-learn

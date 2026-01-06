@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Marker, Polyline, useMap, useMapEvents } from "react-leaflet";
 import L, { LatLngTuple } from "leaflet";
-import { FiX, FiMapPin } from "react-icons/fi";
+import { FiX, FiMapPin, FiRefreshCw } from "react-icons/fi";
 import { API_CONFIG } from "@/lib/api/config";
 import { trafficApi } from "@/lib/api/trafficApi";
 import type { TrafficMetricsDTO } from "@/types/traffic";
@@ -15,6 +15,18 @@ interface RouteResult {
     coordinates: number[][]; // [lng, lat] format
     distance: number; // meters
     segmentDistances: number[]; // per-segment distances from OSRM annotations
+}
+
+interface TrafficServiceRouteResponse {
+    code: string;
+    routes: {
+        geometry: {
+            coordinates: number[][]; // [lng, lat]
+            type: "LineString";
+        };
+        distance: number;
+        duration: number;
+    }[];
 }
 
 interface TrafficRouteSegment {
@@ -81,14 +93,14 @@ class TrafficDataService {
         if (this.maxCountCache.has(cameraId)) {
             return this.maxCountCache.get(cameraId)!;
         }
-        
+
         if (this.fetchingMaxCounts.has(cameraId)) {
             // Already fetching, wait a bit and return default
             return 50;
         }
-        
+
         this.fetchingMaxCounts.add(cameraId);
-        
+
         try {
             const result = await trafficApi.getCameraMaxCount(cameraId);
             if (result) {
@@ -100,7 +112,7 @@ class TrafficDataService {
         } finally {
             this.fetchingMaxCounts.delete(cameraId);
         }
-        
+
         return 50; // Default max count
     }
 
@@ -108,21 +120,21 @@ class TrafficDataService {
     async prefetchMaxCountsForRoute(routeCoords: number[][]) {
         // Sample every 10th point to find nearby cameras
         const relevantCameraIds = new Set<string>();
-        
+
         for (let i = 0; i < routeCoords.length; i += 10) {
             const [lng, lat] = routeCoords[i];
-            
+
             this.cameras.forEach(cam => {
                 const cameraId = cam.id || cam._id || cam.name;
                 if (this.maxCountCache.has(cameraId)) return; // Skip if already cached
-                
+
                 const dist = haversineDistance(lat, lng, cam.loc.coordinates[1], cam.loc.coordinates[0]);
                 if (dist < CAMERA_INFLUENCE_RADIUS) {
                     relevantCameraIds.add(cameraId);
                 }
             });
         }
-        
+
         // Fetch max counts for relevant cameras (fire and forget, non-blocking)
         const ids = Array.from(relevantCameraIds).slice(0, 20); // Limit to 20 cameras max
         if (ids.length > 0) {
@@ -150,7 +162,7 @@ class TrafficDataService {
 
     getTrafficRatioForPoint(lat: number, lng: number): { ratio: number; hasCamera: boolean } {
         const cameraInfos = this.getCameraTrafficInfo();
-        
+
         const nearbyCameras = cameraInfos.filter(cam => {
             const dist = haversineDistance(lat, lng, cam.lat, cam.lng);
             return dist < CAMERA_INFLUENCE_RADIUS;
@@ -162,12 +174,12 @@ class TrafficDataService {
 
         let totalWeight = 0;
         let weightedRatio = 0;
-        
+
         nearbyCameras.forEach(cam => {
             const dist = Math.max(10, haversineDistance(lat, lng, cam.lat, cam.lng));
             const weight = 1 / dist;
             const ratio = cam.currentCount / Math.max(cam.maxCount, 1);
-            
+
             weightedRatio += ratio * weight;
             totalWeight += weight;
         });
@@ -194,19 +206,19 @@ async function fetchOSRMRoute(
 ): Promise<RouteResult | null> {
     // Request annotations=distance to get per-segment distances
     const url = `${API_CONFIG.OSRM_API_URL}/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson&annotations=distance`;
-    
+
     try {
         const response = await fetch(url);
         const data = await response.json();
-        
+
         if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
             return null;
         }
-        
+
         const route = data.routes[0];
         // OSRM returns per-segment distances in legs[].annotation.distance[]
         const segmentDistances = route.legs?.[0]?.annotation?.distance || [];
-        
+
         return {
             coordinates: route.geometry.coordinates,
             distance: route.distance,
@@ -217,6 +229,66 @@ async function fetchOSRMRoute(
         return null;
     }
 }
+
+// ==================== TRAFFIC SERVICE ROUTING ====================
+
+async function fetchTrafficServiceRoute(
+    startLat: number,
+    startLng: number,
+    endLat: number,
+    endLng: number
+): Promise<RouteResult | null> {
+    const url = `${API_CONFIG.ROUTING_SERVICE_URL}/route?start_lat=${startLat}&start_lon=${startLng}&end_lat=${endLat}&end_lon=${endLng}`;
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            if (response.status === 404 || response.status === 503) {
+                return null;
+            }
+            throw new Error(`Traffic service returned ${response.status}`);
+        }
+
+        const data: TrafficServiceRouteResponse = await response.json();
+
+        if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+            return null;
+        }
+
+        const route = data.routes[0];
+
+
+        const coordinates = [...route.geometry.coordinates];
+        let totalDistance = route.distance;
+        if (coordinates.length > 0) {
+            // Check Start Point Gap
+            const firstPoint = coordinates[0]; // [lng, lat]
+            // Threshold ~10m (0.0001 degrees is roughly 11m)
+            if (Math.abs(firstPoint[1] - startLat) > 0.0001 || Math.abs(firstPoint[0] - startLng) > 0.0001) {
+                coordinates.unshift([startLng, startLat]);
+                totalDistance += haversineDistance(startLat, startLng, firstPoint[1], firstPoint[0]);
+            }
+
+            // Check End Point Gap
+            const lastPoint = coordinates[coordinates.length - 1];
+            if (Math.abs(lastPoint[1] - endLat) > 0.0001 || Math.abs(lastPoint[0] - endLng) > 0.0001) {
+                coordinates.push([endLng, endLat]);
+                totalDistance += haversineDistance(lastPoint[1], lastPoint[0], endLat, endLng);
+            }
+        }
+
+        return {
+            coordinates: coordinates,
+            distance: totalDistance,
+            segmentDistances: []
+        };
+    } catch (error) {
+        // console.warn('⚠️ Traffic Service routing failed or unavailable:', error);
+        return null;
+    }
+}
+
+
 
 // ==================== ROUTE PROCESSING ====================
 
@@ -229,22 +301,22 @@ interface ProcessedRoute {
 function processRouteWithTraffic(coordinates: number[][], distance: number, segmentDistances: number[]): ProcessedRoute {
     const segments: TrafficRouteSegment[] = [];
     let totalDuration = 0;
-    
+
     for (let i = 0; i < coordinates.length - 1; i++) {
         const [lng1, lat1] = coordinates[i];
         const [lng2, lat2] = coordinates[i + 1];
-        
+
         // Use OSRM's accurate segment distance, fallback to haversine if not available
         const segmentDistance = segmentDistances[i] ?? haversineDistance(lat1, lng1, lat2, lng2);
         const midLat = (lat1 + lat2) / 2;
         const midLng = (lng1 + lng2) / 2;
-        
+
         const { ratio, hasCamera } = trafficDataService.getTrafficRatioForPoint(midLat, midLng);
         const speedKmh = trafficDataService.calculateSpeed(ratio);
         const speedMs = speedKmh / 3.6;
-        
+
         totalDuration += segmentDistance / speedMs;
-        
+
         let color = '#3b82f6'; // Blue - no data
         if (hasCamera) {
             if (ratio > 0.75) color = '#ef4444'; // Red
@@ -252,7 +324,7 @@ function processRouteWithTraffic(coordinates: number[][], distance: number, segm
             else if (ratio > 0.25) color = '#eab308'; // Yellow
             else color = '#22c55e'; // Green
         }
-        
+
         if (segments.length > 0 && segments[segments.length - 1].color === color) {
             segments[segments.length - 1].positions.push([lat2, lng2] as LatLngTuple);
         } else {
@@ -263,32 +335,41 @@ function processRouteWithTraffic(coordinates: number[][], distance: number, segm
             });
         }
     }
-    
+
     return { segments, totalDistance: distance, estimatedDuration: totalDuration };
 }
 
 // ==================== MAIN COMPONENT ====================
 
-export default function RoutingManager({ 
-    cameras, 
-    onCancel, 
-    onSetCameraClickHandler, 
+export default function RoutingManager({
+    cameras,
+    onCancel,
+    onSetCameraClickHandler,
     onRouteChange,
-    onRoutingStateChange 
+    onRoutingStateChange
 }: RoutingManagerProps) {
     const map = useMap();
-    
+
     const [startPoint, setStartPoint] = useState<L.LatLng | null>(null);
     const [endPoint, setEndPoint] = useState<L.LatLng | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    
+
     const [route, setRoute] = useState<{
-        segments: TrafficRouteSegment[];
-        distance: number;
-        duration: number;
+        osrm: {
+            segments: TrafficRouteSegment[];
+            distance: number;
+            duration: number;
+        } | null;
+        traffic: {
+            segments: TrafficRouteSegment[];
+            distance: number;
+            duration: number;
+        } | null;
     } | null>(null);
-    
+
+    const [selectedRouteType, setSelectedRouteType] = useState<'osrm' | 'traffic'>('osrm');
+
     const unsubscribeRef = useRef<(() => void) | null>(null);
 
     useEffect(() => {
@@ -297,7 +378,9 @@ export default function RoutingManager({
 
     useEffect(() => {
         const unsubscribe = trafficApi.subscribe((data) => {
-            trafficDataService.updateTrafficData(data);
+            if (Array.isArray(data)) {
+                data.forEach(item => trafficDataService.updateTrafficData(item));
+            }
         });
         unsubscribeRef.current = unsubscribe;
         return () => unsubscribe();
@@ -318,34 +401,59 @@ export default function RoutingManager({
         setLoading(true);
         setError(null);
         setRoute(null);
-        
+        setSelectedRouteType('osrm'); // Default to OSRM when calculating new route
+
         console.log('🚀 Calculating route from', start, 'to', end);
-        
+
         try {
-            const osrmResult = await fetchOSRMRoute(start.lat, start.lng, end.lat, end.lng);
-            
+            // Run both routing requests in parallel
+            const [osrmResult, trafficResult] = await Promise.all([
+                fetchOSRMRoute(start.lat, start.lng, end.lat, end.lng),
+                fetchTrafficServiceRoute(start.lat, start.lng, end.lat, end.lng)
+            ]);
+
             if (!osrmResult) {
                 setError('Could not find a route. Try different points.');
                 return;
             }
-            
+
             // Pre-fetch max counts for cameras near the route (non-blocking)
             trafficDataService.prefetchMaxCountsForRoute(osrmResult.coordinates);
-            
-            const processed = processRouteWithTraffic(osrmResult.coordinates, osrmResult.distance, osrmResult.segmentDistances);
-            
+            if (trafficResult) {
+                trafficDataService.prefetchMaxCountsForRoute(trafficResult.coordinates);
+            }
+
+            const processedOsrm = processRouteWithTraffic(osrmResult.coordinates, osrmResult.distance, osrmResult.segmentDistances);
+
+            let processedTraffic = null;
+            if (trafficResult) {
+                processedTraffic = processRouteWithTraffic(trafficResult.coordinates, trafficResult.distance, trafficResult.segmentDistances);
+            }
+
             setRoute({
-                segments: processed.segments,
-                distance: processed.totalDistance,
-                duration: processed.estimatedDuration
+                osrm: {
+                    segments: processedOsrm.segments,
+                    distance: processedOsrm.totalDistance,
+                    duration: processedOsrm.estimatedDuration
+                },
+                traffic: processedTraffic ? {
+                    segments: processedTraffic.segments,
+                    distance: processedTraffic.totalDistance,
+                    duration: processedTraffic.estimatedDuration
+                } : null
             });
-            
-            console.log(`📍 Route: ${(processed.totalDistance/1000).toFixed(2)}km, ~${Math.round(processed.estimatedDuration/60)} min`);
-            
+
+            if (trafficResult) {
+                console.log(`📍 Traffic Optimized Route found!`);
+            }
+
             const bounds = L.latLngBounds([start, end]);
             osrmResult.coordinates.forEach(([lng, lat]) => bounds.extend([lat, lng]));
+            if (trafficResult) {
+                trafficResult.coordinates.forEach(([lng, lat]) => bounds.extend([lat, lng]));
+            }
             map.fitBounds(bounds, { padding: [50, 50] });
-            
+
         } catch (err) {
             console.error('❌ Route calculation error:', err);
             setError('Failed to calculate route. Please try again.');
@@ -358,7 +466,7 @@ export default function RoutingManager({
         const handleCameraClick = (camera: any) => {
             const cameraLatLng = L.latLng(camera.loc.coordinates[1], camera.loc.coordinates[0]);
             console.log('📍 Camera clicked for routing:', camera.name || camera.id);
-            
+
             if (!startPoint) {
                 console.log('   → Setting as START point');
                 setStartPoint(cameraLatLng);
@@ -368,7 +476,7 @@ export default function RoutingManager({
                 calculateRoute(startPoint, cameraLatLng);
             }
         };
-        
+
         // Wrap in arrow function to prevent React from calling it as functional update
         onSetCameraClickHandler(() => handleCameraClick);
         return () => onSetCameraClickHandler(null);
@@ -389,7 +497,12 @@ export default function RoutingManager({
         if (onRouteChange) {
             if (route) {
                 const coords: number[][] = [];
-                route.segments.forEach(seg => {
+                // Use selected route for "active" coordinates
+                const activeSegments = (selectedRouteType === 'traffic' && route.traffic)
+                    ? route.traffic.segments
+                    : (route.osrm ? route.osrm.segments : []);
+
+                activeSegments.forEach(seg => {
                     seg.positions.forEach(pos => {
                         coords.push([pos[1], pos[0]]);
                     });
@@ -399,13 +512,14 @@ export default function RoutingManager({
                 onRouteChange(null);
             }
         }
-    }, [route, onRouteChange]);
+    }, [route, selectedRouteType, onRouteChange]);
 
     const reset = useCallback(() => {
         setStartPoint(null);
         setEndPoint(null);
         setRoute(null);
         setError(null);
+        setSelectedRouteType('osrm');
         if (onRouteChange) onRouteChange(null);
     }, [onRouteChange]);
 
@@ -419,11 +533,20 @@ export default function RoutingManager({
                             {!startPoint ? "🗺️ Click map or camera to set Start" : "🎯 Click map or camera to set Destination"}
                         </div>
                         {startPoint && (
-                            <button onClick={reset} className="text-gray-500 hover:text-gray-700 text-sm">
+                            <button
+                                onClick={reset}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-xs font-medium transition-all"
+                                title="Reset selection"
+                            >
+                                <FiRefreshCw size={12} />
                                 Reset
                             </button>
                         )}
-                        <button onClick={onCancel} className="text-red-500 hover:text-red-700">
+                        <button
+                            onClick={onCancel}
+                            className="p-1.5 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-full transition-colors"
+                            title="Close"
+                        >
                             <FiX size={18} />
                         </button>
                     </div>
@@ -437,20 +560,62 @@ export default function RoutingManager({
                         <button onClick={reset} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Try again</button>
                     </div>
                 ) : route && (
-                    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                    <div className="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col gap-0 min-w-[350px]">
                         <div className="px-4 py-2 bg-gray-50 border-b flex items-center justify-between">
                             <span className="text-xs font-semibold text-gray-600">ROUTE INFO</span>
-                            <div className="flex gap-2">
-                                <button onClick={reset} className="text-gray-500 hover:text-gray-700 text-xs">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={reset}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-xs font-medium transition-all"
+                                    title="Reset route"
+                                >
+                                    <FiRefreshCw size={12} />
                                     Reset
                                 </button>
-                                <button onClick={onCancel} className="text-red-500 hover:text-red-700">
+                                <button
+                                    onClick={onCancel}
+                                    className="p-1.5 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-full transition-colors"
+                                    title="Close"
+                                >
                                     <FiX size={16} />
                                 </button>
                             </div>
                         </div>
-                        <div className="p-4">
-                            <RouteCard distance={route.distance} duration={route.duration} />
+                        <div className="p-4 flex flex-col gap-3">
+                            {/* OSRM Route Option */}
+                            <div
+                                onClick={() => setSelectedRouteType('osrm')}
+                                className={`rounded-lg p-3 cursor-pointer transition-all border-2 ${selectedRouteType === 'osrm'
+                                    ? 'border-blue-500 bg-blue-50'
+                                    : 'border-transparent hover:bg-gray-50'
+                                    }`}
+                            >
+                                <div className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1 flex justify-between">
+                                    <span>Standard Route</span>
+                                    {selectedRouteType === 'osrm' && <span className="text-blue-600">● Selected</span>}
+                                </div>
+                                {route.osrm && <RouteCard distance={route.osrm.distance} duration={route.osrm.duration} />}
+                            </div>
+
+                            {/* Traffic Service Route Option */}
+                            {route.traffic && (
+                                <div
+                                    onClick={() => setSelectedRouteType('traffic')}
+                                    className={`relative rounded-lg p-3 cursor-pointer transition-all border-2 ${selectedRouteType === 'traffic'
+                                        ? 'border-green-500 bg-green-50'
+                                        : 'border-transparent hover:bg-gray-50'
+                                        }`}
+                                >
+                                    <div className="absolute -top-2.5 right-2 bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 flex items-center gap-1 shadow-sm">
+                                        ✨ RECOMMENDED
+                                    </div>
+                                    <div className="text-[10px] uppercase tracking-wider text-green-600 font-bold mb-1 flex justify-between">
+                                        <span>Traffic Optimized</span>
+                                        {selectedRouteType === 'traffic' && <span className="text-green-600">● Selected</span>}
+                                    </div>
+                                    <RouteCard distance={route.traffic.distance} duration={route.traffic.duration} isOptimized={true} />
+                                </div>
+                            )}
                         </div>
                         <div className="px-4 pb-3 flex items-center justify-center gap-3 text-[10px]">
                             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500"></span>Clear</span>
@@ -467,17 +632,62 @@ export default function RoutingManager({
             {startPoint && <Marker position={startPoint} icon={createMarkerIcon('#22c55e')} />}
             {endPoint && <Marker position={endPoint} icon={createMarkerIcon('#ef4444')} />}
 
-            {/* Route Polylines */}
-            {route && route.segments.map((segment, idx) => (
+            {/* Render Unselected Route First (Background) */}
+            {route && route.osrm && selectedRouteType !== 'osrm' && route.osrm.segments.map((segment, idx) => (
                 <Polyline
-                    key={`route-${idx}`}
+                    key={`route-osrm-bg-${idx}`}
+                    positions={segment.positions}
+                    pathOptions={{
+                        color: segment.color, // Keep original traffic color
+                        weight: 4,
+                        opacity: 0.6, // More visible
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                        dashArray: '10, 10' // Dashed to distinguish
+                    }}
+                />
+            ))}
+
+            {route && route.traffic && selectedRouteType !== 'traffic' && route.traffic.segments.map((segment, idx) => (
+                <Polyline
+                    key={`route-traffic-bg-${idx}`}
+                    positions={segment.positions}
+                    pathOptions={{
+                        color: segment.color, // Keep original traffic color
+                        weight: 4,
+                        opacity: 0.6, // More visible
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                        dashArray: '10, 10'
+                    }}
+                />
+            ))}
+
+            {/* Render Selected Route Last (Foreground) */}
+            {route && route.osrm && selectedRouteType === 'osrm' && route.osrm.segments.map((segment, idx) => (
+                <Polyline
+                    key={`route-osrm-fg-${idx}`}
                     positions={segment.positions}
                     pathOptions={{
                         color: segment.color,
-                        weight: 6,
-                        opacity: 0.9,
+                        weight: 7,
+                        opacity: 1,
                         lineCap: 'round',
-                        lineJoin: 'round'
+                        lineJoin: 'round',
+                    }}
+                />
+            ))}
+
+            {route && route.traffic && selectedRouteType === 'traffic' && route.traffic.segments.map((segment, idx) => (
+                <Polyline
+                    key={`route-traffic-fg-${idx}`}
+                    positions={segment.positions}
+                    pathOptions={{
+                        color: segment.color,
+                        weight: 7,
+                        opacity: 1,
+                        lineCap: 'round',
+                        lineJoin: 'round',
                     }}
                 />
             ))}
@@ -490,12 +700,13 @@ export default function RoutingManager({
 interface RouteCardProps {
     distance: number;
     duration: number;
+    isOptimized?: boolean;
 }
 
-function RouteCard({ distance, duration }: RouteCardProps) {
+function RouteCard({ distance, duration, isOptimized }: RouteCardProps) {
     const distanceKm = (distance / 1000).toFixed(2);
     const durationMin = Math.max(1, Math.round(duration / 60));
-    
+
     const freeFlowDuration = distance / (BASE_SPEED_KMH / 3.6);
     const freeFlowMin = Math.max(1, Math.round(freeFlowDuration / 60));
     const delayMins = durationMin - freeFlowMin;
@@ -503,7 +714,7 @@ function RouteCard({ distance, duration }: RouteCardProps) {
     return (
         <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+                <div className={`p-2 rounded-lg ${isOptimized ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
                     <FiMapPin size={20} />
                 </div>
                 <div>
@@ -513,12 +724,12 @@ function RouteCard({ distance, duration }: RouteCardProps) {
                     </div>
                 </div>
             </div>
-            
+
             <div className="h-10 w-px bg-gray-200"></div>
-            
+
             <div>
                 <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Est. Duration</div>
-                <div className="text-xl font-bold text-green-700">
+                <div className={`text-xl font-bold ${isOptimized ? 'text-green-700' : 'text-gray-800'}`}>
                     {durationMin} <span className="text-xs font-normal text-gray-500">min</span>
                 </div>
                 {delayMins > 0 ? (

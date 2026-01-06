@@ -28,6 +28,7 @@ export const API_CONFIG = {
   OVERPASS_API_URL: validateEnvVar('NEXT_PUBLIC_OVERPASS_API_URL', process.env.NEXT_PUBLIC_OVERPASS_API_URL),
   OSRM_API_URL: validateEnvVar('NEXT_PUBLIC_OSRM_API_URL', process.env.NEXT_PUBLIC_OSRM_API_URL),
   PHOTON_API_URL: validateEnvVar('NEXT_PUBLIC_PHOTON_API_URL', process.env.NEXT_PUBLIC_PHOTON_API_URL),
+  ROUTING_SERVICE_URL: validateEnvVar('NEXT_PUBLIC_ROUTING_SERVICE_URL', process.env.NEXT_PUBLIC_ROUTING_SERVICE_URL) || 'http://localhost:8002',
 
   ENDPOINTS: {
     TRAFFIC: {
@@ -104,4 +105,11 @@ export const getOsrmApiUrl = (): string => {
  */
 export const getPhotonApiUrl = (): string => {
   return API_CONFIG.PHOTON_API_URL;
+};
+
+/**
+ * Get Routing Service URL
+ */
+export const getRoutingServiceUrl = (): string => {
+  return API_CONFIG.ROUTING_SERVICE_URL;
 };

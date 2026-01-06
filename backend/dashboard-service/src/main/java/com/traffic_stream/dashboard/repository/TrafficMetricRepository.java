@@ -181,4 +181,23 @@ public interface TrafficMetricRepository extends JpaRepository<TrafficMetric, Lo
             @Param("district") String district,
             @Param("tz") String timezone);
 
+    /**
+     * - Sử dụng `jsonb_each_text` để bung chi tiết từng loại xe từ JSON.
+     * - Tính tổng theo [Quận, Phút, Loại xe].
+     * - Đảm bảo không mất dữ liệu chi tiết (xe máy, ô tô...) để Frontend vẽ biểu đồ Stack.
+     */
+    @Query(value = "SELECT t.district, " +
+            "to_char(t.timestamp AT TIME ZONE :tz, 'YYYY-MM-DD\"T\"HH24:MI:00') as time_bucket, " +
+            "d.key as vehicle_type, " +
+            "SUM(CAST(d.value AS INTEGER)) as type_total " +
+            "FROM traffic_metrics t " +
+            "CROSS JOIN LATERAL jsonb_each_text(t.detection_details) d " +
+            "WHERE t.timestamp >= :start AND t.timestamp < :end " +
+            "GROUP BY t.district, time_bucket, d.key " +
+            "ORDER BY time_bucket DESC", nativeQuery = true)
+    List<Object[]> getDistrictMinuteTimeSeries(
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            @Param("tz") String timezone);
+
 }

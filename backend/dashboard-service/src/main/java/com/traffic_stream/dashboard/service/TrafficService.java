@@ -32,10 +32,11 @@ public class TrafficService {
 
     private final TrafficMetricRepository repository;
     private final SimpMessagingTemplate messagingTemplate;
-    private final JdbcTemplate jdbcTemplate; // Dùng JDBC để insert cực nhanh
-    private final ObjectMapper objectMapper; // Để convert JSONB
+    private final JdbcTemplate jdbcTemplate; 
+    private final ObjectMapper objectMapper;
 
     private final ExecutorService webSocketExecutor = Executors.newFixedThreadPool(10);
+    private final Map<String, Integer> maxCountCache = new java.util.concurrent.ConcurrentHashMap<>();
     private final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private final String VIETNAM_TZ_NAME = "Asia/Ho_Chi_Minh";
 
@@ -58,9 +59,29 @@ public class TrafficService {
 
         long startTime = System.currentTimeMillis();
 
+        // 1. Populate max_count for each DTO (Cache-aside pattern)
+        for (TrafficMetricsDTO dto : dtoList) {
+            String cameraId = dto.getCameraId();
+            int currentCount = dto.getTotalCount();
+
+            // Get max from cache or DB
+            int max = maxCountCache.computeIfAbsent(cameraId, k -> {
+                Integer dbMax = repository.findMaxCountByCameraId(k);
+                return (dbMax != null) ? dbMax : 0;
+            });
+
+            // Update if current is greater
+            if (currentCount > max) {
+                max = currentCount;
+                maxCountCache.put(cameraId, max);
+            }
+
+            dto.setMaxCount(max);
+        }
+
         CompletableFuture.runAsync(() -> {
             try {
-                messagingTemplate.convertAndSend("/topic/traffic-batch", dtoList);
+                messagingTemplate.convertAndSend("/topic/traffic", dtoList);
             } catch (Exception e) {
                 log.warn("Lỗi gửi WebSocket batch: {}", e.getMessage());
             }
@@ -327,31 +348,57 @@ public class TrafficService {
      * Tổng hợp chi tiết theo QUẬN và PHÚT (Real-time)
      * - Dữ liệu trả về sẽ có format time là: yyyy-MM-dd'T'HH:mm:00
      * - Key Map bây giờ là: District + Time (để tách các phút ra)
+     * - OPTIMIZED: Lấy chi tiết từng loại xe từ DB để đảm bảo tính chính xác cho biểu đồ Stack.
      */
     public List<HourlyDistrictSummaryDTO> getDetailedHourlySummaryByDistrict(Instant startTime, Instant endTime) {
-        List<TrafficMetric> metrics = repository.findByTimestampBetween(startTime, endTime);
+        List<Object[]> rows = repository.getDistrictMinuteTimeSeries(startTime, endTime, VIETNAM_TZ_NAME);
+        
         Map<String, HourlyDistrictSummaryDTO> summaryMap = new HashMap<>();
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:00").withZone(VIETNAM_ZONE);
+        for (Object[] row : rows) {
+            String district = (String) row[0];
+            String timeBucket = (String) row[1];
+            String vehicleType = (String) row[2];
+            Number countNum = (Number) row[3];
 
-        for (TrafficMetric metric : metrics) {
-            String district = metric.getDistrict();
-            if (district == null || district.isEmpty()) {
-                continue;
-            }
-
-            String timeBucket = formatter.format(metric.getTimestamp());
+            if (district == null || timeBucket == null || vehicleType == null || countNum == null) continue;
+            
+            long count = countNum.longValue();
+            
+            String mappedType = mapVehicleType(vehicleType); 
+            if (mappedType == null) continue; 
 
             String key = district + "_" + timeBucket;
-
-            HourlyDistrictSummaryDTO summaryDTO = summaryMap.computeIfAbsent(
+            HourlyDistrictSummaryDTO dto = summaryMap.computeIfAbsent(
                     key,
                     k -> new HourlyDistrictSummaryDTO(district, timeBucket)
             );
-            summaryDTO.addMetric(metric);
+
+            dto.setTotalCount(dto.getTotalCount() + count); 
+            dto.getDetectionDetailsSummary().merge(mappedType, count, Long::sum);
         }
 
-        return new ArrayList<>(summaryMap.values());
+        List<HourlyDistrictSummaryDTO> result = new ArrayList<>(summaryMap.values());
+        result.sort(Comparator.comparing(HourlyDistrictSummaryDTO::getHour).reversed());
+        return result;
+    }
+
+    /**
+     * Copy logic từ DTO ra để dùng ở Service Layer
+     */
+    private String mapVehicleType(String rawType) {
+        if (rawType == null) return "other";
+        switch (rawType.toLowerCase()) {
+            case "car": return "car";
+            case "motorcycle": return "motorcycle";
+            case "truck": return "truck";
+            case "person": return null; // Filter out person
+            case "bus":
+            case "bicycle":
+            case "train":
+                return "other";
+            default: return "other";
+        }
     }
 
     public List<DistrictDTO> getAllDistricts() {

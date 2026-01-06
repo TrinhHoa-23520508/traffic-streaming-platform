@@ -58,6 +58,12 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         return districts && districts.length > 0 ? districts[0] : "Quận 1";
     });
 
+    const [cameraQueryDistrict, setCameraQueryDistrict] = useState<string>(areaDistrict);
+
+    useEffect(() => {
+        setCameraQueryDistrict(areaDistrict);
+    }, [areaDistrict]);
+
     useEffect(() => {
         if (districts.length > 0 && !districts.includes(areaDistrict)) {
             setAreaDistrict(districts[0]);
@@ -106,7 +112,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         const fetchCameras = async () => {
             try {
                 setCameraOptions([]);
-                const cameras = await trafficApi.getAllCameras({ district: areaDistrict });
+                const cameras = await trafficApi.getAllCameras({ district: cameraQueryDistrict });
                 setCameraOptions(cameras);
                 setSelectedCamera("");
             } catch (error) {
@@ -114,8 +120,8 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 setCameraOptions([]);
             }
         };
-        if (areaDistrict) fetchCameras();
-    }, [areaDistrict, districts]);
+        if (cameraQueryDistrict) fetchCameras();
+    }, [cameraQueryDistrict, districts]);
 
     useEffect(() => {
         const fetchHourlyData = async () => {
@@ -335,6 +341,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 icon={<FiActivity className="w-4 h-4" />}
                 filterValue={areaDistrict}
                 onFilterChange={setAreaDistrict}
+                onTempFilterChange={setCameraQueryDistrict}
                 districts={districts}
                 useDateRange={true}
                 dateRangeValue={dateRange}
@@ -354,6 +361,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
             title="Thống kê lưu lượng xe theo giờ"
             icon={<FiActivity className="w-4 h-4" />}
             filterValue={areaDistrict}
+            onTempFilterChange={setCameraQueryDistrict}
             onFilterChange={setAreaDistrict}
             districts={districts}
             useDateRange={true}

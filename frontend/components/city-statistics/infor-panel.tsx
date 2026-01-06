@@ -21,6 +21,7 @@ interface InforPanelProps {
     filterValue?: string;
     filterOptionHasAll?: boolean;
     onFilterChange?: (value: string) => void;
+    onTempFilterChange?: (value: string) => void;
     showFilter?: boolean;
 
     districts?: string[];
@@ -53,6 +54,7 @@ export default function InforPanel({
     filterLabel = "Quận/Huyện",
     filterValue,
     onFilterChange,
+    onTempFilterChange,
     showFilter = true,
     filterOptionHasAll = false,
 
@@ -86,6 +88,7 @@ export default function InforPanel({
     React.useEffect(() => {
         if (open) {
             setTempFilterValue(filterValue);
+            if (onTempFilterChange && filterValue) onTempFilterChange(filterValue);
             setTempCameraValue(cameraFilterValue);
             setTempDateValue(dateValue);
             setTempDateRangeValue(dateRangeValue);
@@ -226,7 +229,11 @@ export default function InforPanel({
                                                 <Combobox
                                                     options={options.map((d) => ({ value: d, label: d }))}
                                                     value={tempFilterValue}
-                                                    onChange={(v) => setTempFilterValue(v ?? "")}
+                                                    onChange={(v) => {
+                                                        const val = v ?? "";
+                                                        setTempFilterValue(val);
+                                                        if (onTempFilterChange) onTempFilterChange(val);
+                                                    }}
                                                     buttonClassName="w-full justify-between"
                                                     popoverClassName="w-[340px] z-50"
                                                     defaultValue={tempFilterValue}

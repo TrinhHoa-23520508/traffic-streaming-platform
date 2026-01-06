@@ -25,9 +25,10 @@ interface TrafficDensityStatsProps {
 
 const generateRandomHourlyData = (range?: DateRange): HourlyData[] => {
     const now = new Date();
+    const nowMinus2 = addMinutes(now, -2);
 
-    const rawFrom = range?.from ? new Date(range!.from as Date) : subHours(now, 1);
-    const rawTo = range?.to ? new Date(range!.to as Date) : now;
+    const rawFrom = range?.from ? new Date(range!.from as Date) : subHours(nowMinus2, 1);
+    const rawTo = range?.to ? new Date(range!.to as Date) : nowMinus2;
 
     const from = new Date(rawFrom);
     from.setSeconds(0, 0);
@@ -65,11 +66,12 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
     const [dateRange, setDateRange] = useState<DateRange>(() => {
         const now = new Date();
+        const nowMinus2 = addMinutes(now, -2);
 
-        const from = subHours(now, 1);
+        const from = subHours(nowMinus2, 1);
         from.setSeconds(0, 0);
 
-        const to = new Date(now);
+        const to = new Date(nowMinus2);
         to.setSeconds(0, 0);
 
         return { from, to };
@@ -77,9 +79,10 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
 
     useEffect(() => {
         const now = new Date();
-        const from = subHours(now, 1);
+        const nowMinus2 = addMinutes(now, -2);
+        const from = subHours(nowMinus2, 1);
         from.setSeconds(0, 0);
-        const to = new Date(now);
+        const to = new Date(nowMinus2);
         to.setSeconds(0, 0);
 
         if (dateRange?.from && dateRange?.to) {
@@ -102,6 +105,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
     useEffect(() => {
         const fetchCameras = async () => {
             try {
+                setCameraOptions([]);
                 const cameras = await trafficApi.getAllCameras({ district: areaDistrict });
                 setCameraOptions(cameras);
                 setSelectedCamera("");
@@ -123,11 +127,12 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
                 setLoading(true);
 
                 const now = new Date();
+                const nowMinus1 = addMinutes(now, -1);
 
-                const startDate = dateRange?.from ? new Date(dateRange.from as Date) : subHours(now, 1);
+                const startDate = dateRange?.from ? new Date(dateRange.from as Date) : subHours(nowMinus1, 1);
                 startDate.setSeconds(0, 0);
 
-                const endDate = dateRange?.to ? new Date(dateRange.to as Date) : new Date(now);
+                const endDate = dateRange?.to ? new Date(dateRange.to as Date) : new Date(nowMinus1);
                 endDate.setSeconds(0, 0);
 
                 const startStr = format(startDate, "yyyy-MM-dd'T'HH:mm:ss");
@@ -180,8 +185,10 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         console.log('📨 WebSocket hourly data received:', wsData);
 
         if (dateRange?.to) {
-            const timeDiff = Math.abs(differenceInMinutes(new Date(), dateRange.to));
-            if (timeDiff > 1) {
+            const now = new Date();
+            const nowMinus2 = addMinutes(now, -2);
+            const timeDiff = Math.abs(differenceInMinutes(nowMinus2, dateRange.to));
+            if (timeDiff > 30) {
                 return;
             }
         }

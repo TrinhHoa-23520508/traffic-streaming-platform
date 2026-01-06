@@ -20,7 +20,7 @@ public class HourlyReportScheduler {
     private final SimpMessagingTemplate ws;
 
     /**
-     * Chạy mỗi phút (giây thứ 00)
+     * Chạy mỗi 1 PHÚT
      * Thêm @Async để chạy trên luồng riêng, tránh block hệ thống
      */
     @Async
@@ -29,11 +29,11 @@ public class HourlyReportScheduler {
         try {
             long startTime = System.currentTimeMillis();
 
-            Instant now = Instant.now();
-            Instant oneHourAgo = now.minus(1, ChronoUnit.HOURS);
+            Instant now = Instant.now().minus(2, ChronoUnit.MINUTES);
+            Instant recentStart = now.minus(59, ChronoUnit.SECONDS); 
 
             DashboardUpdateDTO updateData = DashboardUpdateDTO.builder()
-                    .hourlySummary(trafficService.getDetailedHourlySummaryByDistrict(oneHourAgo, now))
+                    .hourlySummary(trafficService.getDetailedHourlySummaryByDistrict(recentStart, now))
                     .fastestGrowing(trafficService.getTop5FastestGrowingDistricts())
                     .vehicleRatio(trafficService.getCityWideVehicleTypeRatio())
                     .busiestDistricts(trafficService.getTop5BusiestDistricts())

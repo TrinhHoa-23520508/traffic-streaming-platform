@@ -8,10 +8,38 @@ import React from "react"
 type DatePickerProps = {
     value?: Date | undefined
     onChange?: (d?: Date) => void
+    /** Cho phép chọn ngày trong tương lai (mặc định: false - chỉ cho chọn ngày quá khứ) */
+    allowFuture?: boolean
+    /** Ngày tối thiểu có thể chọn */
+    minDate?: Date
+    /** Ngày tối đa có thể chọn */
+    maxDate?: Date
 }
 
-export default function DatePicker({ value, onChange }: DatePickerProps) {
+export default function DatePicker({ value, onChange, allowFuture = false, minDate, maxDate }: DatePickerProps) {
     const [open, setOpen] = React.useState(false)
+
+    // Xác định logic disabled cho calendar
+    const getDisabledDates = (date: Date): boolean => {
+        // Nếu có minDate, không cho chọn ngày trước minDate
+        if (minDate) {
+            const minDateOnly = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate())
+            const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+            if (dateOnly < minDateOnly) return true
+        }
+        
+        // Nếu có maxDate, không cho chọn ngày sau maxDate
+        if (maxDate) {
+            const maxDateOnly = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate())
+            const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+            if (dateOnly > maxDateOnly) return true
+        }
+        
+        // Nếu không cho phép tương lai, chặn các ngày sau hôm nay
+        if (!allowFuture && date > new Date()) return true
+        
+        return false
+    }
 
     return (
         <div className="flex flex-col gap-3">
@@ -34,7 +62,7 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
                             onChange?.(d)
                             setOpen(false)
                         }}
-                        disabled={(date) => date > new Date()}
+                        disabled={getDisabledDates}
                         captionLayout="dropdown"
                     />
                 </PopoverContent>

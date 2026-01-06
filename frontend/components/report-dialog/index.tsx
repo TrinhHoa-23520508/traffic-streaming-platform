@@ -342,13 +342,13 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Thành công!</h3>
+              <h3 className="text-base sm:text-lg font-bold text-gray-800 uppercase tracking-wide">THÀNH CÔNG!</h3>
             </div>
           </div>
           
           {/* Content */}
           <div className="px-4 sm:px-6 py-4 sm:py-5">
-            <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{successMessage}</p>
+            <p className="text-gray-700 text-sm sm:text-base font-semibold leading-relaxed">{successMessage}</p>
           </div>
           
           {/* Actions */}
@@ -389,13 +389,13 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Lưu ý</h3>
+              <h3 className="text-base sm:text-lg font-bold text-gray-800 uppercase tracking-wide">LƯU Ý</h3>
             </div>
           </div>
           
           {/* Content */}
           <div className="px-4 sm:px-6 py-4 sm:py-5">
-            <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">{warningMessage}</p>
+            <p className="text-gray-700 text-sm sm:text-base font-semibold leading-relaxed">{warningMessage}</p>
           </div>
           
           {/* Actions */}
@@ -425,13 +425,13 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-100 flex items-center justify-center">
                 <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
               </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Xác nhận xóa</h3>
+              <h3 className="text-base sm:text-lg font-bold text-gray-800 uppercase tracking-wide">XÁC NHẬN XÓA</h3>
             </div>
           </div>
           
           {/* Content */}
           <div className="px-4 sm:px-6 py-4 sm:py-5">
-            <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">Bạn có chắc chắn muốn xóa báo cáo này không? Hành động này không thể hoàn tác.</p>
+            <p className="text-gray-700 text-sm sm:text-base font-semibold leading-relaxed">Bạn có chắc chắn muốn xóa báo cáo này không? Hành động này không thể hoàn tác.</p>
           </div>
           
           {/* Actions */}
@@ -508,11 +508,21 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                     <div className="flex flex-wrap gap-2 sm:gap-3 items-end">
                                         <div className="grid gap-2">
                                             <Label className="text-xs sm:text-sm">Ngày bắt đầu</Label>
-                                            <DatePicker value={startDate} onChange={setStartDate} />
+                                            <DatePicker 
+                                                value={startDate} 
+                                                onChange={setStartDate}
+                                                allowFuture={true}
+                                                maxDate={endDate}
+                                            />
                                         </div>
                                         <div className="grid gap-2">
                                             <Label className="text-xs sm:text-sm">Ngày kết thúc</Label>
-                                            <DatePicker value={endDate} onChange={setEndDate} />
+                                            <DatePicker 
+                                                value={endDate} 
+                                                onChange={setEndDate}
+                                                allowFuture={true}
+                                                minDate={startDate}
+                                            />
                                         </div>
                                         <div className="grid gap-2">
                                             <Label className="text-xs sm:text-sm">Giờ bắt đầu</Label>
@@ -646,7 +656,12 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                             <div className="flex gap-4">
                                                 <div className="grid gap-2">
                                                     <Label>Ngày thực thi</Label>
-                                                    <DatePicker value={scheduledDate} onChange={setScheduledDate} />
+                                                    <DatePicker 
+                                                        value={scheduledDate} 
+                                                        onChange={setScheduledDate}
+                                                        allowFuture={true}
+                                                        minDate={endDate}
+                                                    />
                                                 </div>
                                                 <div className="grid gap-2">
                                                     <Label>Giờ thực thi</Label>
@@ -659,7 +674,7 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                                 </div>
                                             </div>
                                             <div className="text-xs text-gray-500">
-                                                * Báo cáo sẽ được hệ thống tự động tạo vào thời gian đã chọn.
+                                                * Báo cáo sẽ được hệ thống tự động tạo vào thời gian đã chọn. Ngày thực thi phải từ ngày kết thúc trở đi.
                                             </div>
                                         </div>
                                     )}
@@ -792,8 +807,21 @@ export default function ReportDialog({ open, onOpenChange, onCameraSelect }: Rep
                                         <span className="w-1 h-3 sm:h-4 bg-blue-500 rounded-full"></span>
                                         Danh sách báo cáo
                                     </h3>
-                                    <Button variant="ghost" size="sm" onClick={fetchReports} disabled={isLoadingReports}>
-                                        <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isLoadingReports ? 'animate-spin' : ''}`} />
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={(e) => {
+                                            const icon = e.currentTarget.querySelector('svg');
+                                            if (icon) {
+                                                icon.classList.add('animate-spin');
+                                                setTimeout(() => icon.classList.remove('animate-spin'), 1000);
+                                            }
+                                            fetchReports();
+                                        }} 
+                                        disabled={isLoadingReports}
+                                        className="hover:bg-blue-100 active:scale-95 transition-all"
+                                    >
+                                        <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform ${isLoadingReports ? 'animate-spin' : ''}`} />
                                     </Button>
                                 </div>
                                 <div className="flex-1 min-h-0">

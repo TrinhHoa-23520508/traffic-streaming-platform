@@ -20,6 +20,7 @@ export interface TrafficMetricsDTO {
     detectionDetails: DetectionDetails;
     totalCount: number;
     maxCount?: number;
+    flowRatePerMinute?: number; // ⭐ Flow rate từ WebSocket
     timestamp: string; // ISO 8601 format
 }
 

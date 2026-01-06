@@ -31,7 +31,7 @@ const SEVERITY_PERCENTAGES = {
     LOW: 70
 } as const;
 
-const ITEMS_PER_PAGE = 3;
+const ITEMS_PER_PAGE = 4;
 const MAX_ALERTS = 100;
 
 const getSeverity = (totalCount: number, maxCount: number): AlertSeverity => {

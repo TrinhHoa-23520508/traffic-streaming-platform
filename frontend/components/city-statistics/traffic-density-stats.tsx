@@ -105,6 +105,7 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
     useEffect(() => {
         const fetchCameras = async () => {
             try {
+                setCameraOptions([]);
                 const cameras = await trafficApi.getAllCameras({ district: areaDistrict });
                 setCameraOptions(cameras);
                 setSelectedCamera("");

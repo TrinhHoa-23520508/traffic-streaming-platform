@@ -113,12 +113,10 @@ public class ReportAnalysisService {
                 .count();
     }
 
-    private Integer countActiveCameras(List<TrafficMetric> data, ReportJob job) {
+    private Integer countActiveCameras(List<TrafficMetric> data, @SuppressWarnings("unused") ReportJob job) {
         // Camera is ACTIVE if it sent ANY data during the report period
-        // This is more realistic than requiring data at the very end
+        // Since we query data within the report period, all cameras in data are active
         Set<String> activeCameras = data.stream()
-                .filter(m -> m.getTimestamp().isAfter(job.getStartTime()) &&
-                            m.getTimestamp().isBefore(job.getEndTime()))
                 .map(TrafficMetric::getCameraId)
                 .collect(Collectors.toSet());
 
@@ -126,15 +124,15 @@ public class ReportAnalysisService {
         return activeCameras.size();
     }
 
-    private Integer countOfflineCameras(List<TrafficMetric> data, ReportJob job) {
-        // Offline cameras = cameras that exist in system but sent NO data during report period
-        // For now, we assume all cameras that sent data are the only cameras in system
-        // So offline = 0 if we have data from all expected cameras
-        int total = countTotalCameras(data);
-        int active = countActiveCameras(data, job);
-        int offline = total - active;
-        log.info("Total cameras: {}, Active: {}, Offline: {}", total, active, offline);
-        return offline;
+    private Integer countOfflineCameras(@SuppressWarnings("unused") List<TrafficMetric> data, @SuppressWarnings("unused") ReportJob job) {
+        // Offline cameras = cameras that sent NO data during report period
+        // Since we only query data from the report period, if a camera is in the data,
+        // it means it sent at least some data, so it's NOT offline
+        // In this implementation, all cameras in data are considered active
+        // To properly detect offline cameras, we'd need a camera registry
+
+        // For now, return 0 since all cameras that appear in data are active
+        return 0;
     }
 
     // ========== II. TỔNG HỢP HỆ THỐNG ==========
@@ -256,7 +254,7 @@ public class ReportAnalysisService {
 
     // ========== IV. PHÂN TÍCH THEO CAMERA ==========
 
-    private List<CameraAnalysis> analyzeByCamera(List<TrafficMetric> data, ReportJob job) {
+    private List<CameraAnalysis> analyzeByCamera(List<TrafficMetric> data, @SuppressWarnings("unused") ReportJob job) {
         Map<String, List<TrafficMetric>> byCamera = data.stream()
                 .collect(Collectors.groupingBy(TrafficMetric::getCameraId));
 
@@ -272,32 +270,21 @@ public class ReportAnalysisService {
                     long totalVehicles = metrics.stream()
                             .mapToLong(TrafficMetric::getTotalCount)
                             .sum();
-                    double avgVehicles = metrics.isEmpty() ? 0.0 : (double) totalVehicles / metrics.size();
+                    double avgVehicles = (double) totalVehicles / metrics.size();
 
-                    // Camera is ACTIVE if it has data during report period
-                    // This matches the countActiveCameras() logic
-                    boolean isActive = metrics.stream()
-                            .anyMatch(m -> m.getTimestamp().isAfter(job.getStartTime()) &&
-                                          m.getTimestamp().isBefore(job.getEndTime()));
+                    // Camera is ACTIVE because it has data in the result set
+                    boolean isActive = true;
 
-                    Instant lastDataTime = metrics.stream()
-                            .map(TrafficMetric::getTimestamp)
-                            .max(Instant::compareTo)
-                            .orElse(job.getStartTime());
-
-                    log.debug("Camera {}: has {} records, last data at {}, active: {}",
-                        cameraId, metrics.size(), lastDataTime, isActive);
-
-                    // Detect anomaly - only based on traffic volume, not offline status
-                    boolean hasAnomaly = avgVehicles > systemAvg * 2.0 || avgVehicles < systemAvg * 0.3;
+                    // Detect anomaly - only based on traffic volume
+                    boolean hasAnomaly = false;
                     String anomalyType = null;
-                    if (!isActive) {
-                        anomalyType = "OFFLINE";
-                        hasAnomaly = true;
-                    } else if (avgVehicles > systemAvg * 2.0) {
+
+                    if (avgVehicles > systemAvg * 2.0) {
                         anomalyType = "SURGE";
+                        hasAnomaly = true;
                     } else if (avgVehicles < systemAvg * 0.3 && avgVehicles > 0) {
                         anomalyType = "DROP";
+                        hasAnomaly = true;
                     }
 
                     return CameraAnalysis.builder()
@@ -343,9 +330,9 @@ public class ReportAnalysisService {
                     metrics.forEach(m -> {
                         Map<String, Integer> details = m.getDetectionDetails();
                         if (details != null) {
-                            details.forEach((type, count) -> {
-                                byVehicleType.merge(type, count.longValue(), Long::sum);
-                            });
+                            details.forEach((type, count) ->
+                                byVehicleType.merge(type, count.longValue(), Long::sum)
+                            );
                         }
                     });
 
@@ -421,9 +408,9 @@ public class ReportAnalysisService {
         data.forEach(metric -> {
             Map<String, Integer> details = metric.getDetectionDetails();
             if (details != null) {
-                details.forEach((type, count) -> {
-                    counts.merge(type, count.longValue(), Long::sum);
-                });
+                details.forEach((type, count) ->
+                    counts.merge(type, count.longValue(), Long::sum)
+                );
             }
         });
 
@@ -439,24 +426,16 @@ public class ReportAnalysisService {
 
     // ========== VII. SỰ KIỆN BẤT THƯỜNG ==========
 
-    private List<String> findOfflineCameras(List<TrafficMetric> data, ReportJob job) {
-        // If camera sent data during report period, it's not offline
-        // Only return cameras that exist in system but sent NO data
-        // Since we only have data from active cameras, offline list should be empty
-        Set<String> camerasWithData = data.stream()
-                .filter(m -> m.getTimestamp().isAfter(job.getStartTime()) &&
-                            m.getTimestamp().isBefore(job.getEndTime()))
-                .map(TrafficMetric::getCameraId)
-                .collect(Collectors.toSet());
-
-        log.info("Cameras with data during report: {}", camerasWithData);
-
-        // In this implementation, we consider all cameras that sent data as active
-        // Offline cameras would be cameras in config but not in data (not implemented yet)
-        return new ArrayList<>(); // Return empty - all cameras in data are active
+    private List<String> findOfflineCameras(@SuppressWarnings("unused") List<TrafficMetric> data, @SuppressWarnings("unused") ReportJob job) {
+        // Since we only have data from cameras that sent data during report period,
+        // all cameras in the data are by definition ACTIVE (not offline)
+        // To detect offline cameras, we would need a camera registry to compare against
+        // For now, return empty list - no offline cameras in the data set
+        log.info("No offline cameras - all cameras in data sent information during report period");
+        return new ArrayList<>();
     }
 
-    private List<AnomalyEvent> detectAnomalies(List<TrafficMetric> data, ReportJob job) {
+    private List<AnomalyEvent> detectAnomalies(List<TrafficMetric> data, @SuppressWarnings("unused") ReportJob job) {
         List<AnomalyEvent> anomalies = new ArrayList<>();
         double systemAvg = calculateAvgVehiclesPerCamera(data);
 
@@ -468,7 +447,7 @@ public class ReportAnalysisService {
             long totalVehicles = metrics.stream().mapToLong(TrafficMetric::getTotalCount).sum();
             double avgVehicles = (double) totalVehicles / metrics.size();
 
-            // Traffic surge
+            // Traffic surge - chỉ detect nếu lưu lượng cao hơn 100% so với trung bình
             if (avgVehicles > systemAvg * 2.0) {
                 anomalies.add(AnomalyEvent.builder()
                         .cameraId(cameraId)
@@ -481,7 +460,7 @@ public class ReportAnalysisService {
                         .build());
             }
 
-            // Traffic drop
+            // Traffic drop - chỉ detect nếu lưu lượng thấp hơn 70% so với trung bình
             if (avgVehicles < systemAvg * 0.3 && avgVehicles > 0) {
                 anomalies.add(AnomalyEvent.builder()
                         .cameraId(cameraId)
@@ -494,29 +473,9 @@ public class ReportAnalysisService {
                         .build());
             }
 
-            // NOTE: Offline camera detection removed
-            // Cameras that sent data during report period are considered ACTIVE
-            // "Offline" means camera sent NO data during entire report period
-            // Since we only have data from active cameras, we don't mark them as offline
-
-            /* REMOVED - This logic was incorrect
-            Instant lastDataTime = metrics.stream()
-                    .map(TrafficMetric::getTimestamp)
-                    .max(Instant::compareTo)
-                    .orElse(job.getStartTime());
-
-            if (ChronoUnit.MINUTES.between(lastDataTime, job.getEndTime()) > job.getIntervalMinutes() * 2) {
-                anomalies.add(AnomalyEvent.builder()
-                        .cameraId(cameraId)
-                        .cameraName(sample.getCameraName())
-                        .type("OFFLINE")
-                        .description(String.format("Camera không gửi dữ liệu trong %d phút",
-                                ChronoUnit.MINUTES.between(lastDataTime, job.getEndTime())))
-                        .detectedAt(lastDataTime)
-                        .severity(1.0)
-                        .build());
-            }
-            */
+            // NOTE: OFFLINE detection removed completely
+            // Cameras in the data set are by definition ACTIVE (not offline)
+            // They sent data during the report period
         });
 
         return anomalies.stream()
@@ -532,7 +491,6 @@ public class ReportAnalysisService {
 
         log.info("Collecting annotated images from {} traffic metrics", data.size());
 
-        int metricsWithImages = 0;
         data.forEach(metric -> {
             if (metric.getAnnotatedImageUrl() != null && !metric.getAnnotatedImageUrl().isEmpty()) {
                 topMetricsByCamera.merge(metric.getCameraId(), metric,
@@ -542,8 +500,7 @@ public class ReportAnalysisService {
             }
         });
 
-        metricsWithImages = topMetricsByCamera.size();
-        log.info("Found {} cameras with annotated images", metricsWithImages);
+        log.info("Found {} cameras with annotated images", topMetricsByCamera.size());
 
         List<AnnotatedImageInfo> result = topMetricsByCamera.values().stream()
                 .sorted(Comparator.comparing(TrafficMetric::getTotalCount).reversed())
@@ -572,9 +529,6 @@ public class ReportAnalysisService {
 
         // 1. Tổng quan
         long totalVehicles = calculateTotalVehicles(data);
-        int totalCameras = countTotalCameras(data);
-        int activeCameras = countActiveCameras(data, job);
-        int offlineCameras = countOfflineCameras(data, job);
 
         conclusions.add(String.format("Tổng cộng %,d phương tiện được ghi nhận trong khoảng thời gian từ %s đến %s.",
                 totalVehicles,
@@ -611,21 +565,7 @@ public class ReportAnalysisService {
                     formatInstant(peakHour), peakVolume));
         }
 
-        // 4. Camera offline - QUAN TRỌNG NHẤT
-        if (offlineCameras > 0) {
-            List<String> offlineCameraIds = findOfflineCameras(data, job);
-            if (offlineCameras > totalCameras * 0.5) {
-                conclusions.add(String.format("⚠ CẢNH BÁO: Phát hiện %d/%d camera không hoạt động (%s). Cần kiểm tra và khắc phục hệ thống NGAY LAP TUC!",
-                        offlineCameras, totalCameras,
-                        offlineCameraIds.stream().limit(3).collect(Collectors.joining(", "))));
-            } else {
-                conclusions.add(String.format("Phát hiện %d camera không hoạt động: %s. Cần kiểm tra và bảo trì thiết bị ngay.",
-                        offlineCameras,
-                        offlineCameraIds.stream().limit(5).collect(Collectors.joining(", "))));
-            }
-        }
-
-        // 5. Loại phương tiện
+        // 4. Loại phương tiện
         Map<String, Long> vehicleTypes = calculateVehicleTypeCounts(data);
         if (!vehicleTypes.isEmpty()) {
             vehicleTypes.entrySet().stream()
@@ -637,37 +577,39 @@ public class ReportAnalysisService {
                     });
         }
 
-        // 6. Hiệu suất hệ thống - ĐÁNH GIÁ THỰC TẾ
+        // 5. Hiệu suất hệ thống - ĐÁNH GIÁ THỰC TẾ
         double avgPerCamera = calculateAvgVehiclesPerCamera(data);
         String systemStatus;
 
-        if (offlineCameras > totalCameras * 0.7) {
-            systemStatus = "ở trạng thái KHẨN CẤP - hầu hết camera không hoạt động";
-        } else if (offlineCameras > totalCameras * 0.5) {
-            systemStatus = "có vấn đề NGHIÊM TRỌNG - quá nửa camera offline";
-        } else if (offlineCameras > totalCameras * 0.3) {
-            systemStatus = "hoạt động KHÔNG ỔN ĐỊNH - nhiều camera offline";
-        } else if (activeCameras == totalCameras) {
-            if (avgPerCamera > 1000) {
-                systemStatus = "hoạt động TỐT ở mức tải cao";
-            } else if (avgPerCamera > 500) {
-                systemStatus = "hoạt động ỔN ĐỊNH";
-            } else if (avgPerCamera > 100) {
-                systemStatus = "hoạt động BÌNH THƯỜNG ở mức tải thấp";
-            } else {
-                systemStatus = "hoạt động ổn định nhưng lưu lượng RẤT THẤP - cần kiểm tra";
-            }
+        if (avgPerCamera > 2000) {
+            systemStatus = "đang hoạt động ở mức tải cao";
+        } else if (avgPerCamera > 1000) {
+            systemStatus = "đang hoạt động ổn định";
+        } else if (avgPerCamera > 500) {
+            systemStatus = "đang hoạt động bình thường";
+        } else if (avgPerCamera > 100) {
+            systemStatus = "đang hoạt động với lưu lượng thấp";
         } else {
-            systemStatus = "hoạt động CHẤP NHẬN ĐƯỢC với một số camera offline";
+            systemStatus = "ghi nhận lưu lượng rất thấp - cần kiểm tra";
         }
 
         conclusions.add(String.format("Trung bình mỗi camera ghi nhận %.0f phương tiện. Hệ thống %s.",
                 avgPerCamera, systemStatus));
 
-        // 7. Khuyến nghị cuối cùng
-        if (offlineCameras > 0 && activeCameras > 0) {
-            conclusions.add(String.format("Khuyến nghị: Ưu tiên khắc phục %d camera offline để đảm bảo độ chính xác của dữ liệu giám sát.",
-                    offlineCameras));
+        // 6. Bất thường (nếu có)
+        List<AnomalyEvent> anomalies = detectAnomalies(data, job);
+        if (!anomalies.isEmpty()) {
+            long surgeCount = anomalies.stream().filter(a -> "TRAFFIC_SURGE".equals(a.getType())).count();
+            long dropCount = anomalies.stream().filter(a -> "TRAFFIC_DROP".equals(a.getType())).count();
+
+            if (surgeCount > 0) {
+                conclusions.add(String.format("Phát hiện %d camera có lưu lượng tăng đột biến. Cần theo dõi để phát hiện ùn tắc.",
+                        surgeCount));
+            }
+            if (dropCount > 0) {
+                conclusions.add(String.format("Phát hiện %d camera có lưu lượng giảm bất thường. Kiểm tra xem có sự cố hay không.",
+                        dropCount));
+            }
         }
 
         return conclusions;

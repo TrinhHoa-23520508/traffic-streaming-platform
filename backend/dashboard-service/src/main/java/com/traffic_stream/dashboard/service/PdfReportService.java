@@ -3,6 +3,7 @@ package com.traffic_stream.dashboard.service;
 import com.traffic_stream.dashboard.dto.report.ReportAnalysisDTO;
 import com.traffic_stream.dashboard.dto.report.ReportAnalysisDTO.*;
 import com.traffic_stream.dashboard.entity.ReportJob;
+import com.traffic_stream.dashboard.shared.utils.MinioEndpointUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 public class PdfReportService {
 
     private final PdfBuilderService pdfBuilder;
+    private final MinioEndpointUtils minioEndpointUtils;
     private int currentPageNumber = 1;
 
     public File generatePdfReport(ReportJob job, ReportAnalysisDTO analysis) throws IOException {
@@ -91,24 +93,24 @@ public class PdfReportService {
             // Title
             float y = 650;
             content.setNonStrokingColor(41/255f, 128/255f, 185/255f);
-            pdfBuilder.drawBoldText(content, "BAO CAO GIAO THONG TU DONG", 100, y, 24);
+            pdfBuilder.drawBoldText(content, "BÁO CÁO GIAO THÔNG TỰ ĐỘNG", 100, y, 24);
 
             y -= 40;
             content.setNonStrokingColor(0, 0, 0);
             pdfBuilder.drawBoldText(content, analysis.getReportTitle(), 100, y, 20);
 
             y -= 60;
-            pdfBuilder.drawText(content, "Thoi gian: " + pdfBuilder.formatDateTime(analysis.getStartTime()) +
+            pdfBuilder.drawText(content, "Thời gian: " + pdfBuilder.formatDateTime(analysis.getStartTime()) +
                     " - " + pdfBuilder.formatDateTime(analysis.getEndTime()), 100, y, 12);
 
             y -= 30;
-            pdfBuilder.drawText(content, "So camera phan tich: " + analysis.getTotalCameras(), 100, y, 12);
+            pdfBuilder.drawText(content, "Số camera phân tích: " + analysis.getTotalCameras(), 100, y, 12);
             y -= 20;
-            pdfBuilder.drawText(content, "Tong so phuong tien: " + pdfBuilder.formatNumber(analysis.getTotalVehicles()), 100, y, 12);
+            pdfBuilder.drawText(content, "Tổng số phương tiện: " + pdfBuilder.formatNumber(analysis.getTotalVehicles()), 100, y, 12);
 
             y -= 60;
-            pdfBuilder.drawText(content, "Bao cao duoc tao tu dong boi he thong Traffic Streaming Platform", 100, y, 10);
-            pdfBuilder.drawText(content, "Ngay tao: " + pdfBuilder.formatDateTime(Instant.now()), 100, y - 20, 10);
+            pdfBuilder.drawText(content, "Báo cáo được tạo tự động bởi hệ thống Traffic Streaming Platform", 100, y, 10);
+            pdfBuilder.drawText(content, "Ngày tạo: " + pdfBuilder.formatDateTime(Instant.now()), 100, y - 20, 10);
 
         } finally {
             content.close();
@@ -123,18 +125,18 @@ public class PdfReportService {
         PDPageContentStream content = new PDPageContentStream(document, page);
 
         try {
-            pdfBuilder.drawHeader(content, "I. THONG TIN BAO CAO", currentPageNumber++);
-            float y = pdfBuilder.drawSectionHeader(content, "Thong tin chung", 720);
+            pdfBuilder.drawHeader(content, "I. THÔNG TIN BÁO CÁO", currentPageNumber++);
+            float y = pdfBuilder.drawSectionHeader(content, "Thông tin chung", 720);
 
-            y = pdfBuilder.drawKeyValue(content, "Ten bao cao", analysis.getReportTitle(), 70, y);
-            y = pdfBuilder.drawKeyValue(content, "Thoi gian bat dau", pdfBuilder.formatDateTime(analysis.getStartTime()), 70, y);
-            y = pdfBuilder.drawKeyValue(content, "Thoi gian ket thuc", pdfBuilder.formatDateTime(analysis.getEndTime()), 70, y);
-            y = pdfBuilder.drawKeyValue(content, "Khoang tong hop", analysis.getIntervalMinutes() + " phut", 70, y);
+            y = pdfBuilder.drawKeyValue(content, "Tên báo cáo", analysis.getReportTitle(), 70, y);
+            y = pdfBuilder.drawKeyValue(content, "Thời gian bắt đầu", pdfBuilder.formatDateTime(analysis.getStartTime()), 70, y);
+            y = pdfBuilder.drawKeyValue(content, "Thời gian kết thúc", pdfBuilder.formatDateTime(analysis.getEndTime()), 70, y);
+            y = pdfBuilder.drawKeyValue(content, "Khoảng tổng hợp", analysis.getIntervalMinutes() + " phút", 70, y);
 
             y -= 10;
-            y = pdfBuilder.drawSectionHeader(content, "Thong tin camera", y);
-            y = pdfBuilder.drawKeyValue(content, "Tong so camera", analysis.getTotalCameras().toString(), 70, y);
-            y = pdfBuilder.drawKeyValue(content, "Camera hoat dong", analysis.getActiveCameras().toString(), 70, y);
+            y = pdfBuilder.drawSectionHeader(content, "Thông tin camera", y);
+            y = pdfBuilder.drawKeyValue(content, "Tổng số camera", analysis.getTotalCameras().toString(), 70, y);
+            y = pdfBuilder.drawKeyValue(content, "Camera hoạt động", analysis.getActiveCameras().toString(), 70, y);
             y = pdfBuilder.drawKeyValue(content, "Camera offline", analysis.getOfflineCameras().toString(), 70, y);
 
         } finally {
@@ -149,28 +151,28 @@ public class PdfReportService {
         PDPageContentStream content = new PDPageContentStream(document, page);
 
         try {
-            pdfBuilder.drawHeader(content, "II. TONG HOP HE THONG", currentPageNumber++);
-            float y = pdfBuilder.drawSectionHeader(content, "Tong quan", 720);
+            pdfBuilder.drawHeader(content, "II. TỔNG HỢP HỆ THỐNG", currentPageNumber++);
+            float y = pdfBuilder.drawSectionHeader(content, "Tổng quan", 720);
 
-            y = pdfBuilder.drawKeyValue(content, "Tong so phuong tien",
+            y = pdfBuilder.drawKeyValue(content, "Tổng số phương tiện",
                     pdfBuilder.formatNumber(analysis.getTotalVehicles()), 70, y);
-            y = pdfBuilder.drawKeyValue(content, "Trung binh xe/camera",
+            y = pdfBuilder.drawKeyValue(content, "Trung bình xe/camera",
                     pdfBuilder.formatDouble(analysis.getAvgVehiclesPerCamera(), 1), 70, y);
 
             y -= 10;
-            y = pdfBuilder.drawSectionHeader(content, "Xep hang", y);
-            y = pdfBuilder.drawKeyValue(content, "Quan dong nhat", analysis.getBusiestDistrict(), 70, y);
-            y = pdfBuilder.drawKeyValue(content, "Quan vang nhat", analysis.getQuietestDistrict(), 70, y);
-            y = pdfBuilder.drawKeyValue(content, "Camera dong nhat", analysis.getBusiestCamera(), 70, y);
-            y = pdfBuilder.drawKeyValue(content, "Camera vang nhat", analysis.getQuietestCamera(), 70, y);
+            y = pdfBuilder.drawSectionHeader(content, "Xếp hạng", y);
+            y = pdfBuilder.drawKeyValue(content, "Quận đông nhất", analysis.getBusiestDistrict(), 70, y);
+            y = pdfBuilder.drawKeyValue(content, "Quận vắng nhất", analysis.getQuietestDistrict(), 70, y);
+            y = pdfBuilder.drawKeyValue(content, "Camera đông nhất", analysis.getBusiestCamera(), 70, y);
+            y = pdfBuilder.drawKeyValue(content, "Camera vắng nhất", analysis.getQuietestCamera(), 70, y);
 
             // Pie chart for vehicle types
             if (analysis.getVehicleTypePercentages() != null && !analysis.getVehicleTypePercentages().isEmpty()) {
                 y -= 20;
-                y = pdfBuilder.drawSectionHeader(content, "Ty le loai phuong tien", y);
+                y = pdfBuilder.drawSectionHeader(content, "Tỷ lệ loại phương tiện", y);
 
                 PDImageXObject pieChart = pdfBuilder.createPieChart(document,
-                        "Ty le loai phuong tien",
+                        "Tỷ lệ loại phương tiện",
                         analysis.getVehicleTypePercentages());
                 content.drawImage(pieChart, 100, y - 300, 400, 280);
             }
@@ -187,11 +189,11 @@ public class PdfReportService {
         PDPageContentStream content = new PDPageContentStream(document, page);
 
         try {
-            pdfBuilder.drawHeader(content, "III. PHAN TICH THEO QUAN", currentPageNumber++);
-            float y = pdfBuilder.drawSectionHeader(content, "Bang tong hop theo quan", 720);
+            pdfBuilder.drawHeader(content, "III. PHÂN TÍCH THEO QUẬN", currentPageNumber++);
+            float y = pdfBuilder.drawSectionHeader(content, "Bảng tổng hợp theo quận", 720);
 
             // Table
-            String[] headers = {"Quan", "Tong PT", "Ty le %", "Camera", "TB/Camera"};
+            String[] headers = {"Quận", "Tổng PT", "Tỷ lệ %", "Camera", "TB/Camera"};
             // Better distributed widths for readability
             float[] widths = {110, 85, 80, 70, 95};
 
@@ -221,7 +223,7 @@ public class PdfReportService {
                         ));
 
                 PDImageXObject barChart = pdfBuilder.createBarChart(document,
-                        "Top 10 quan co luu luong cao nhat",
+                        "Top 10 quận có lưu lượng cao nhất",
                         chartData);
                 content.drawImage(barChart, 50, y - 280, 500, 250);
             }
@@ -241,10 +243,10 @@ public class PdfReportService {
         PDPageContentStream content1 = new PDPageContentStream(document, page1);
 
         try {
-            pdfBuilder.drawHeader(content1, "IV. PHAN TICH THEO CAMERA", currentPageNumber++);
-            float y = pdfBuilder.drawSectionHeader(content1, "Bang tong hop camera", 720);
+            pdfBuilder.drawHeader(content1, "IV. PHÂN TÍCH THEO CAMERA", currentPageNumber++);
+            float y = pdfBuilder.drawSectionHeader(content1, "Bảng tổng hợp camera", 720);
 
-            String[] headers = {"Camera ID", "Ten", "Quan", "Tong PT", "TB", "Trang thai"};
+            String[] headers = {"Camera ID", "Tên", "Quận", "Tổng PT", "TB", "Trạng thái"};
             // Adjusted widths: reduced Camera ID, increased name column, optimized others
             float[] widths = {65, 150, 70, 65, 45, 65};
 
@@ -256,7 +258,7 @@ public class PdfReportService {
                             c.getDistrict(),
                             pdfBuilder.formatNumber(c.getTotalVehicles()),
                             pdfBuilder.formatDouble(c.getAvgVehicles(), 0),
-                            c.getIsActive() ? "Hoat dong" : "Offline"
+                            c.getIsActive() ? "Hoạt động" : "Offline"
                     })
                     .collect(Collectors.toList());
 
@@ -271,8 +273,8 @@ public class PdfReportService {
         PDPageContentStream content2 = new PDPageContentStream(document, page2);
 
         try {
-            pdfBuilder.drawHeader(content2, "IV. PHAN TICH THEO CAMERA (tt)", currentPageNumber++);
-            float y = pdfBuilder.drawSectionHeader(content2, "Top 15 camera dong nhat", 720);
+            pdfBuilder.drawHeader(content2, "IV. PHÂN TÍCH THEO CAMERA (tt)", currentPageNumber++);
+            float y = pdfBuilder.drawSectionHeader(content2, "Top 15 camera đông nhất", 720);
 
             Map<String, Long> chartData = cameras.stream()
                     .limit(15)
@@ -284,13 +286,13 @@ public class PdfReportService {
                     ));
 
             PDImageXObject barChart = pdfBuilder.createBarChart(document,
-                    "Top camera co luu luong cao nhat",
+                    "Top camera có lưu lượng cao nhất",
                     chartData);
             content2.drawImage(barChart, 50, y - 280, 500, 250);
 
             // Anomaly cameras
             y -= 300;
-            y = pdfBuilder.drawSectionHeader(content2, "Camera bat thuong", y);
+            y = pdfBuilder.drawSectionHeader(content2, "Camera bất thường", y);
 
             List<String> anomalyCameras = cameras.stream()
                     .filter(CameraAnalysis::getHasAnomaly)
@@ -299,7 +301,7 @@ public class PdfReportService {
                     .collect(Collectors.toList());
 
             if (anomalyCameras.isEmpty()) {
-                pdfBuilder.drawText(content2, "Khong phat hien bat thuong", 70, y, 10);
+                pdfBuilder.drawText(content2, "Không phát hiện bất thường", 70, y, 10);
             } else {
                 pdfBuilder.drawBulletList(content2, anomalyCameras, 70, y);
             }
@@ -316,27 +318,27 @@ public class PdfReportService {
         PDPageContentStream content = new PDPageContentStream(document, page);
 
         try {
-            pdfBuilder.drawHeader(content, "V. PHAN TICH THEO THOI GIAN", currentPageNumber++);
-            float y = pdfBuilder.drawSectionHeader(content, "Cao diem va thap diem", 720);
+            pdfBuilder.drawHeader(content, "V. PHÂN TÍCH THEO THỜI GIAN", currentPageNumber++);
+            float y = pdfBuilder.drawSectionHeader(content, "Cao điểm và thấp điểm", 720);
 
             if (analysis.getPeakHour() != null) {
-                y = pdfBuilder.drawKeyValue(content, "Gio cao diem",
+                y = pdfBuilder.drawKeyValue(content, "Giờ cao điểm",
                         pdfBuilder.formatDateTime(analysis.getPeakHour()), 70, y);
-                y = pdfBuilder.drawKeyValue(content, "Luu luong cao diem",
-                        pdfBuilder.formatNumber(analysis.getPeakHourVolume()) + " phuong tien", 70, y);
+                y = pdfBuilder.drawKeyValue(content, "Lưu lượng cao điểm",
+                        pdfBuilder.formatNumber(analysis.getPeakHourVolume()) + " phương tiện", 70, y);
             }
 
             if (analysis.getOffPeakHour() != null) {
-                y = pdfBuilder.drawKeyValue(content, "Gio thap diem",
+                y = pdfBuilder.drawKeyValue(content, "Giờ thấp điểm",
                         pdfBuilder.formatDateTime(analysis.getOffPeakHour()), 70, y);
-                y = pdfBuilder.drawKeyValue(content, "Luu luong thap diem",
-                        pdfBuilder.formatNumber(analysis.getOffPeakHourVolume()) + " phuong tien", 70, y);
+                y = pdfBuilder.drawKeyValue(content, "Lưu lượng thấp điểm",
+                        pdfBuilder.formatNumber(analysis.getOffPeakHourVolume()) + " phương tiện", 70, y);
             }
 
             // Timeline chart
             if (analysis.getTimelineData() != null && !analysis.getTimelineData().isEmpty()) {
                 y -= 20;
-                y = pdfBuilder.drawSectionHeader(content, "Bieu do timeline", y);
+                y = pdfBuilder.drawSectionHeader(content, "Biểu đồ timeline", y);
 
                 Map<String, Long> timelineChart = analysis.getTimelineData().stream()
                         .collect(Collectors.toMap(
@@ -347,7 +349,7 @@ public class PdfReportService {
                         ));
 
                 PDImageXObject lineChart = pdfBuilder.createLineChart(document,
-                        "Luu luong theo thoi gian",
+                        "Lưu lượng theo thời gian",
                         timelineChart);
                 content.drawImage(lineChart, 50, y - 230, 500, 220);
             }
@@ -364,11 +366,11 @@ public class PdfReportService {
         PDPageContentStream content = new PDPageContentStream(document, page);
 
         try {
-            pdfBuilder.drawHeader(content, "VI. PHAN TICH LOAI PHUONG TIEN", currentPageNumber++);
-            float y = pdfBuilder.drawSectionHeader(content, "Thong ke loai phuong tien", 720);
+            pdfBuilder.drawHeader(content, "VI. PHÂN TÍCH LOẠI PHƯƠNG TIỆN", currentPageNumber++);
+            float y = pdfBuilder.drawSectionHeader(content, "Thống kê loại phương tiện", 720);
 
             if (analysis.getVehicleTypeCounts() != null) {
-                String[] headers = {"Loai phuong tien", "So luong", "Ty le %"};
+                String[] headers = {"Loại phương tiện", "Số lượng", "Tỷ lệ %"};
                 float[] widths = {200, 120, 120};
 
                 long total = analysis.getTotalVehicles();
@@ -386,7 +388,7 @@ public class PdfReportService {
                 if (y > 300) {
                     y -= 20;
                     PDImageXObject barChart = pdfBuilder.createBarChart(document,
-                            "Phan bo loai phuong tien",
+                            "Phân bố loại phương tiện",
                             analysis.getVehicleTypeCounts());
                     content.drawImage(barChart, 50, y - 280, 500, 250);
                 }
@@ -404,18 +406,18 @@ public class PdfReportService {
         PDPageContentStream content = new PDPageContentStream(document, page);
 
         try {
-            pdfBuilder.drawHeader(content, "VII. SU KIEN BAT THUONG", currentPageNumber++);
+            pdfBuilder.drawHeader(content, "VII. SỰ KIỆN BẤT THƯỜNG", currentPageNumber++);
             float y = pdfBuilder.drawSectionHeader(content, "Camera offline", 720);
 
             if (analysis.getOfflineCameraList() != null && !analysis.getOfflineCameraList().isEmpty()) {
                 pdfBuilder.drawBulletList(content, analysis.getOfflineCameraList(), 70, y);
                 y -= (analysis.getOfflineCameraList().size() * 15 + 20);
             } else {
-                y = pdfBuilder.drawText(content, "Khong co camera offline", 70, y, 10);
+                y = pdfBuilder.drawText(content, "Không có camera offline", 70, y, 10);
                 y -= 20;
             }
 
-            y = pdfBuilder.drawSectionHeader(content, "Su kien bat thuong", y);
+            y = pdfBuilder.drawSectionHeader(content, "Sự kiện bất thường", y);
 
             if (analysis.getAnomalies() != null && !analysis.getAnomalies().isEmpty()) {
                 List<String> anomalyList = analysis.getAnomalies().stream()
@@ -429,7 +431,7 @@ public class PdfReportService {
 
                 pdfBuilder.drawBulletList(content, anomalyList, 70, y);
             } else {
-                pdfBuilder.drawText(content, "Khong phat hien su kien bat thuong", 70, y, 10);
+                pdfBuilder.drawText(content, "Không phát hiện sự kiện bất thường", 70, y, 10);
             }
 
         } finally {
@@ -456,12 +458,12 @@ public class PdfReportService {
             PDPageContentStream content = new PDPageContentStream(document, page);
 
             try {
-                pdfBuilder.drawHeader(content, "VIII. MINH HOA - ANH ANNOTATED", currentPageNumber++);
+                pdfBuilder.drawHeader(content, "VIII. MINH HỌA - ẢNH ANNOTATED", currentPageNumber++);
 
                 // Add note about timestamp accuracy
                 float noteY = 695;
                 pdfBuilder.drawText(content,
-                    "* Thoi gian hien thi la approximate, co the chenh lech 1-2 phut voi thoi gian tren anh",
+                    "* Thời gian hiển thị là approximate, có thể chênh lệch 1-2 phút với thời gian trên ảnh",
                     60, noteY, 7);
 
                 float y = 670; // Adjusted starting Y to accommodate note
@@ -475,6 +477,7 @@ public class PdfReportService {
 
                 for (int i = startIdx; i < endIdx; i++) {
                     AnnotatedImageInfo img = images.get(i);
+                    img.setImageUrl(minioEndpointUtils.toInternalUrl(img.getImageUrl()));
 
                     int row = (i - startIdx) / 2;
                     int col = (i - startIdx) % 2;
@@ -509,7 +512,7 @@ public class PdfReportService {
 
                     // Vehicle count and timestamp
                     // Note: Timestamp is from traffic metric record, may differ from actual image capture time
-                    String details = String.format("%d phuong tien - ~%s",
+                    String details = String.format("%d phương tiện - ~%s",
                         img.getVehicleCount() != null ? img.getVehicleCount() : 0,
                         img.getTimestamp() != null ? pdfBuilder.formatTime(img.getTimestamp()) : "N/A"
                     );
@@ -538,19 +541,19 @@ public class PdfReportService {
         PDPageContentStream content = new PDPageContentStream(document, page);
 
         try {
-            pdfBuilder.drawHeader(content, "IX. KET LUAN & KIEN NGHI", currentPageNumber++);
-            float y = pdfBuilder.drawSectionHeader(content, "Ket luan va kien nghi", 720);
+            pdfBuilder.drawHeader(content, "IX. KẾT LUẬN & KIẾN NGHỊ", currentPageNumber++);
+            float y = pdfBuilder.drawSectionHeader(content, "Kết luận và kiến nghị", 720);
 
             if (analysis.getConclusions() != null && !analysis.getConclusions().isEmpty()) {
                 pdfBuilder.drawBulletList(content, analysis.getConclusions(), 70, y);
             } else {
-                pdfBuilder.drawText(content, "Khong co ket luan", 70, y, 10);
+                pdfBuilder.drawText(content, "Không có kết luận", 70, y, 10);
             }
 
             // Footer
             y = 100;
-            pdfBuilder.drawText(content, "--- HET BAO CAO ---", 250, y, 12);
-            pdfBuilder.drawText(content, "He thong Traffic Streaming Platform", 200, y - 20, 10);
+            pdfBuilder.drawText(content, "--- HẾT BÁO CÁO ---", 250, y, 12);
+            pdfBuilder.drawText(content, "Hệ thống Traffic Streaming Platform", 200, y - 20, 10);
 
         } finally {
             content.close();

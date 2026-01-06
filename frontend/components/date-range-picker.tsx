@@ -52,6 +52,7 @@ export function DatePickerWithRange({
         const newFrom = new Date(newDateRange.from)
         if (sTime === "current") {
             const now = new Date()
+            now.setMinutes(now.getMinutes() - 2)
             newFrom.setHours(now.getHours(), now.getMinutes())
         } else {
             const [startH, startM] = sTime.split(':').map(Number)
@@ -62,6 +63,7 @@ export function DatePickerWithRange({
         if (newTo) {
             if (eTime === "current") {
                 const now = new Date()
+                now.setMinutes(now.getMinutes() - 2)
                 newTo.setHours(now.getHours(), now.getMinutes())
             } else {
                 const [endH, endM] = eTime.split(':').map(Number)

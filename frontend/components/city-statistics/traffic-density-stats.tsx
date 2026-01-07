@@ -207,7 +207,11 @@ export default function TrafficDensityStatisticsAreaChart({ data: wsData, refres
         }
 
         else if (wsData && 'district' in wsData) {
-            newDataPoint = wsData as CityStatsHourlyWS;
+            const rawData = wsData as any;
+            newDataPoint = {
+                ...rawData,
+                hour: new Date(rawData.hour)
+            } as CityStatsHourlyWS;
         }
 
         if (newDataPoint && newDataPoint.district === areaDistrict) {
